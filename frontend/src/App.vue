@@ -89,7 +89,7 @@ const autoMode = computed(() => sceneStore.autoMode)
 
 // 计算背景样式（应用氛围效果）
 const backgroundStyle = computed(() => {
-  if (!currentTime.value?.atmosphere) return {}
+  if (!currentTime.value?.atmosphere||1==1) return {}//此处暂时禁用
   
   const { brightness, contrast, saturation } = currentTime.value.atmosphere
   return {
