@@ -63,8 +63,17 @@ import { useSceneStore } from './store/sceneStore'
 const sceneStore = useSceneStore()
 const sidebarOpen = ref(false)
 
-// 从环境变量获取 API 地址
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// 智能获取 API 地址：自动适配当前访问地址
+const getApiUrl = () => {
+  // 使用当前主机名 + 后端端口（开发和生产环境都一样）
+  const backendPort = import.meta.env.VITE_BACKEND_PORT || '8000'
+  const protocol = window.location.protocol
+  const hostname = window.location.hostname
+  
+  return `${protocol}//${hostname}:${backendPort}`
+}
+
+const API_URL = getApiUrl()
 
 // 调试：打印 API 地址
 console.log('API_URL:', API_URL)

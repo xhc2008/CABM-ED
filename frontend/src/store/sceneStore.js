@@ -25,8 +25,8 @@ export const useSceneStore = defineStore('scene', () => {
   const getCurrentTimeOfDay = () => {
     const hour = new Date().getHours()
     // 凌晨(0-6)算作傍晚, 白天(6-17), 傍晚(17-19), 夜晚(19-24)
-    if (hour >= 0 && hour < 6) return 'dusk'  // 凌晨算傍晚
-    if (hour >= 6 && hour < 17) return 'day'
+    if (hour >= 4 && hour < 7) return 'dusk'  // 凌晨算傍晚
+    if (hour >= 8 && hour < 17) return 'day'
     if (hour >= 17 && hour < 19) return 'dusk'
     return 'night'
   }
@@ -34,8 +34,14 @@ export const useSceneStore = defineStore('scene', () => {
   // 加载场景数据
   const loadScenes = async () => {
     try {
-      // 使用环境变量或代理路径
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      // 开发环境使用代理，生产环境使用动态地址
+      const apiUrl = import.meta.env.DEV ? '' : (() => {
+        const backendPort = import.meta.env.VITE_BACKEND_PORT || '8000'
+        const protocol = window.location.protocol
+        const hostname = window.location.hostname
+        return `${protocol}//${hostname}:${backendPort}`
+      })()
+      
       const response = await fetch(`${apiUrl}/api/scenes`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

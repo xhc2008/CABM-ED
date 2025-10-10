@@ -1,17 +1,17 @@
 @echo off
 chcp 65001 >nul
 
-echo 停止 Python 进程...
-taskkill /F /FI "WINDOWTITLE eq 后端 - FastAPI*" >nul 2>&1
+@REM echo 停止 Python 进程...
+@REM taskkill /F /FI "WINDOWTITLE eq 后端 - FastAPI*" >nul 2>&1
 
-echo 停止 Node 进程...
-taskkill /F /FI "WINDOWTITLE eq 前端 - Vue*" >nul 2>&1
+@REM echo 停止 Node 进程...
+@REM taskkill /F /FI "WINDOWTITLE eq 前端 - Vue*" >nul 2>&1
 
-echo.
-echo ====================================
-echo 所有服务已停止
-echo ====================================
-echo.
+@REM echo.
+@REM echo ====================================
+@REM echo 所有服务已停止
+@REM echo ====================================
+@REM echo.
 echo ====================================
 echo 正在启动氛围查看器...
 echo ====================================

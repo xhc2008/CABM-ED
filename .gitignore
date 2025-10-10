@@ -49,6 +49,7 @@ frontend/.cache/
 # 素材文件（不提交）
 backend/static/images/*
 backend/static/audio/*
+temp_assets
 
 # 保留 README 说明文件
 !backend/static/images/README.md
