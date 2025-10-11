@@ -24,6 +24,10 @@ grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
 
+[node name="Character" type="TextureButton" parent="Background"]
+layout_mode = 1
+script = ExtResource("3_character")
+
 [node name="Sidebar" type="Panel" parent="."]
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 1
@@ -78,10 +82,6 @@ offset_bottom = 20.0
 grow_horizontal = 0
 grow_vertical = 2
 text = "◀"
-
-[node name="Character" type="TextureButton" parent="."]
-layout_mode = 0
-script = ExtResource("3_character")
 
 [node name="ChatDialog" type="Panel" parent="."]
 layout_mode = 1

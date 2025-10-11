@@ -2,7 +2,7 @@ extends Control
 
 @onready var background: TextureRect = $Background
 @onready var sidebar = $Sidebar
-@onready var character = $Character
+@onready var character = $Background/Character
 @onready var chat_dialog = $ChatDialog
 
 var current_scene: String = ""
@@ -15,6 +15,7 @@ func _ready():
 	
 	# 连接角色信号
 	character.character_clicked.connect(_on_character_clicked)
+	character.set_background_reference(background)
 	
 	# 连接聊天对话框信号
 	chat_dialog.chat_ended.connect(_on_chat_ended)
