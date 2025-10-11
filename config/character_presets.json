@@ -1,0 +1,28 @@
+{
+  "livingroom": [
+    {
+      "image": "1.png",
+      "scale": 0.5,
+      "position": {
+        "x": 0.5,
+        "y": 0.25
+      }
+    },
+    {
+      "image": "1.png",
+      "scale": 0.2,
+      "position": {
+        "x": 0.3,
+        "y": 0.4
+      }
+    },
+    {
+      "image": "1.png",
+      "scale": 0.6,
+      "position": {
+        "x": 0.7,
+        "y": 0.3
+      }
+    }
+  ]
+}
