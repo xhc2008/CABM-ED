@@ -5,6 +5,7 @@ __pycache__/
 *.so
 .Python
 env/
+temp/
 venv/
 ENV/
 build/
@@ -25,7 +26,7 @@ static/
 *.egg-info/
 .installed.cfg
 *.egg
-
+assets/audio/
 # 环境变量
 .env
 .env.local

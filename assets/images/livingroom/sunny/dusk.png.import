@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b6a2k2lu88tbl"
-path="res://.godot/imported/dusk.png-fcddd7cdf78164ab726f884f5fd72adf.ctex"
+path="res://.godot/imported/dusk.png-1baee800932c1988e7e1abe0cf9f7e30.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/livingroom/sunny/dusk.png"
-dest_files=["res://.godot/imported/dusk.png-fcddd7cdf78164ab726f884f5fd72adf.ctex"]
+source_file="res://assets/images/livingroom/sunny/dusk.png"
+dest_files=["res://.godot/imported/dusk.png-1baee800932c1988e7e1abe0cf9f7e30.ctex"]
 
 [params]
 
