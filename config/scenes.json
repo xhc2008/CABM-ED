@@ -1,0 +1,12 @@
+{
+  "scenes": {
+    "livingroom": {
+      "name": "客厅",
+      "weathers": {
+        "sunny": "晴天",
+        "rainy": "雨天",
+        "storm": "雷雨"
+      }
+    }
+  }
+}
