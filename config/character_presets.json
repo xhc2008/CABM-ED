@@ -2,7 +2,7 @@
   "livingroom": [
     {
       "image": "1.png",
-      "scale": 1.0,
+      "scale": 0.9,
       "position": {
         "x": 0.63,
         "y": 0.59

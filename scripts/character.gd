@@ -8,8 +8,8 @@ var is_chatting: bool = false
 var background_node: TextureRect
 
 # 聊天状态的配置
-const CHAT_POSITION_RATIO = Vector2(0.5, 0.4)
-const CHAT_SCALE = 0.8
+const CHAT_POSITION_RATIO = Vector2(0.5, 0.6)  # 向下调整到0.5
+const CHAT_SCALE = 0.7
 
 func _ready():
 	pressed.connect(_on_pressed)
@@ -173,11 +173,12 @@ func start_chat():
 	
 	print("聊天目标中心: ", center_pos, " 缩放: ", final_chat_scale, " 最终position: ", target_pos)
 	
-	# 创建移动动画
-	var tween = create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(self, "position", target_pos, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "scale", Vector2(final_chat_scale, final_chat_scale), 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# 消失后重新显示
+	visible = false
+	await get_tree().create_timer(1.0).timeout
+	position = target_pos
+	scale = Vector2(final_chat_scale, final_chat_scale)
+	visible = true
 
 func end_chat():
 	if not is_chatting:
