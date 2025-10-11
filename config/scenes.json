@@ -2,6 +2,11 @@
   "scenes": {
     "livingroom": {
       "name": "客厅",
+      "times": {
+        "day": "白天",
+        "dusk": "黄昏",
+        "night": "夜晚"
+      },
       "weathers": {
         "sunny": "晴天",
         "rainy": "雨天",

@@ -44,8 +44,8 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	# 加载角色到新场景
 	character.load_character_for_scene(scene_id)
 
-func _on_scene_changed(scene_id: String, weather_id: String):
-	load_scene(scene_id, weather_id, current_time)
+func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
+	load_scene(scene_id, weather_id, time_id)
 
 func _on_character_clicked():
 	# 角色被点击，开始聊天

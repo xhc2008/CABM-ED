@@ -8,7 +8,7 @@ var is_chatting: bool = false
 var background_node: TextureRect
 
 # 聊天状态的配置
-const CHAT_POSITION_RATIO = Vector2(0.5, 0.6)  # 向下调整到0.5
+const CHAT_POSITION_RATIO = Vector2(0.5, 0.6) # 向下调整到0.5
 const CHAT_SCALE = 0.7
 
 func _ready():
@@ -34,7 +34,7 @@ func _get_actual_background_rect() -> Dictionary:
 	# 计算保持比例的缩放
 	var scale_x = container_size.x / texture_size.x
 	var scale_y = container_size.y / texture_size.y
-	var bg_scale = min(scale_x, scale_y)  # 保持比例，使用较小的缩放
+	var bg_scale = min(scale_x, scale_y) # 保持比例，使用较小的缩放
 	
 	# 计算实际渲染的图片大小
 	var actual_size = texture_size * bg_scale
@@ -122,7 +122,6 @@ func load_character_for_scene(scene_id: String):
 		texture_normal = load(image_path)
 		
 
-		
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		
