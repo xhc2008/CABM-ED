@@ -6,7 +6,6 @@ var current_scene: String = ""
 var original_preset: Dictionary
 var is_chatting: bool = false
 var background_node: TextureRect
-var base_background_size: Vector2  # 背景的基准大小（第一次加载时的大小）
 
 # 聊天状态的配置
 const CHAT_POSITION_RATIO = Vector2(0.5, 0.4)
@@ -24,17 +23,30 @@ func _on_viewport_size_changed():
 	if not is_chatting and visible and original_preset.size() > 0:
 		_update_position_and_scale_from_preset()
 
-func _get_background_scale_factor() -> float:
-	if not background_node or base_background_size == Vector2.ZERO:
-		return 1.0
+# 获取实际渲染的背景图片区域（考虑黑边）
+func _get_actual_background_rect() -> Dictionary:
+	if not background_node or not background_node.texture:
+		return {"size": Vector2.ZERO, "offset": Vector2.ZERO, "scale": 1.0}
 	
-	# 计算背景的缩放比例（使用较小的维度以保持比例）
-	var current_size = background_node.size
-	var scale_x = current_size.x / base_background_size.x
-	var scale_y = current_size.y / base_background_size.y
+	var container_size = background_node.size
+	var texture_size = background_node.texture.get_size()
 	
-	# 使用较小的缩放比例，确保角色不会超出背景
-	return min(scale_x, scale_y)
+	# 计算保持比例的缩放
+	var scale_x = container_size.x / texture_size.x
+	var scale_y = container_size.y / texture_size.y
+	var bg_scale = min(scale_x, scale_y)  # 保持比例，使用较小的缩放
+	
+	# 计算实际渲染的图片大小
+	var actual_size = texture_size * bg_scale
+	
+	# 计算偏移（居中）
+	var offset = (container_size - actual_size) / 2.0
+	
+	return {
+		"size": actual_size,
+		"offset": offset,
+		"scale": bg_scale
+	}
 
 func _update_position_and_scale_from_preset():
 	if not background_node:
@@ -44,30 +56,32 @@ func _update_position_and_scale_from_preset():
 	if not texture_normal:
 		return
 	
-	# 获取背景的实际大小
-	var bg_size = background_node.size
-	
-	# 计算背景的缩放比例
-	var bg_scale_factor = _get_background_scale_factor()
+	# 获取实际渲染的背景区域
+	var bg_rect = _get_actual_background_rect()
+	var actual_bg_size = bg_rect.size
+	var bg_offset = bg_rect.offset
+	var bg_scale = bg_rect.scale
 	
 	# 应用缩放到角色（基础缩放 × 背景缩放比例）
-	var final_scale = original_preset.scale * bg_scale_factor
+	var final_scale = original_preset.scale * bg_scale
 	scale = Vector2(final_scale, final_scale)
 	
-	# 计算角色中心点应该在的位置（相对于背景的本地坐标）
-	var char_center_pos = Vector2(
-		original_preset.position.x * bg_size.x,
-		original_preset.position.y * bg_size.y
+	# 计算角色中心点应该在的位置（在实际背景图片上）
+	var char_center_in_bg = Vector2(
+		original_preset.position.x * actual_bg_size.x,
+		original_preset.position.y * actual_bg_size.y
 	)
 	
+	# 加上偏移，得到相对于背景节点的位置
+	var char_center_pos = char_center_in_bg + bg_offset
+	
 	# 计算角色左上角的位置（因为position是左上角）
-	# 需要减去缩放后的图片尺寸的一半
 	var texture_size = texture_normal.get_size()
 	var scaled_half_size = texture_size * final_scale / 2.0
 	
 	position = char_center_pos - scaled_half_size
 	
-	print("背景大小: ", bg_size, " 缩放因子: ", bg_scale_factor, " 最终缩放: ", final_scale, " position: ", position)
+	print("实际背景大小: ", actual_bg_size, " 偏移: ", bg_offset, " 缩放: ", bg_scale, " 角色position: ", position)
 
 func load_character_for_scene(scene_id: String):
 	current_scene = scene_id
@@ -107,10 +121,7 @@ func load_character_for_scene(scene_id: String):
 	if ResourceLoader.exists(image_path):
 		texture_normal = load(image_path)
 		
-		# 记录背景的基准大小（如果还没记录）
-		if background_node and base_background_size == Vector2.ZERO:
-			base_background_size = background_node.size
-			print("记录基准背景大小: ", base_background_size)
+
 		
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
@@ -137,17 +148,23 @@ func start_chat():
 		print("错误: start_chat 时 background_node 为空")
 		return
 	
-	var bg_size = background_node.size
+	# 获取实际渲染的背景区域
+	var bg_rect = _get_actual_background_rect()
+	var actual_bg_size = bg_rect.size
+	var bg_offset = bg_rect.offset
+	var bg_scale = bg_rect.scale
 	
 	# 计算背景缩放因子
-	var bg_scale_factor = _get_background_scale_factor()
-	var final_chat_scale = CHAT_SCALE * bg_scale_factor
+	var final_chat_scale = CHAT_SCALE * bg_scale
 	
-	# 计算中心点位置
-	var center_pos = Vector2(
-		CHAT_POSITION_RATIO.x * bg_size.x,
-		CHAT_POSITION_RATIO.y * bg_size.y
+	# 计算中心点位置（在实际背景图片上）
+	var center_in_bg = Vector2(
+		CHAT_POSITION_RATIO.x * actual_bg_size.x,
+		CHAT_POSITION_RATIO.y * actual_bg_size.y
 	)
+	
+	# 加上偏移
+	var center_pos = center_in_bg + bg_offset
 	
 	# 计算左上角位置（减去缩放后图片尺寸的一半）
 	var texture_size = texture_normal.get_size()

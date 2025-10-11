@@ -2,26 +2,10 @@
   "livingroom": [
     {
       "image": "1.png",
-      "scale": 0.3,
+      "scale": 1.0,
       "position": {
-        "x": 0.25,
-        "y": 0.6
-      }
-    },
-    {
-      "image": "1.png",
-      "scale": 0.35,
-      "position": {
-        "x": 0.7,
-        "y": 0.5
-      }
-    },
-    {
-      "image": "1.png",
-      "scale": 0.4,
-      "position": {
-        "x": 0.5,
-        "y": 0.7
+        "x": 0.63,
+        "y": 0.59
       }
     }
   ]

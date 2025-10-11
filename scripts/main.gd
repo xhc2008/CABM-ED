@@ -4,6 +4,7 @@ extends Control
 @onready var sidebar = $Sidebar
 @onready var character = $Background/Character
 @onready var chat_dialog = $ChatDialog
+@onready var debug_helper = $CharacterDebugHelper
 
 var current_scene: String = ""
 var current_weather: String = ""

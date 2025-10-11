@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=6 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/sidebar.gd" id="2_sidebar"]
 [ext_resource type="Script" path="res://scripts/character.gd" id="3_character"]
 [ext_resource type="Script" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
+[ext_resource type="Script" path="res://scripts/character_debug.gd" id="5_debug"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -125,3 +126,13 @@ text = "这里是聊天内容区域..."
 [node name="EndButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "结束聊天"
+
+[node name="CharacterDebugHelper" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_debug")
