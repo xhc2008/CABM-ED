@@ -19,6 +19,9 @@ parts/
 sdist/
 var/
 wheels/
+old/
+static/
+.godot/
 *.egg-info/
 .installed.cfg
 *.egg
