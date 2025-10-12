@@ -230,13 +230,42 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	audio_manager.play_background_music(scene_id, time_id, weather_id)
 
 func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
+	# 记录旧场景
+	var old_scene = current_scene
+	
+	# 检查是否离开有角色的场景
+	if _has_character_in_scene(old_scene) and old_scene != scene_id:
+		_try_scene_interaction("leave_scene")
+	
+	# 加载新场景
 	load_scene(scene_id, weather_id, time_id)
+	
+	# 等待场景加载完成
+	await get_tree().process_frame
+	
+	# 检查是否进入有角色的场景
+	if _has_character_in_scene(scene_id):
+		_try_scene_interaction("enter_scene")
 
 func _on_scene_menu_selected(scene_id: String):
+	# 记录旧场景
+	var old_scene = current_scene
+	
+	# 检查是否离开有角色的场景
+	if _has_character_in_scene(old_scene) and old_scene != scene_id:
+		_try_scene_interaction("leave_scene")
+	
 	# 切换到选中的场景，保持当前天气和时间
 	load_scene(scene_id, current_weather, current_time)
 	# 更新侧边栏显示的场景
 	sidebar.set_current_scene(scene_id)
+	
+	# 等待场景加载完成
+	await get_tree().process_frame
+	
+	# 检查是否进入有角色的场景
+	if _has_character_in_scene(scene_id):
+		_try_scene_interaction("enter_scene")
 
 func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	# 尝试交互
@@ -333,6 +362,9 @@ func _show_scene_menu(at_position: Vector2):
 func _on_interaction_success(action_id: String):
 	"""交互成功处理"""
 	print("交互成功: ", action_id)
+	
+	# 对于场景交互，在这里不做处理，由 _try_scene_interaction 处理
+	# 其他交互类型可以在这里添加特殊处理
 
 func _on_interaction_failure(_action_id: String, message: String):
 	"""交互失败处理"""
@@ -371,3 +403,41 @@ func _show_failure_message(message: String):
 	
 	await tween.finished
 	failure_message_label.visible = false
+
+func _has_character_in_scene(scene_id: String) -> bool:
+	"""检查场景是否有角色配置"""
+	var config_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(config_path):
+		return false
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return false
+	
+	var config = json.data
+	return config.has(scene_id) and config[scene_id].size() > 0
+
+func _try_scene_interaction(action_id: String):
+	"""尝试场景交互（进入/离开）"""
+	if not has_node("/root/InteractionManager"):
+		return
+	
+	var interaction_mgr = get_node("/root/InteractionManager")
+	var success = interaction_mgr.try_interaction(action_id)
+	
+	if success:
+		# 成功触发，开始聊天
+		print("场景交互成功，触发聊天: ", action_id)
+		# 等待一小段时间让场景加载完成
+		await get_tree().create_timer(0.5).timeout
+		
+		# 确保角色可见且不在聊天状态
+		if character.visible and not character.is_chatting:
+			character.start_chat()
+			chat_dialog.show_dialog()
+	else:
+		print("场景交互失败: ", action_id)
