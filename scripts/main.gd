@@ -311,15 +311,17 @@ func _on_action_selected(action: String):
 			var interaction_mgr = get_node("/root/InteractionManager")
 			var success = interaction_mgr.try_interaction("chat")
 			if success:
+				# 获取聊天模式
+				var chat_mode = _get_chat_mode_for_action("chat")
 				# 开始聊天
 				character.start_chat()
-				chat_dialog.show_dialog()
+				chat_dialog.show_dialog(chat_mode)
 				# 禁用右侧点击区域
 				right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		else:
 			# 如果管理器未加载，直接开始聊天
 			character.start_chat()
-			chat_dialog.show_dialog()
+			chat_dialog.show_dialog("passive")
 			# 禁用右侧点击区域
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -442,9 +444,31 @@ func _try_scene_interaction(action_id: String):
 		
 		# 确保角色可见且不在聊天状态
 		if character.visible and not character.is_chatting:
+			# 获取聊天模式
+			var chat_mode = _get_chat_mode_for_action(action_id)
 			character.start_chat()
-			chat_dialog.show_dialog()
+			chat_dialog.show_dialog(chat_mode)
 			# 禁用右侧点击区域
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	else:
 		print("场景交互失败: ", action_id)
+
+func _get_chat_mode_for_action(action_id: String) -> String:
+	"""获取指定动作的聊天模式"""
+	var config_path = "res://config/interaction_config.json"
+	if not FileAccess.file_exists(config_path):
+		return "passive"
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "passive"
+	
+	var config = json.data
+	var actions = config.get("actions", {})
+	var action = actions.get(action_id, {})
+	
+	return action.get("chat_mode", "passive")

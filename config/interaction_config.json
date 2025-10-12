@@ -4,6 +4,7 @@
       "name": "聊天",
       "base_willingness": 150,
       "on_success": "start_chat",
+      "chat_mode": "passive",
       "on_failure": {
         "type": "message",
         "text": "{character_name}不想理你"
@@ -13,6 +14,7 @@
       "name": "进入角色所在场景",
       "base_willingness": 80,
       "on_success": "trigger_chat",
+      "chat_mode": "active",
       "on_failure": {
         "type": "none"
       }
@@ -21,6 +23,7 @@
       "name": "离开角色所在场景",
       "base_willingness": 40,
       "on_success": "trigger_chat",
+      "chat_mode": "active",
       "on_failure": {
         "type": "none"
       }
@@ -29,6 +32,7 @@
       "name": "点击角色",
       "base_willingness": 120,
       "on_success": "start_chat",
+      "chat_mode": "passive",
       "on_failure": {
         "type": "message",
         "text": "{character_name}似乎没注意到你"
@@ -38,6 +42,7 @@
       "name": "送礼物",
       "base_willingness": 200,
       "on_success": "start_chat",
+      "chat_mode": "active",
       "on_failure": {
         "type": "message",
         "text": "{character_name}现在不想收礼物"
@@ -47,6 +52,7 @@
       "name": "摸头",
       "base_willingness": 100,
       "on_success": "start_chat",
+      "chat_mode": "active",
       "on_failure": {
         "type": "message",
         "text": "{character_name}躲开了"
@@ -56,6 +62,7 @@
       "name": "呼唤名字",
       "base_willingness": 90,
       "on_success": "start_chat",
+      "chat_mode": "active",
       "on_failure": {
         "type": "message",
         "text": "{character_name}没有回应"

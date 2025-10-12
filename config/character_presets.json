@@ -1,6 +1,7 @@
 {
   "livingroom": [
     {
+      "des":"趴在沙发上玩游戏",
       "image": "1.png",
       "scale": 0.9,
       "position": {
@@ -9,6 +10,7 @@
       }
     },
     {
+      "des":"坐在地上看电视",
       "image": "2.png",
       "scale": 1.0,
       "position": {
@@ -17,6 +19,7 @@
       }
     },
     {
+      "des":"坐在地上",
       "image": "3.png",
       "scale": 0.7,
       "position": {
@@ -25,6 +28,7 @@
       }
     },
     {
+      "des":"站着，看着窗外",
       "image": "4.png",
       "scale": 0.65,
       "position": {

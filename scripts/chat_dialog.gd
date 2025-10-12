@@ -153,9 +153,25 @@ func _setup_reply_mode():
 	character_name_label.text = app_config.get("character_name", "角色")
 	custom_minimum_size.y = REPLY_HEIGHT
 
-func show_dialog():
+func show_dialog(mode: String = "passive"):
+	"""
+	显示对话框
+	mode: "passive" = 用户先说（输入模式）, "active" = 角色先说（回复模式）
+	"""
 	visible = true
 	pivot_offset = size / 2.0
+	
+	# 根据模式设置初始状态
+	if mode == "active":
+		# 角色主动说话，直接进入回复模式
+		_setup_reply_mode()
+		# 获取随机回复作为开场白
+		var replies = app_config.get("preset_replies", ["你好！"])
+		var reply = replies[randi() % replies.size()]
+		message_label.text = ""  # 清空消息
+	else:
+		# 用户先说话，进入输入模式
+		_setup_input_mode()
 	
 	# 展开动画
 	var tween = create_tween()
@@ -163,10 +179,18 @@ func show_dialog():
 	tween.tween_property(self, "modulate:a", 1.0, ANIMATION_DURATION)
 	tween.tween_property(self, "scale", Vector2.ONE, ANIMATION_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	
-	# 聚焦输入框
 	await tween.finished
-	if is_input_mode:
-		input_field.grab_focus()
+	
+	# 根据模式执行后续操作
+	if mode == "active":
+		# 角色主动模式：开始打字效果
+		var replies = app_config.get("preset_replies", ["你好！"])
+		var reply = replies[randi() % replies.size()]
+		_start_typing_effect(reply)
+	else:
+		# 被动模式：聚焦输入框
+		if is_input_mode:
+			input_field.grab_focus()
 
 func hide_dialog():
 	pivot_offset = size / 2.0
