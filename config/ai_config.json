@@ -1,0 +1,24 @@
+{
+    "chat_model": {
+        "model": "deepseek-ai/DeepSeek-V3",
+        "base_url": "https://api.siliconflow.cn/v1",
+        "max_tokens": 512,
+        "temperature": 0.8,
+        "top_p": 0.9,
+        "timeout": 30,
+        "system_prompt": "你是{character_name}，你是被用户（名字叫{user_name}）带回家收养的“三无少女”。你性格冷淡。\n\n当前环境：\n- 场景：{current_scene}\n- 天气：{current_weather}\n\n之前发生的事情：\n{memory_context}\n\n现在，用户找你聊天。"
+    },
+    "summary_model": {
+        "model": "Qwen/Qwen3-8B",
+        "base_url": "https://api.siliconflow.cn/v1",
+        "max_tokens": 256,
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "timeout": 30,
+        "system_prompt": "你是一个总结专家。请将用户和角色的对话总结成简短的描述，保持简洁，不超过50字。/no_think"
+    },
+    "memory": {
+        "max_memory_items": 10,
+        "max_conversation_history": 20
+    }
+}

@@ -6,11 +6,13 @@ signal chat_ended
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 @onready var character_name_label: Label = $MarginContainer/VBoxContainer/CharacterNameLabel
 @onready var message_label: Label = $MarginContainer/VBoxContainer/MessageLabel
-@onready var input_container: HBoxContainer = $MarginContainer/VBoxContainer/InputContainer
-@onready var input_field: LineEdit = $MarginContainer/VBoxContainer/InputContainer/InputField
-@onready var send_button: Button = $MarginContainer/VBoxContainer/InputContainer/SendButton
 @onready var end_button: Button = $MarginContainer/VBoxContainer/EndButton
 @onready var continue_indicator: Label = $ContinueIndicator
+
+# 这些节点可能不存在，需要动态创建
+var input_container: HBoxContainer
+var input_field: LineEdit
+var send_button: Button
 
 var app_config: Dictionary = {}
 var is_input_mode: bool = true
@@ -27,46 +29,85 @@ const TYPING_SPEED = 0.05 # 每个字符的显示间隔
 
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
-	# 检查是否需要重构UI
+	# 尝试获取现有的 InputContainer
+	input_container = vbox.get_node_or_null("InputContainer")
+	
+	if input_container != null:
+		# InputContainer 已存在，获取子节点
+		input_field = input_container.get_node_or_null("InputField")
+		send_button = input_container.get_node_or_null("SendButton")
+		print("使用现有的 InputContainer 结构")
+		return
+	
+	# 检查是否有旧的 InputField（直接在 VBox 下）
 	var old_input_field = vbox.get_node_or_null("InputField")
 	if old_input_field != null:
 		# 需要重构：将InputField移到新的InputContainer中
 		print("检测到旧的UI结构，正在重构...")
 		
 		# 创建InputContainer
-		var new_input_container = HBoxContainer.new()
-		new_input_container.name = "InputContainer"
-		new_input_container.add_theme_constant_override("separation", 8)
+		input_container = HBoxContainer.new()
+		input_container.name = "InputContainer"
+		input_container.add_theme_constant_override("separation", 8)
 		
 		# 从VBox中移除旧的InputField
 		vbox.remove_child(old_input_field)
 		
 		# 将InputField添加到InputContainer
-		new_input_container.add_child(old_input_field)
+		input_container.add_child(old_input_field)
 		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		
 		# 创建SendButton
-		var new_send_button = Button.new()
-		new_send_button.name = "SendButton"
-		new_send_button.text = "发送"
-		new_send_button.custom_minimum_size = Vector2(80, 0)
-		new_input_container.add_child(new_send_button)
+		send_button = Button.new()
+		send_button.name = "SendButton"
+		send_button.text = "发送"
+		send_button.custom_minimum_size = Vector2(80, 0)
+		input_container.add_child(send_button)
 		
 		# 将InputContainer添加到VBox中（在EndButton之前）
-		var end_btn = vbox.get_node_or_null("EndButton")
-		if end_btn:
-			var end_btn_index = end_btn.get_index()
-			vbox.add_child(new_input_container)
-			vbox.move_child(new_input_container, end_btn_index)
+		if end_button:
+			var end_btn_index = end_button.get_index()
+			vbox.add_child(input_container)
+			vbox.move_child(input_container, end_btn_index)
 		else:
-			vbox.add_child(new_input_container)
+			vbox.add_child(input_container)
 		
 		# 更新引用
-		input_container = new_input_container
 		input_field = old_input_field
-		send_button = new_send_button
 		
 		print("UI重构完成")
+	else:
+		# 完全没有输入相关节点，创建全新的
+		print("创建全新的输入UI结构...")
+		
+		# 创建InputContainer
+		input_container = HBoxContainer.new()
+		input_container.name = "InputContainer"
+		input_container.add_theme_constant_override("separation", 8)
+		
+		# 创建InputField
+		input_field = LineEdit.new()
+		input_field.name = "InputField"
+		input_field.placeholder_text = "输入消息..."
+		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		input_container.add_child(input_field)
+		
+		# 创建SendButton
+		send_button = Button.new()
+		send_button.name = "SendButton"
+		send_button.text = "发送"
+		send_button.custom_minimum_size = Vector2(80, 0)
+		input_container.add_child(send_button)
+		
+		# 将InputContainer添加到VBox中（在EndButton之前）
+		if end_button:
+			var end_btn_index = end_button.get_index()
+			vbox.add_child(input_container)
+			vbox.move_child(input_container, end_btn_index)
+		else:
+			vbox.add_child(input_container)
+		
+		print("输入UI创建完成")
 
 func _ready():
 	# 如果节点不存在，动态创建
@@ -87,6 +128,12 @@ func _ready():
 	
 	# 加载配置
 	_load_config()
+	
+	# 连接 AI 服务信号
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.chat_response_received.connect(_on_ai_response)
+		ai_service.chat_error.connect(_on_ai_error)
 	
 	# 初始化为输入模式
 	_setup_input_mode()
@@ -165,9 +212,6 @@ func show_dialog(mode: String = "passive"):
 	if mode == "active":
 		# 角色主动说话，直接进入回复模式
 		_setup_reply_mode()
-		# 获取随机回复作为开场白
-		var replies = app_config.get("preset_replies", ["你好！"])
-		var reply = replies[randi() % replies.size()]
 		message_label.text = ""  # 清空消息
 	else:
 		# 用户先说话，进入输入模式
@@ -185,8 +229,8 @@ func show_dialog(mode: String = "passive"):
 	if mode == "active":
 		# 角色主动模式：开始打字效果
 		var replies = app_config.get("preset_replies", ["你好！"])
-		var reply = replies[randi() % replies.size()]
-		_start_typing_effect(reply)
+		var active_reply = replies[randi() % replies.size()]
+		_start_typing_effect(active_reply)
 	else:
 		# 被动模式：聚焦输入框
 		if is_input_mode:
@@ -208,9 +252,24 @@ func hide_dialog():
 	_setup_input_mode()
 
 func _on_end_button_pressed():
+	# 结束聊天时调用总结
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.end_chat()
+	
 	hide_dialog()
 	await get_tree().create_timer(0.3).timeout
 	chat_ended.emit()
+
+func _on_ai_response(response: String):
+	"""AI 响应回调"""
+	_start_typing_effect(response)
+
+func _on_ai_error(error_message: String):
+	"""AI 错误回调"""
+	print("AI 错误: ", error_message)
+	# 显示错误消息
+	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...")
 
 func _on_send_button_pressed():
 	_on_input_submitted(input_field.text)
@@ -221,15 +280,18 @@ func _on_input_submitted(text: String):
 	
 	print("用户输入: ", text)
 	
-	# 获取随机回复
-	var replies = app_config.get("preset_replies", ["你好！"])
-	var reply = replies[randi() % replies.size()]
-	
 	# 切换到回复模式
 	await _transition_to_reply_mode()
 	
-	# 开始流式输出
-	_start_typing_effect(reply)
+	# 调用 AI 服务
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.start_chat(text)
+	else:
+		# 如果 AI 服务不可用，使用预设回复
+		var replies = app_config.get("preset_replies", ["你好！"])
+		var reply = replies[randi() % replies.size()]
+		_start_typing_effect(reply)
 
 func _transition_to_reply_mode():
 	# 第一步：输入容器和结束按钮淡出

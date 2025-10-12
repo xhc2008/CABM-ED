@@ -1,14 +1,28 @@
-# Python
+# ================================
+# Godot 项目忽略规则
+# ================================
+.godot/
+*.import
+*.translation
+export.cfg
+export_presets.cfg
+
+# ================================
+# Mono (C#) 忽略规则
+# ================================
+.mono/
+data_*/
+mono_crash.*.json
+
+# ================================
+# Python 忽略规则
+# ================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-*.import
-*.apk
-*.idsig
 env/
-temp/
 venv/
 ENV/
 build/
@@ -23,60 +37,69 @@ parts/
 sdist/
 var/
 wheels/
-old/
-static/
-.godot/
 *.egg-info/
 .installed.cfg
 *.egg
-assets/audio/
-# 环境变量
-.env
-.env.local
+.pytest_cache/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Node.js
+# ================================
+# Node.js / 前端忽略规则
+# ================================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# 前端构建产物
 frontend/dist/
 frontend/.vite/
 frontend/.cache/
 
-# 素材文件（不提交）
-backend/static/images/*
-backend/static/audio/*
-temp_assets
-
-# 保留 README 说明文件
-!backend/static/images/README.md
-!backend/static/audio/README.md
-
-# 日志文件
-*.log
-logs/
-
-# 操作系统
+# ================================
+# 系统与编辑器文件
+# ================================
 .DS_Store
 Thumbs.db
 desktop.ini
+*.swp
+*.swo
+*~
+*.tmp
+*.bak
+.idea/
+.vscode/
+
+# ================================
+# 项目特定路径与文件
+# ================================
+# 密钥文件（务必保密）
+config/api_keys.json
+
+# 日志文件
+log.txt
+*.log
+logs/
+ai_logs/
+
+# 临时与构建产物
+temp/
+plan.txt
+old/
+static/
+assets/audio/
+temp_assets/
+*.apk
+*.idsig
+view_ai_log.bat
+# 环境变量
+.env
+.env.local
 
 # 测试覆盖率
 .coverage
 htmlcov/
-.pytest_cache/
 
-# 临时文件
-*.tmp
-*.bak
-*.swp
+# ================================
+# 保留文件（不忽略）
+# ================================
+!backend/static/images/README.md
+!backend/static/audio/README.md

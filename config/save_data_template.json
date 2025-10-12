@@ -35,6 +35,9 @@
         "created_at": "",
         "last_saved_at": "",
         "last_played_at": ""
+      },
+      "ai_data": {
+        "memory": []
       }
     }
   },

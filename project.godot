@@ -19,6 +19,7 @@ config/icon="res://icon.png"
 
 SaveManager="*res://scripts/save_manager.gd"
 InteractionManager="*res://scripts/interaction_manager.gd"
+AIService="*res://scripts/ai_service.gd"
 
 [display]
 

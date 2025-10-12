@@ -43,6 +43,9 @@ var mood_label: Label
 var energy_label: Label
 var trust_label: Label
 
+# 用户名输入框
+var user_name_input: LineEdit
+
 # 自动保存定时器
 var auto_save_timer: Timer
 
@@ -99,6 +102,24 @@ func _setup_clock_and_auto():
 	var separator1 = HSeparator.new()
 	header_container.add_child(separator1)
 	
+	# 用户名编辑
+	var user_name_label = Label.new()
+	user_name_label.text = "用户名:"
+	user_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	user_name_label.add_theme_color_override("font_color", Color(0.5, 0.9, 1.0))
+	header_container.add_child(user_name_label)
+	
+	user_name_input = LineEdit.new()
+	user_name_input.text = _load_user_name()
+	user_name_input.placeholder_text = "输入用户名"
+	user_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	user_name_input.text_changed.connect(_on_user_name_changed)
+	header_container.add_child(user_name_input)
+	
+	# 分隔线
+	var separator_user = HSeparator.new()
+	header_container.add_child(separator_user)
+	
 	# 角色数据显示
 	var stats_label = Label.new()
 	stats_label.text = "角色状态"
@@ -137,6 +158,9 @@ func _setup_clock_and_auto():
 	# 分隔线
 	var separator2 = HSeparator.new()
 	header_container.add_child(separator2)
+	
+	# AI 设置区域
+	_setup_ai_settings(header_container)
 	
 	# 插入到场景列表顶部
 	scene_list.add_child(header_container)
@@ -406,3 +430,178 @@ func _on_auto_save():
 		var save_mgr = get_node("/root/SaveManager")
 		save_mgr.save_game()
 		print("自动保存完成")
+
+# === AI 设置相关 ===
+
+var api_key_input: LineEdit
+var api_key_status: Label
+var api_key_save_button: Button
+
+func _setup_ai_settings(container: VBoxContainer):
+	"""设置 AI 配置区域"""
+	# AI 设置标题
+	var ai_label = Label.new()
+	ai_label.text = "AI 设置"
+	ai_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ai_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	container.add_child(ai_label)
+	
+	# API 密钥输入
+	var key_label = Label.new()
+	key_label.text = "API 密钥:"
+	key_label.add_theme_font_size_override("font_size", 12)
+	container.add_child(key_label)
+	
+	api_key_input = LineEdit.new()
+	api_key_input.placeholder_text = "sk-..."
+	api_key_input.secret = true
+	api_key_input.text_changed.connect(_on_api_key_changed)
+	container.add_child(api_key_input)
+	
+	# 保存按钮
+	api_key_save_button = Button.new()
+	api_key_save_button.text = "保存密钥"
+	api_key_save_button.pressed.connect(_on_save_api_key)
+	api_key_save_button.disabled = true
+	container.add_child(api_key_save_button)
+	
+	# 状态标签
+	api_key_status = Label.new()
+	api_key_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	api_key_status.add_theme_font_size_override("font_size", 11)
+	container.add_child(api_key_status)
+	
+	# 加载现有密钥
+	_load_api_key_display()
+	
+	# 分隔线
+	var separator3 = HSeparator.new()
+	container.add_child(separator3)
+
+func _load_api_key_display():
+	"""加载并显示 API 密钥状态"""
+	var key_path = "user://api_keys.json"
+	
+	if FileAccess.file_exists(key_path):
+		var file = FileAccess.open(key_path, FileAccess.READ)
+		var json_string = file.get_as_text()
+		file.close()
+		
+		var json = JSON.new()
+		if json.parse(json_string) == OK:
+			var keys = json.data
+			var api_key = keys.get("openai_api_key", "")
+			if not api_key.is_empty():
+				# 显示部分密钥
+				var masked_key = _mask_api_key(api_key)
+				api_key_input.text = api_key
+				api_key_status.text = "✓ 已配置: " + masked_key
+				api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+				
+				# 通知 AI 服务重新加载
+				_reload_ai_service()
+				return
+	
+	api_key_status.text = "✗ 未配置"
+	api_key_status.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+
+func _mask_api_key(key: String) -> String:
+	"""遮蔽 API 密钥，只显示前后几位"""
+	if key.length() <= 10:
+		return "***"
+	return key.substr(0, 7) + "..." + key.substr(key.length() - 4)
+
+func _on_api_key_changed(new_text: String):
+	"""API 密钥输入变化"""
+	api_key_save_button.disabled = new_text.strip_edges().is_empty()
+
+func _on_save_api_key():
+	"""保存 API 密钥"""
+	var api_key = api_key_input.text.strip_edges()
+	
+	if api_key.is_empty():
+		api_key_status.text = "✗ 密钥不能为空"
+		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		return
+	
+	# 简单验证格式
+	if not api_key.begins_with("sk-"):
+		api_key_status.text = "⚠ 密钥格式可能不正确"
+		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	
+	# 保存到文件
+	var key_path = "user://api_keys.json"
+	var keys_data = {
+		"openai_api_key": api_key
+	}
+	
+	var file = FileAccess.open(key_path, FileAccess.WRITE)
+	if file == null:
+		api_key_status.text = "✗ 保存失败"
+		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		return
+	
+	file.store_string(JSON.stringify(keys_data, "\t"))
+	file.close()
+	
+	# 更新状态
+	var masked_key = _mask_api_key(api_key)
+	api_key_status.text = "✓ 已保存: " + masked_key
+	api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+	
+	# 通知 AI 服务重新加载
+	_reload_ai_service()
+	
+	print("API 密钥已保存")
+
+func _reload_ai_service():
+	"""重新加载 AI 服务的 API 密钥"""
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service._load_api_key()
+		print("AI 服务已重新加载密钥")
+
+func _load_user_name() -> String:
+	"""从 app_config.json 加载用户名"""
+	var config_path = "res://config/app_config.json"
+	if FileAccess.file_exists(config_path):
+		var file = FileAccess.open(config_path, FileAccess.READ)
+		var json_string = file.get_as_text()
+		file.close()
+		
+		var json = JSON.new()
+		if json.parse(json_string) == OK:
+			var data = json.data
+			if data.has("user_name"):
+				return data["user_name"]
+	
+	return "未设置"
+
+func _on_user_name_changed(new_name: String):
+	"""用户名改变时自动保存"""
+	_save_user_name(new_name)
+
+func _save_user_name(user_name: String):
+	"""保存用户名到 app_config.json"""
+	var config_path = "res://config/app_config.json"
+	
+	# 读取现有配置
+	var config_data = {}
+	if FileAccess.file_exists(config_path):
+		var file = FileAccess.open(config_path, FileAccess.READ)
+		var json_string = file.get_as_text()
+		file.close()
+		
+		var json = JSON.new()
+		if json.parse(json_string) == OK:
+			config_data = json.data
+	
+	# 更新用户名
+	config_data["user_name"] = user_name
+	
+	# 保存回文件
+	var file = FileAccess.open(config_path, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(config_data, "\t"))
+		file.close()
+		print("用户名已保存: ", user_name)
