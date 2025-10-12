@@ -140,6 +140,10 @@ func load_character_for_scene(scene_id: String):
 		custom_minimum_size = texture_normal.get_size()
 		size = texture_normal.get_size()
 		
+		# 等待背景和场景完全准备好
+		await get_tree().process_frame
+		await get_tree().process_frame
+		
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		

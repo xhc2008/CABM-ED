@@ -231,6 +231,13 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 		# 显示占位符
 		background.texture = null
 	
+	# 等待背景纹理完全加载和渲染
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# 计算场景区域，确保角色加载时可以使用正确的坐标
+	_calculate_scene_rect()
+	
 	# 加载角色到新场景
 	character.load_character_for_scene(scene_id)
 	

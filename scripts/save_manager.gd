@@ -11,8 +11,8 @@ var current_slot: int = 1
 var save_data: Dictionary = {}
 var auto_save_timer: Timer
 var is_auto_save_enabled: bool = true
-var auto_save_interval: float = 300.0  # 默认5分钟
-var enable_instant_save: bool = true  # 启用即时保存
+var auto_save_interval: float = 300.0 # 默认5分钟
+var enable_instant_save: bool = true # 启用即时保存
 
 signal save_completed(slot: int)
 signal load_completed(slot: int)
