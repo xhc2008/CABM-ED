@@ -11,6 +11,10 @@ var current_scene: String = ""
 var current_weather: String = ""
 var current_time: String = "day"
 
+# 场景区域信息
+var scene_rect: Rect2 = Rect2()
+var scene_scale: Vector2 = Vector2.ONE
+
 func _ready():
 	# 连接侧边栏信号
 	sidebar.scene_changed.connect(_on_scene_changed)
@@ -25,8 +29,95 @@ func _ready():
 	# 连接选项菜单信号
 	action_menu.action_selected.connect(_on_action_selected)
 	
+	# 监听窗口大小变化
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	
 	# 加载默认场景
 	load_scene("livingroom", "sunny", "day")
+	
+	# 初始化UI布局
+	await get_tree().process_frame
+	_update_ui_layout()
+
+func _process(_delta):
+	# 持续更新场景区域信息
+	_calculate_scene_rect()
+
+func _calculate_scene_rect():
+	"""计算场景图片在屏幕上的实际显示区域"""
+	if background.texture == null:
+		scene_rect = Rect2(Vector2.ZERO, get_viewport_rect().size)
+		scene_scale = Vector2.ONE
+		return
+	
+	var texture_size = background.texture.get_size()
+	var container_size = background.size
+	
+	# 根据 stretch_mode = 5 (keep aspect centered) 计算实际显示区域
+	var scale_x = container_size.x / texture_size.x
+	var scale_y = container_size.y / texture_size.y
+	var img_scale = min(scale_x, scale_y)
+	
+	scene_scale = Vector2(img_scale, img_scale)
+	
+	var scaled_size = texture_size * img_scale
+	var offset = (container_size - scaled_size) / 2.0
+	
+	scene_rect = Rect2(offset, scaled_size)
+
+func _on_viewport_size_changed():
+	"""窗口大小变化时更新UI布局"""
+	_update_ui_layout()
+
+func _update_ui_layout():
+	"""更新所有UI组件的位置和大小，使其与场景绑定"""
+	_calculate_scene_rect()
+	
+	# 更新侧边栏 - 固定在场景左侧
+	_update_sidebar_layout()
+	
+	# 更新聊天对话框 - 固定在场景底部
+	_update_chat_dialog_layout()
+	
+	# 如果动作菜单可见，更新其位置
+	if action_menu.visible:
+		_update_action_menu_position()
+
+func _update_sidebar_layout():
+	"""更新侧边栏布局，使其与场景左侧对齐"""
+	sidebar.position = scene_rect.position
+	sidebar.size.y = scene_rect.size.y
+	sidebar.custom_minimum_size.y = scene_rect.size.y
+
+func _update_chat_dialog_layout():
+	"""更新聊天对话框布局，使其与场景底部对齐"""
+	var dialog_height = chat_dialog.custom_minimum_size.y
+	
+	chat_dialog.position = Vector2(
+		scene_rect.position.x,
+		scene_rect.position.y + scene_rect.size.y - dialog_height
+	)
+	chat_dialog.size.x = scene_rect.size.x
+	chat_dialog.custom_minimum_size.x = scene_rect.size.x
+
+func _update_action_menu_position():
+	"""更新动作菜单位置，确保在场景范围内"""
+	var menu_pos = action_menu.position
+	
+	# 确保菜单在场景范围内
+	if menu_pos.x + action_menu.size.x > scene_rect.position.x + scene_rect.size.x:
+		menu_pos.x = scene_rect.position.x + scene_rect.size.x - action_menu.size.x - 10
+	
+	if menu_pos.x < scene_rect.position.x:
+		menu_pos.x = scene_rect.position.x + 10
+	
+	if menu_pos.y + action_menu.size.y > scene_rect.position.y + scene_rect.size.y:
+		menu_pos.y = scene_rect.position.y + scene_rect.size.y - action_menu.size.y - 10
+	
+	if menu_pos.y < scene_rect.position.y:
+		menu_pos.y = scene_rect.position.y + 10
+	
+	action_menu.position = menu_pos
 
 func load_scene(scene_id: String, weather_id: String, time_id: String):
 	current_scene = scene_id
@@ -47,22 +138,40 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	
 	# 加载角色到新场景
 	character.load_character_for_scene(scene_id)
+	
+	# 场景变化后更新UI布局
+	await get_tree().process_frame
+	_update_ui_layout()
 
 func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	load_scene(scene_id, weather_id, time_id)
 
 func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	# 角色被点击，显示选项菜单
+	# 将角色位置转换为场景坐标
+	var scene_char_pos = scene_rect.position + char_position
+	
 	# 计算菜单位置（角色右侧）
 	var menu_pos = Vector2(
-		char_position.x + char_size.x + 10,
-		char_position.y
+		scene_char_pos.x + char_size.x + 10,
+		scene_char_pos.y
 	)
 	
-	# 确保菜单不超出屏幕
-	if menu_pos.x + action_menu.custom_minimum_size.x > get_viewport_rect().size.x:
+	# 确保菜单不超出场景范围
+	var scene_right = scene_rect.position.x + scene_rect.size.x
+	var scene_bottom = scene_rect.position.y + scene_rect.size.y
+	
+	if menu_pos.x + action_menu.custom_minimum_size.x > scene_right:
 		# 如果右侧放不下，放在左侧
-		menu_pos.x = char_position.x - action_menu.custom_minimum_size.x - 10
+		menu_pos.x = scene_char_pos.x - action_menu.custom_minimum_size.x - 10
+	
+	# 确保不超出场景底部
+	if menu_pos.y + action_menu.size.y > scene_bottom:
+		menu_pos.y = scene_bottom - action_menu.size.y - 10
+	
+	# 确保不超出场景顶部和左侧
+	menu_pos.x = max(menu_pos.x, scene_rect.position.x + 10)
+	menu_pos.y = max(menu_pos.y, scene_rect.position.y + 10)
 	
 	action_menu.show_menu(menu_pos)
 

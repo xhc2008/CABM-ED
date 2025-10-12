@@ -15,6 +15,18 @@ func _ready():
 	# 连接按钮信号
 	chat_button.pressed.connect(_on_chat_button_pressed)
 
+func _input(event):
+	# 如果菜单可见，且点击了菜单外的区域，则隐藏菜单
+	if visible and event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			# 检查点击位置是否在菜单内
+			var local_pos = get_local_mouse_position()
+			var menu_rect = Rect2(Vector2.ZERO, size)
+			if not menu_rect.has_point(local_pos):
+				hide_menu()
+				# 接受事件，防止传递到其他节点
+				get_viewport().set_input_as_handled()
+
 func show_menu(at_position: Vector2):
 	# 设置菜单位置（在角色旁边）
 	position = at_position

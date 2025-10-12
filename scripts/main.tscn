@@ -32,11 +32,9 @@ script = ExtResource("3_character")
 
 [node name="Sidebar" type="Panel" parent="."]
 custom_minimum_size = Vector2(250, 0)
-layout_mode = 1
-anchors_preset = 9
-anchor_bottom = 1.0
+layout_mode = 0
 offset_right = 250.0
-grow_vertical = 2
+offset_bottom = 600.0
 script = ExtResource("2_sidebar")
 
 [node name="MarginContainer" type="MarginContainer" parent="Sidebar"]
@@ -86,15 +84,11 @@ grow_vertical = 2
 text = "◀"
 
 [node name="ChatDialog" type="Panel" parent="."]
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -80.0
-grow_horizontal = 2
-grow_vertical = 0
+custom_minimum_size = Vector2(800, 80)
+layout_mode = 0
+offset_top = 520.0
+offset_right = 800.0
+offset_bottom = 600.0
 script = ExtResource("4_chat_dialog")
 
 [node name="MarginContainer" type="MarginContainer" parent="ChatDialog"]
