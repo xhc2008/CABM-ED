@@ -132,11 +132,6 @@ func set_cooldown(action_id: String):
 
 # 尝试执行交互
 func try_interaction(action_id: String) -> bool:
-	# 检查冷却
-	if is_on_cooldown(action_id):
-		print("动作 ", action_id, " 正在冷却中")
-		return false
-	
 	# 计算成功概率
 	var success_chance = calculate_success_chance(action_id)
 	

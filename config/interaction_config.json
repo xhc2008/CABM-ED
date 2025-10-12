@@ -84,7 +84,7 @@
     }
   },
   "failure_cooldown": {
-    "chat": 30,
-    "other": 10
+    "chat": 10,
+    "other": 5
   }
 }

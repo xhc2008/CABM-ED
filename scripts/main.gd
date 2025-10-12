@@ -315,14 +315,20 @@ func _on_action_selected(action: String):
 				# 开始聊天
 				character.start_chat()
 				chat_dialog.show_dialog()
+				# 禁用右侧点击区域
+				right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		else:
 			# 如果管理器未加载，直接开始聊天
 			character.start_chat()
 			chat_dialog.show_dialog()
+			# 禁用右侧点击区域
+			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _on_chat_ended():
 	# 聊天结束，角色返回场景
 	character.end_chat()
+	# 重新启用右侧点击区域
+	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _on_right_area_input(event: InputEvent):
 	if event is InputEventMouseButton:
@@ -439,5 +445,7 @@ func _try_scene_interaction(action_id: String):
 		if character.visible and not character.is_chatting:
 			character.start_chat()
 			chat_dialog.show_dialog()
+			# 禁用右侧点击区域
+			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	else:
 		print("场景交互失败: ", action_id)
