@@ -12,6 +12,19 @@
         "rainy": "雨天",
         "storm": "雷雨"
       }
+    },
+    "bedroom": {
+      "name": "卧室",
+      "times": {
+        "day": "白天",
+        "dusk": "黄昏",
+        "night": "夜晚"
+      },
+      "weathers": {
+        "sunny": "晴天",
+        "rainy": "雨天",
+        "storm": "雷雨"
+      }
     }
   }
 }

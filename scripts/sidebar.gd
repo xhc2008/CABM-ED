@@ -148,66 +148,86 @@ func _build_scene_list():
 	for child in children_to_remove:
 		child.queue_free()
 	
-	# 为每个场景创建按钮组
-	for scene_id in scenes:
-		var scene_data = scenes[scene_id]
+	# 清空按钮引用
+	time_buttons.clear()
+	weather_buttons.clear()
+	
+	# 只显示当前场景
+	if not scenes.has(current_scene_id):
+		print("场景 %s 不存在" % current_scene_id)
+		return
+	
+	var scene_data = scenes[current_scene_id]
+	
+	# 场景标题
+	var scene_label = Label.new()
+	scene_label.text = "当前场景: " + scene_data["name"]
+	scene_label.add_theme_font_size_override("font_size", 16)
+	scene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scene_list.add_child(scene_label)
+	
+	# 分隔线
+	var separator1 = HSeparator.new()
+	scene_list.add_child(separator1)
+	
+	# 时间按钮组
+	if scene_data.has("times"):
+		var time_label = Label.new()
+		time_label.text = "时间"
+		time_label.add_theme_font_size_override("font_size", 14)
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		scene_list.add_child(time_label)
 		
-		# 场景标题
-		var scene_label = Label.new()
-		scene_label.text = scene_data["name"]
-		scene_label.add_theme_font_size_override("font_size", 16)
-		scene_list.add_child(scene_label)
-		
-		# 时间按钮组
-		if scene_data.has("times"):
-			var time_label = Label.new()
-			time_label.text = "  时间:"
-			time_label.add_theme_font_size_override("font_size", 12)
-			scene_list.add_child(time_label)
+		var time_container = VBoxContainer.new()
+		time_container.add_theme_constant_override("separation", 5)
+		for time_id in scene_data["times"]:
+			var time_name = scene_data["times"][time_id]
+			var button = Button.new()
+			button.text = time_name
+			button.custom_minimum_size = Vector2(0, 35)
+			button.toggle_mode = true
+			button.pressed.connect(_on_time_selected.bind(time_id))
+			time_container.add_child(button)
 			
-			var time_container = HBoxContainer.new()
-			time_container.add_theme_constant_override("separation", 5)
-			for time_id in scene_data["times"]:
-				var time_name = scene_data["times"][time_id]
-				var button = Button.new()
-				button.text = time_name
-				button.custom_minimum_size = Vector2(60, 30)
-				button.toggle_mode = true
-				button.pressed.connect(_on_time_selected.bind(time_id))
-				time_container.add_child(button)
-				
-				# 保存按钮引用
-				time_buttons[time_id] = button
-			scene_list.add_child(time_container)
+			# 保存按钮引用
+			time_buttons[time_id] = button
+		scene_list.add_child(time_container)
+	
+	# 分隔线
+	var separator2 = HSeparator.new()
+	scene_list.add_child(separator2)
+	
+	# 天气按钮组
+	if scene_data.has("weathers"):
+		var weather_label = Label.new()
+		weather_label.text = "天气"
+		weather_label.add_theme_font_size_override("font_size", 14)
+		weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		scene_list.add_child(weather_label)
 		
-		# 天气按钮组
-		if scene_data.has("weathers"):
-			var weather_label = Label.new()
-			weather_label.text = "  天气:"
-			weather_label.add_theme_font_size_override("font_size", 12)
-			scene_list.add_child(weather_label)
+		var weather_container = VBoxContainer.new()
+		weather_container.add_theme_constant_override("separation", 5)
+		for weather_id in scene_data["weathers"]:
+			var weather_name = scene_data["weathers"][weather_id]
+			var button = Button.new()
+			button.text = weather_name
+			button.custom_minimum_size = Vector2(0, 35)
+			button.toggle_mode = true
+			button.pressed.connect(_on_weather_selected.bind(weather_id))
+			weather_container.add_child(button)
 			
-			var weather_container = HBoxContainer.new()
-			weather_container.add_theme_constant_override("separation", 5)
-			for weather_id in scene_data["weathers"]:
-				var weather_name = scene_data["weathers"][weather_id]
-				var button = Button.new()
-				button.text = weather_name
-				button.custom_minimum_size = Vector2(60, 30)
-				button.toggle_mode = true
-				button.pressed.connect(_on_weather_selected.bind(weather_id))
-				weather_container.add_child(button)
-				
-				# 保存按钮引用
-				weather_buttons[weather_id] = button
-			scene_list.add_child(weather_container)
-		
-		# 分隔符
-		var separator = HSeparator.new()
-		scene_list.add_child(separator)
+			# 保存按钮引用
+			weather_buttons[weather_id] = button
+		scene_list.add_child(weather_container)
 	
 	# 初始化按钮状态
 	_update_button_states()
+
+func set_current_scene(scene_id: String):
+	"""设置当前场景并重建UI"""
+	if current_scene_id != scene_id:
+		current_scene_id = scene_id
+		_build_scene_list()
 
 func _on_time_selected(time_id: String):
 	# 手动选择时间时，禁用自动模式

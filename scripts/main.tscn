@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
 [ext_resource type="Script" path="res://scripts/character_debug.gd" id="5_debug"]
 [ext_resource type="Script" path="res://scripts/action_menu.gd" id="6_action_menu"]
+[ext_resource type="Script" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -25,6 +26,15 @@ grow_horizontal = 2
 grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
+
+[node name="RightClickArea" type="Control" parent="Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
 
 [node name="Character" type="TextureButton" parent="Background"]
 layout_mode = 1
@@ -175,6 +185,31 @@ theme_override_constants/separation = 5
 [node name="ChatButton" type="Button" parent="ActionMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "💬 聊天"
+
+[node name="SceneMenu" type="Panel" parent="."]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 0
+offset_right = 150.0
+offset_bottom = 80.0
+script = ExtResource("7_scene_menu")
+
+[node name="MarginContainer" type="MarginContainer" parent="SceneMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SceneMenu/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+
 
 [node name="CharacterDebugHelper" type="Control" parent="."]
 layout_mode = 1
