@@ -43,8 +43,18 @@ func _notification(what):
 func _ensure_save_directory():
 	"""确保保存目录存在"""
 	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录")
+		return
+	
+	print("user:// 路径: ", OS.get_user_data_dir())
+	
 	if not dir.dir_exists("saves"):
-		dir.make_dir("saves")
+		var err = dir.make_dir("saves")
+		if err != OK:
+			print("错误: 无法创建 saves 目录，错误码: ", err)
+		else:
+			print("成功创建 saves 目录")
 
 func _load_template():
 	"""从模板加载默认数据结构"""
@@ -100,21 +110,32 @@ func save_game(slot: int = 1) -> bool:
 	# 写入文件
 	var file = FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
-		var error = "无法创建保存文件: " + save_path
+		var err = FileAccess.get_open_error()
+		var error = "无法创建保存文件: " + save_path + " (错误码: " + str(err) + ")"
 		print(error)
+		print("完整路径: ", ProjectSettings.globalize_path(save_path))
 		save_failed.emit(slot, error)
 		return false
 	
 	file.store_string(json_string)
 	file.close()
 	
-	print("游戏已保存到槽位 ", slot)
-	save_completed.emit(slot)
-	return true
+	# 验证文件是否真的保存成功
+	if FileAccess.file_exists(save_path):
+		print("游戏已保存到槽位 ", slot, " 路径: ", ProjectSettings.globalize_path(save_path))
+		save_completed.emit(slot)
+		return true
+	else:
+		var error = "文件保存后验证失败: " + save_path
+		print(error)
+		save_failed.emit(slot, error)
+		return false
 
 func load_game(slot: int = 1) -> bool:
 	"""加载游戏数据"""
 	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
+	
+	print("尝试加载存档: ", ProjectSettings.globalize_path(save_path))
 	
 	if not FileAccess.file_exists(save_path):
 		print("存档不存在，使用默认数据: ", save_path)
@@ -127,7 +148,8 @@ func load_game(slot: int = 1) -> bool:
 	
 	var file = FileAccess.open(save_path, FileAccess.READ)
 	if file == null:
-		var error = "无法读取保存文件: " + save_path
+		var err = FileAccess.get_open_error()
+		var error = "无法读取保存文件: " + save_path + " (错误码: " + str(err) + ")"
 		print(error)
 		load_failed.emit(slot, error)
 		return false
@@ -137,7 +159,7 @@ func load_game(slot: int = 1) -> bool:
 	
 	var json = JSON.new()
 	if json.parse(json_string) != OK:
-		var error = "保存文件格式错误"
+		var error = "保存文件格式错误: " + json.get_error_message()
 		print(error)
 		load_failed.emit(slot, error)
 		return false
