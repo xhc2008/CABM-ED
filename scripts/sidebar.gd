@@ -6,8 +6,8 @@ signal scene_changed(scene_id: String, weather_id: String, time_id: String)
 @onready var toggle_button: Button = $ToggleButton
 
 var is_expanded: bool = true
-var collapsed_width: float = 40.0
-var expanded_width: float = 250.0
+var collapsed_width: float = 50.0
+var expanded_width: float = 320.0
 
 # 场景配置
 var scenes = {
@@ -83,7 +83,6 @@ func _setup_clock_and_auto():
 	# 电子时钟
 	clock_label = Label.new()
 	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	clock_label.add_theme_font_size_override("font_size", 20)
 	clock_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0))
 	header_container.add_child(clock_label)
 	
@@ -103,7 +102,6 @@ func _setup_clock_and_auto():
 	# 角色数据显示
 	var stats_label = Label.new()
 	stats_label.text = "角色状态"
-	stats_label.add_theme_font_size_override("font_size", 14)
 	stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stats_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	header_container.add_child(stats_label)
@@ -111,31 +109,26 @@ func _setup_clock_and_auto():
 	# 好感度
 	affection_label = Label.new()
 	affection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	affection_label.add_theme_font_size_override("font_size", 12)
 	header_container.add_child(affection_label)
 	
 	# 交互意愿
 	willingness_label = Label.new()
 	willingness_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	willingness_label.add_theme_font_size_override("font_size", 12)
 	header_container.add_child(willingness_label)
 	
 	# 心情
 	mood_label = Label.new()
 	mood_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mood_label.add_theme_font_size_override("font_size", 12)
 	header_container.add_child(mood_label)
 	
 	# 精力
 	energy_label = Label.new()
 	energy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	energy_label.add_theme_font_size_override("font_size", 12)
 	header_container.add_child(energy_label)
 	
 	# 信任等级
 	trust_label = Label.new()
 	trust_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	trust_label.add_theme_font_size_override("font_size", 12)
 	header_container.add_child(trust_label)
 	
 	# 更新数据显示
@@ -231,7 +224,6 @@ func _build_scene_list():
 	# 场景标题
 	var scene_label = Label.new()
 	scene_label.text = "当前场景: " + scene_data["name"]
-	scene_label.add_theme_font_size_override("font_size", 16)
 	scene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	scene_list.add_child(scene_label)
 	
@@ -243,7 +235,6 @@ func _build_scene_list():
 	if scene_data.has("times"):
 		var time_label = Label.new()
 		time_label.text = "时间"
-		time_label.add_theme_font_size_override("font_size", 14)
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		scene_list.add_child(time_label)
 		
@@ -253,7 +244,6 @@ func _build_scene_list():
 			var time_name = scene_data["times"][time_id]
 			var button = Button.new()
 			button.text = time_name
-			button.custom_minimum_size = Vector2(0, 35)
 			button.toggle_mode = true
 			button.pressed.connect(_on_time_selected.bind(time_id))
 			time_container.add_child(button)
@@ -270,7 +260,6 @@ func _build_scene_list():
 	if scene_data.has("weathers"):
 		var weather_label = Label.new()
 		weather_label.text = "天气"
-		weather_label.add_theme_font_size_override("font_size", 14)
 		weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		scene_list.add_child(weather_label)
 		
@@ -280,7 +269,6 @@ func _build_scene_list():
 			var weather_name = scene_data["weathers"][weather_id]
 			var button = Button.new()
 			button.text = weather_name
-			button.custom_minimum_size = Vector2(0, 35)
 			button.toggle_mode = true
 			button.pressed.connect(_on_weather_selected.bind(weather_id))
 			weather_container.add_child(button)

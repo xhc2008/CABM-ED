@@ -1,12 +1,13 @@
-[gd_scene load_steps=7 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=10 format=3 uid="uid://c8yqvxm7qwxqj"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/sidebar.gd" id="2_sidebar"]
-[ext_resource type="Script" path="res://scripts/character.gd" id="3_character"]
-[ext_resource type="Script" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
-[ext_resource type="Script" path="res://scripts/character_debug.gd" id="5_debug"]
-[ext_resource type="Script" path="res://scripts/action_menu.gd" id="6_action_menu"]
-[ext_resource type="Script" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
+[ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
+[ext_resource type="Script" uid="uid://tj3864tln2oi" path="res://scripts/sidebar.gd" id="2_sidebar"]
+[ext_resource type="Script" uid="uid://bvxm7qwxqj001" path="res://scripts/character.gd" id="3_character"]
+[ext_resource type="Script" uid="uid://cvxm7qwxqj002" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
+[ext_resource type="Script" uid="uid://dvxm7qwxqj003" path="res://scripts/character_debug.gd" id="5_debug"]
+[ext_resource type="Script" uid="uid://bovp4hs3xx2vc" path="res://scripts/action_menu.gd" id="6_action_menu"]
+[ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
 
 [node name="Main" type="Control"]
@@ -16,6 +17,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("1_ragmj")
 script = ExtResource("1_main")
 
 [node name="Background" type="TextureRect" parent="."]
@@ -35,7 +37,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 
 [node name="Character" type="TextureButton" parent="Background"]
 layout_mode = 1
@@ -122,7 +123,6 @@ theme_override_constants/separation = 8
 visible = false
 layout_mode = 2
 text = "角色名"
-theme_override_font_sizes/font_size = 16
 
 [node name="MessageLabel" type="Label" parent="ChatDialog/MarginContainer/VBoxContainer"]
 visible = false
@@ -155,7 +155,6 @@ offset_bottom = -5.0
 grow_horizontal = 0
 grow_vertical = 0
 theme_override_colors/font_color = Color(1, 0.9, 0.3, 1)
-theme_override_font_sizes/font_size = 20
 text = "▼"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -209,8 +208,6 @@ theme_override_constants/margin_bottom = 10
 [node name="VBoxContainer" type="VBoxContainer" parent="SceneMenu/MarginContainer"]
 layout_mode = 2
 theme_override_constants/separation = 5
-
-
 
 [node name="CharacterDebugHelper" type="Control" parent="."]
 layout_mode = 1

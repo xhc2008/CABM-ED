@@ -18,8 +18,8 @@ var char_index: int = 0
 var waiting_for_continue: bool = false
 var is_animating: bool = false  # 标记是否正在进行高度动画
 
-const INPUT_HEIGHT = 80.0
-const REPLY_HEIGHT = 200.0
+const INPUT_HEIGHT = 120.0
+const REPLY_HEIGHT = 300.0
 const ANIMATION_DURATION = 0.3
 const TYPING_SPEED = 0.05  # 每个字符的显示间隔
 
@@ -161,6 +161,7 @@ func _transition_to_reply_mode():
 	character_name_label.visible = true
 	message_label.visible = true
 	character_name_label.text = app_config.get("character_name", "角色")
+	message_label.text = ""  # 清除之前的内容
 	character_name_label.modulate.a = 0.0
 	message_label.modulate.a = 0.0
 	

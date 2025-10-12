@@ -1,0 +1,17 @@
+[gd_resource type="Theme" format=3]
+
+[resource]
+default_font_size = 24
+
+; 按钮样式
+Button/font_sizes/font_size = 24
+Button/constants/h_separation = 8
+
+; 标签样式
+Label/font_sizes/font_size = 24
+
+; 输入框样式
+LineEdit/font_sizes/font_size = 24
+
+; 复选框样式
+CheckBox/font_sizes/font_size = 22

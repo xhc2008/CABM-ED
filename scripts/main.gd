@@ -77,7 +77,6 @@ func _setup_managers():
 	# 创建失败消息标签
 	failure_message_label = Label.new()
 	failure_message_label.visible = false
-	failure_message_label.add_theme_font_size_override("font_size", 24)
 	failure_message_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
 	failure_message_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	failure_message_label.add_theme_constant_override("outline_size", 2)

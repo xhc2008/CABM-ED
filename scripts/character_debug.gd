@@ -24,7 +24,6 @@ func _ready():
 	# 创建调试标签
 	debug_label = Label.new()
 	debug_label.position = Vector2(10, 10)
-	debug_label.add_theme_font_size_override("font_size", 16)
 	debug_label.visible = false
 	add_child(debug_label)
 	
