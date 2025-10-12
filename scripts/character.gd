@@ -121,7 +121,10 @@ func load_character_for_scene(scene_id: String):
 	if ResourceLoader.exists(image_path):
 		texture_normal = load(image_path)
 		
-
+		# 设置按钮大小为纹理大小，确保点击区域匹配图片
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+		
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		
@@ -141,6 +144,9 @@ func start_chat():
 	var chat_image_path = "res://assets/images/character/chat/normal.png"
 	if ResourceLoader.exists(chat_image_path):
 		texture_normal = load(chat_image_path)
+		# 更新按钮大小
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
 	
 	# 计算背景中央位置（本地坐标）
 	if not background_node:
