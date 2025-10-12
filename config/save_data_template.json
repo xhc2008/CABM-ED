@@ -7,19 +7,23 @@
         "reply_willingness": 100,
         "mood": "normal",
         "energy": 100,
-        "trust_level": 0
+        "trust_level": 0,
+        "current_scene": "",
+        "current_preset": {
+          "des": "",
+          "image": "",
+          "scale": 1.0,
+          "position": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
       },
       "user_data": {
         "total_chat_count": 0,
         "total_play_time": 0,
         "last_login_date": "",
         "consecutive_days": 0
-      },
-      "game_progress": {
-        "unlocked_scenes": ["livingroom"],
-        "unlocked_characters": [],
-        "completed_events": [],
-        "current_scene": "livingroom"
       },
       "statistics": {
         "total_messages_sent": 0,
@@ -37,6 +41,7 @@
   "settings": {
     "auto_save": true,
     "auto_save_interval": 300,
-    "max_save_slots": 3
+    "max_save_slots": 3,
+    "instant_save": true
   }
 }

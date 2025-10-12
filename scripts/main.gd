@@ -51,15 +51,28 @@ func _ready():
 	# 监听窗口大小变化
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	
-	# 加载默认场景
-	load_scene("livingroom", "sunny", "day")
+	# 尝试从存档加载场景，否则加载默认场景
+	var initial_scene = _load_initial_scene()
+	load_scene(initial_scene, "sunny", "day")
 	
 	# 初始化UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
 	
 	# 播放背景音乐
-	audio_manager.play_background_music("livingroom", "day", "sunny")
+	audio_manager.play_background_music(initial_scene, "day", "sunny")
+
+func _load_initial_scene() -> String:
+	"""从存档加载初始场景，如果没有则返回默认场景"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		var saved_scene = save_mgr.get_character_scene()
+		if saved_scene != "" and scenes_config.has(saved_scene):
+			print("从存档加载场景: ", saved_scene)
+			return saved_scene
+	
+	print("使用默认场景: livingroom")
+	return "livingroom"
 
 func _setup_managers():
 	"""初始化各种管理器"""
@@ -429,12 +442,13 @@ func _has_character_in_scene(scene_id: String) -> bool:
 	return config.has(scene_id) and config[scene_id].size() > 0
 
 func _try_scene_interaction(action_id: String):
-	"""尝试场景交互（进入/离开）"""
+	"""尝试场景交互（进入/离开）- 这是主动触发"""
 	if not has_node("/root/InteractionManager"):
 		return
 	
 	var interaction_mgr = get_node("/root/InteractionManager")
-	var success = interaction_mgr.try_interaction(action_id)
+	# 场景交互是主动触发（角色触发），传递 true
+	var success = interaction_mgr.try_interaction(action_id, true)
 	
 	if success:
 		# 成功触发，开始聊天
@@ -451,7 +465,7 @@ func _try_scene_interaction(action_id: String):
 			# 禁用右侧点击区域
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	else:
-		print("场景交互失败: ", action_id)
+		print("场景交互失败或在冷却中: ", action_id)
 
 func _get_chat_mode_for_action(action_id: String) -> String:
 	"""获取指定动作的聊天模式"""

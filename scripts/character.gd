@@ -6,6 +6,7 @@ var current_scene: String = ""
 var original_preset: Dictionary
 var is_chatting: bool = false
 var background_node: TextureRect
+var is_first_load: bool = true  # 标记是否是首次加载
 
 # 聊天状态的配置
 const CHAT_POSITION_RATIO = Vector2(0.5, 0.55) # 向下调整到0.5
@@ -113,8 +114,22 @@ func load_character_for_scene(scene_id: String):
 		visible = false
 		return
 	
-	# 随机选择一个预设
-	original_preset = presets[randi() % presets.size()]
+	# 只在首次加载时尝试从存档恢复，之后都随机选择
+	if is_first_load:
+		var loaded_preset = _try_load_preset_from_save(scene_id, presets)
+		if loaded_preset.size() > 0:
+			original_preset = loaded_preset
+			print("从存档加载角色预设")
+			is_first_load = false  # 标记已完成首次加载
+		else:
+			# 随机选择一个预设
+			original_preset = presets[randi() % presets.size()]
+			print("随机选择角色预设（存档无效）")
+			is_first_load = false
+	else:
+		# 非首次加载，随机选择
+		original_preset = presets[randi() % presets.size()]
+		print("随机选择角色预设")
 	
 	# 加载角色图片
 	var image_path = "res://assets/images/character/%s/%s" % [scene_id, original_preset.image]
@@ -128,6 +143,9 @@ func load_character_for_scene(scene_id: String):
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		
+		# 保存角色场景和预设到存档
+		_save_character_state()
+		
 		# 渐入动画
 		modulate.a = 0.0
 		visible = true
@@ -138,6 +156,33 @@ func load_character_for_scene(scene_id: String):
 	else:
 		print("角色图片不存在: ", image_path)
 		visible = false
+
+func _try_load_preset_from_save(scene_id: String, available_presets: Array) -> Dictionary:
+	"""尝试从存档加载角色预设"""
+	if not has_node("/root/SaveManager"):
+		return {}
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var saved_scene = save_mgr.get_character_scene()
+	var saved_preset = save_mgr.get_character_preset()
+	
+	# 如果存档中的场景与当前场景匹配，且预设有效
+	if saved_scene == scene_id and saved_preset.size() > 0:
+		# 验证预设是否在可用预设列表中
+		for preset in available_presets:
+			if preset.image == saved_preset.image:
+				return saved_preset
+	
+	return {}
+
+func _save_character_state():
+	"""保存角色当前状态到存档"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	save_mgr.set_character_scene(current_scene)
+	save_mgr.set_character_preset(original_preset)
 
 func start_chat():
 	if is_chatting:

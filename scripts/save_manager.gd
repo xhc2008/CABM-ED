@@ -1,89 +1,108 @@
 extends Node
 
-# 存档文件路径
+# 保存管理器 - 自动加载单例
+# 负责游戏数据的保存和加载
+
 const SAVE_DIR = "user://saves/"
 const SAVE_FILE_PREFIX = "save_slot_"
-const SAVE_FILE_EXTENSION = ".json"
-const TEMPLATE_PATH = "res://config/save_data_template.json"
+const SAVE_FILE_EXT = ".json"
 
-# 当前存档槽位
 var current_slot: int = 1
-
-# 当前存档数据
 var save_data: Dictionary = {}
+var auto_save_timer: Timer
+var is_auto_save_enabled: bool = true
+var auto_save_interval: float = 300.0  # 默认5分钟
+var enable_instant_save: bool = true  # 启用即时保存
 
-# 信号
 signal save_completed(slot: int)
 signal load_completed(slot: int)
-signal save_failed(error: String)
-signal load_failed(error: String)
+signal save_failed(slot: int, error: String)
+signal load_failed(slot: int, error: String)
 
 func _ready():
-	# 确保存档目录存在
+	# 确保保存目录存在
 	_ensure_save_directory()
-	# 加载模板
+	
+	# 加载保存模板
 	_load_template()
+	
+	# 设置自动保存定时器
+	_setup_auto_save_timer()
+	
+	# 自动加载默认存档
+	load_game(current_slot)
 
-# 确保存档目录存在
+func _notification(what):
+	"""捕获窗口关闭事件"""
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		print("检测到窗口关闭，正在保存游戏...")
+		save_game(current_slot)
+		# 等待保存完成后再退出
+		get_tree().quit()
+
 func _ensure_save_directory():
+	"""确保保存目录存在"""
 	var dir = DirAccess.open("user://")
 	if not dir.dir_exists("saves"):
 		dir.make_dir("saves")
-		print("创建存档目录: ", SAVE_DIR)
 
-# 加载存档模板
 func _load_template():
-	if not FileAccess.file_exists(TEMPLATE_PATH):
-		print("警告: 存档模板文件不存在")
+	"""从模板加载默认数据结构"""
+	var template_path = "res://config/save_data_template.json"
+	if not FileAccess.file_exists(template_path):
+		print("警告: 保存模板不存在")
 		return
 	
-	var file = FileAccess.open(TEMPLATE_PATH, FileAccess.READ)
-	if not file:
-		print("错误: 无法打开模板文件")
-		return
-	
+	var file = FileAccess.open(template_path, FileAccess.READ)
 	var json_string = file.get_as_text()
 	file.close()
 	
 	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error != OK:
-		print("错误: 解析模板文件失败")
-		return
+	if json.parse(json_string) == OK:
+		var template = json.data
+		# 提取slot_1作为默认数据结构
+		if template.has("save_slots") and template.save_slots.has("slot_1"):
+			save_data = template.save_slots.slot_1.duplicate(true)
+		
+		# 加载设置
+		if template.has("settings"):
+			var settings = template.settings
+			is_auto_save_enabled = settings.get("auto_save", true)
+			auto_save_interval = settings.get("auto_save_interval", 300.0)
+			enable_instant_save = settings.get("instant_save", true)
+
+func _setup_auto_save_timer():
+	"""设置自动保存定时器"""
+	auto_save_timer = Timer.new()
+	auto_save_timer.wait_time = auto_save_interval
+	auto_save_timer.one_shot = false
+	auto_save_timer.timeout.connect(_on_auto_save_timeout)
+	add_child(auto_save_timer)
 	
-	save_data = json.data.duplicate(true)
-	print("存档模板已加载")
+	if is_auto_save_enabled:
+		auto_save_timer.start()
 
-# 获取存档文件路径
-func _get_save_path(slot: int) -> String:
-	return SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXTENSION
+func _on_auto_save_timeout():
+	"""自动保存触发"""
+	save_game(current_slot)
+	print("自动保存完成")
 
-# 保存游戏
-func save_game(slot: int = -1) -> bool:
-	if slot == -1:
-		slot = current_slot
+func save_game(slot: int = 1) -> bool:
+	"""保存游戏数据"""
+	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
 	
 	# 更新时间戳
-	var datetime = Time.get_datetime_dict_from_system()
-	var timestamp = "%04d-%02d-%02d %02d:%02d:%02d" % [
-		datetime.year, datetime.month, datetime.day,
-		datetime.hour, datetime.minute, datetime.second
-	]
-	
-	if save_data.has("save_slots") and save_data.save_slots.has("slot_1"):
-		save_data.save_slots.slot_1.timestamp.last_saved_at = timestamp
-		save_data.save_slots.slot_1.timestamp.last_played_at = timestamp
+	save_data.timestamp.last_saved_at = Time.get_datetime_string_from_system()
 	
 	# 转换为JSON
 	var json_string = JSON.stringify(save_data, "\t")
 	
 	# 写入文件
-	var save_path = _get_save_path(slot)
 	var file = FileAccess.open(save_path, FileAccess.WRITE)
-	if not file:
-		var error_msg = "无法创建存档文件: " + save_path
-		print("错误: ", error_msg)
-		save_failed.emit(error_msg)
+	if file == null:
+		var error = "无法创建保存文件: " + save_path
+		print(error)
+		save_failed.emit(slot, error)
 		return false
 	
 	file.store_string(json_string)
@@ -93,154 +112,132 @@ func save_game(slot: int = -1) -> bool:
 	save_completed.emit(slot)
 	return true
 
-# 加载游戏
-func load_game(slot: int = -1) -> bool:
-	if slot == -1:
-		slot = current_slot
-	
-	var save_path = _get_save_path(slot)
+func load_game(slot: int = 1) -> bool:
+	"""加载游戏数据"""
+	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
 	
 	if not FileAccess.file_exists(save_path):
-		var error_msg = "存档文件不存在: " + save_path
-		print("错误: ", error_msg)
-		load_failed.emit(error_msg)
+		print("存档不存在，使用默认数据: ", save_path)
+		# 初始化时间戳
+		var now = Time.get_datetime_string_from_system()
+		save_data.timestamp.created_at = now
+		save_data.timestamp.last_saved_at = now
+		save_data.timestamp.last_played_at = now
 		return false
 	
 	var file = FileAccess.open(save_path, FileAccess.READ)
-	if not file:
-		var error_msg = "无法打开存档文件: " + save_path
-		print("错误: ", error_msg)
-		load_failed.emit(error_msg)
+	if file == null:
+		var error = "无法读取保存文件: " + save_path
+		print(error)
+		load_failed.emit(slot, error)
 		return false
 	
 	var json_string = file.get_as_text()
 	file.close()
 	
 	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error != OK:
-		var error_msg = "解析存档文件失败"
-		print("错误: ", error_msg)
-		load_failed.emit(error_msg)
+	if json.parse(json_string) != OK:
+		var error = "保存文件格式错误"
+		print(error)
+		load_failed.emit(slot, error)
 		return false
 	
 	save_data = json.data
 	current_slot = slot
 	
+	# 更新最后游玩时间
+	save_data.timestamp.last_played_at = Time.get_datetime_string_from_system()
+	
 	print("游戏已从槽位 ", slot, " 加载")
 	load_completed.emit(slot)
 	return true
 
-# 检查存档是否存在
-func save_exists(slot: int) -> bool:
-	return FileAccess.file_exists(_get_save_path(slot))
+# === 角色数据访问方法 ===
 
-# 删除存档
-func delete_save(slot: int) -> bool:
-	var save_path = _get_save_path(slot)
-	if not FileAccess.file_exists(save_path):
-		print("存档不存在，无需删除")
-		return false
-	
-	var dir = DirAccess.open(SAVE_DIR)
-	var error = dir.remove(SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXTENSION)
-	if error != OK:
-		print("删除存档失败")
-		return false
-	
-	print("存档已删除: 槽位 ", slot)
-	return true
+func get_character_scene() -> String:
+	"""获取角色当前所在场景"""
+	return save_data.character_data.get("current_scene", "")
 
-# 获取存档信息
-func get_save_info(slot: int) -> Dictionary:
-	if not save_exists(slot):
-		return {}
-	
-	var save_path = _get_save_path(slot)
-	var file = FileAccess.open(save_path, FileAccess.READ)
-	if not file:
-		return {}
-	
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	var error = json.parse(json_string)
-	if error != OK:
-		return {}
-	
-	var data = json.data
-	if data.has("save_slots") and data.save_slots.has("slot_1"):
-		return data.save_slots.slot_1.timestamp
-	
-	return {}
+func set_character_scene(scene_id: String):
+	"""设置角色当前所在场景"""
+	save_data.character_data.current_scene = scene_id
+	_auto_save()
 
-# === 数据访问接口 ===
+func get_character_preset() -> Dictionary:
+	"""获取角色当前预设动作"""
+	return save_data.character_data.get("current_preset", {})
 
-# 角色数据
+func set_character_preset(preset: Dictionary):
+	"""设置角色当前预设动作"""
+	save_data.character_data.current_preset = preset.duplicate(true)
+	_auto_save()
+
 func get_affection() -> int:
-	return save_data.save_slots.slot_1.character_data.affection
+	return save_data.character_data.get("affection", 0)
 
 func set_affection(value: int):
-	save_data.save_slots.slot_1.character_data.affection = clamp(value, 0, 100)
-
-func add_affection(amount: int):
-	set_affection(get_affection() + amount)
+	save_data.character_data.affection = value
+	_auto_save()
 
 func get_reply_willingness() -> int:
-	return save_data.save_slots.slot_1.character_data.reply_willingness
+	return save_data.character_data.get("reply_willingness", 100)
 
 func set_reply_willingness(value: int):
-	save_data.save_slots.slot_1.character_data.reply_willingness = clamp(value, 0, 100)
+	save_data.character_data.reply_willingness = clamp(value, 0, 100)
+	_auto_save()
 
 func get_mood() -> String:
-	return save_data.save_slots.slot_1.character_data.mood
+	return save_data.character_data.get("mood", "normal")
 
-func set_mood(mood: String):
-	save_data.save_slots.slot_1.character_data.mood = mood
+func set_mood(value: String):
+	save_data.character_data.mood = value
+	_auto_save()
 
 func get_energy() -> int:
-	return save_data.save_slots.slot_1.character_data.energy
+	return save_data.character_data.get("energy", 100)
 
 func set_energy(value: int):
-	save_data.save_slots.slot_1.character_data.energy = clamp(value, 0, 100)
+	save_data.character_data.energy = clamp(value, 0, 100)
+	_auto_save()
 
 func get_trust_level() -> int:
-	return save_data.save_slots.slot_1.character_data.trust_level
+	return save_data.character_data.get("trust_level", 0)
 
 func set_trust_level(value: int):
-	save_data.save_slots.slot_1.character_data.trust_level = clamp(value, 0, 100)
+	save_data.character_data.trust_level = value
+	_auto_save()
 
-# 用户数据
-func get_total_chat_count() -> int:
-	return save_data.save_slots.slot_1.user_data.total_chat_count
+# === 统计数据方法 ===
 
-func increment_chat_count():
-	save_data.save_slots.slot_1.user_data.total_chat_count += 1
-
-func get_total_play_time() -> int:
-	return save_data.save_slots.slot_1.user_data.total_play_time
-
-func add_play_time(seconds: int):
-	save_data.save_slots.slot_1.user_data.total_play_time += seconds
-
-# 游戏进度
-func is_scene_unlocked(scene_id: String) -> bool:
-	return scene_id in save_data.save_slots.slot_1.game_progress.unlocked_scenes
-
-func unlock_scene(scene_id: String):
-	if not is_scene_unlocked(scene_id):
-		save_data.save_slots.slot_1.game_progress.unlocked_scenes.append(scene_id)
-
-func get_current_scene() -> String:
-	return save_data.save_slots.slot_1.game_progress.current_scene
-
-func set_current_scene(scene_id: String):
-	save_data.save_slots.slot_1.game_progress.current_scene = scene_id
-
-# 统计数据
 func increment_messages_sent():
-	save_data.save_slots.slot_1.statistics.total_messages_sent += 1
+	save_data.statistics.total_messages_sent += 1
+	_auto_save()
 
 func increment_messages_received():
-	save_data.save_slots.slot_1.statistics.total_messages_received += 1
+	save_data.statistics.total_messages_received += 1
+	_auto_save()
+
+func update_favorite_scene(scene_id: String):
+	save_data.statistics.favorite_scene = scene_id
+	_auto_save()
+
+func update_most_used_action(action: String):
+	save_data.statistics.most_used_action = action
+	_auto_save()
+
+# === 用户数据方法 ===
+
+func increment_chat_count():
+	save_data.user_data.total_chat_count += 1
+	_auto_save()
+
+func add_play_time(seconds: float):
+	save_data.user_data.total_play_time += seconds
+	_auto_save()
+
+# === 内部方法 ===
+
+func _auto_save():
+	"""数据变更时自动保存"""
+	if enable_instant_save:
+		save_game(current_slot)

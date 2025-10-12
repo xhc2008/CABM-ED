@@ -93,5 +93,8 @@
   "failure_cooldown": {
     "chat": 10,
     "other": 5
+  },
+  "active_cooldown": {
+    "default": 30
   }
 }

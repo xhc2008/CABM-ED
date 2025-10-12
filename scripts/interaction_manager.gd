@@ -131,7 +131,13 @@ func set_cooldown(action_id: String):
 	action_cooldowns[action_id] = current_time + cooldown_duration
 
 # 尝试执行交互
-func try_interaction(action_id: String) -> bool:
+func try_interaction(action_id: String, is_active_trigger: bool = false) -> bool:
+	# 如果是主动触发（角色触发），检查冷却
+	if is_active_trigger and is_on_cooldown(action_id):
+		var remaining = get_cooldown_remaining(action_id)
+		print("动作在冷却中: ", action_id, " 剩余: ", remaining, "秒")
+		return false
+	
 	# 计算成功概率
 	var success_chance = calculate_success_chance(action_id)
 	
@@ -142,31 +148,38 @@ func try_interaction(action_id: String) -> bool:
 	print("动作: ", action_id, " 成功率: ", success_chance * 100, "% 掷骰: ", roll, " 结果: ", "成功" if success else "失败")
 	
 	if success:
-		_handle_success(action_id)
+		_handle_success(action_id, is_active_trigger)
 		return true
 	else:
-		_handle_failure(action_id)
+		_handle_failure(action_id, is_active_trigger)
 		return false
 
 # 处理成功
-func _handle_success(action_id: String):
+func _handle_success(action_id: String, is_active_trigger: bool = false):
 	if not config.has("actions") or not config.actions.has(action_id):
 		return
 	
 	var action = config.actions[action_id]
 	print("交互成功: ", action.name)
 	
+	# 如果是主动触发（角色触发），成功后也设置冷却
+	if is_active_trigger:
+		_set_active_cooldown(action_id)
+	
 	interaction_success.emit(action_id)
 
 # 处理失败
-func _handle_failure(action_id: String):
+func _handle_failure(action_id: String, is_active_trigger: bool = false):
 	if not config.has("actions") or not config.actions.has(action_id):
 		return
 	
 	var action = config.actions[action_id]
 	
 	# 设置冷却
-	set_cooldown(action_id)
+	if not is_active_trigger:
+		# 只有被动触发（用户触发）失败才设置冷却
+		# 主动触发（角色触发）失败不设置冷却，让角色有机会再次尝试
+		set_cooldown(action_id)
 	
 	# 处理失败反馈
 	if action.has("on_failure"):
@@ -225,6 +238,20 @@ func modify_willingness(amount: int):
 	save_mgr.set_reply_willingness(new_value)
 	willingness_changed.emit(new_value)
 	print("交互意愿变化: ", current, " -> ", new_value)
+
+# 设置主动触发冷却时间
+func _set_active_cooldown(action_id: String):
+	var cooldown_duration = 30  # 默认30秒
+	
+	if config.has("active_cooldown"):
+		if config.active_cooldown.has(action_id):
+			cooldown_duration = config.active_cooldown[action_id]
+		elif config.active_cooldown.has("default"):
+			cooldown_duration = config.active_cooldown.default
+	
+	var current_time = Time.get_ticks_msec() / 1000.0
+	action_cooldowns[action_id] = current_time + cooldown_duration
+	print("设置主动触发冷却: ", action_id, " 时长: ", cooldown_duration, "秒")
 
 # 获取剩余冷却时间
 func get_cooldown_remaining(action_id: String) -> float:
