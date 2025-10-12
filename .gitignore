@@ -5,7 +5,8 @@ __pycache__/
 *.so
 .Python
 *.uid
-*import
+*.import
+*.apk
 env/
 temp/
 venv/

@@ -19,7 +19,13 @@ var scenes_config: Dictionary = {}
 var scene_rect: Rect2 = Rect2()
 var scene_scale: Vector2 = Vector2.ONE
 
+# 失败消息标签
+var failure_message_label: Label = null
+
 func _ready():
+	# 初始化管理器
+	_setup_managers()
+	
 	# 加载场景配置
 	_load_scenes_config()
 	
@@ -54,6 +60,30 @@ func _ready():
 	
 	# 播放背景音乐
 	audio_manager.play_background_music("livingroom", "day", "sunny")
+
+func _setup_managers():
+	"""初始化各种管理器"""
+	# 等待自动加载节点准备好
+	await get_tree().process_frame
+	
+	# 连接交互管理器信号
+	if has_node("/root/InteractionManager"):
+		var interaction_mgr = get_node("/root/InteractionManager")
+		interaction_mgr.interaction_success.connect(_on_interaction_success)
+		interaction_mgr.interaction_failure.connect(_on_interaction_failure)
+	else:
+		print("警告: InteractionManager 未找到，请检查自动加载配置")
+	
+	# 创建失败消息标签
+	failure_message_label = Label.new()
+	failure_message_label.visible = false
+	failure_message_label.add_theme_font_size_override("font_size", 24)
+	failure_message_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
+	failure_message_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	failure_message_label.add_theme_constant_override("outline_size", 2)
+	failure_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	failure_message_label.z_index = 100
+	add_child(failure_message_label)
 
 func _load_scenes_config():
 	var config_path = "res://config/scenes.json"
@@ -209,6 +239,15 @@ func _on_scene_menu_selected(scene_id: String):
 	sidebar.set_current_scene(scene_id)
 
 func _on_character_clicked(char_position: Vector2, char_size: Vector2):
+	# 尝试交互
+	if has_node("/root/InteractionManager"):
+		var interaction_mgr = get_node("/root/InteractionManager")
+		var success = interaction_mgr.try_interaction("click_character")
+		if not success:
+			return
+	else:
+		print("警告: InteractionManager 未找到")
+	
 	# 角色被点击，显示选项菜单
 	# 将角色位置转换为场景坐标
 	var scene_char_pos = scene_rect.position + char_position
@@ -239,9 +278,18 @@ func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 
 func _on_action_selected(action: String):
 	if action == "chat":
-		# 开始聊天
-		character.start_chat()
-		chat_dialog.show_dialog()
+		# 尝试聊天交互
+		if has_node("/root/InteractionManager"):
+			var interaction_mgr = get_node("/root/InteractionManager")
+			var success = interaction_mgr.try_interaction("chat")
+			if success:
+				# 开始聊天
+				character.start_chat()
+				chat_dialog.show_dialog()
+		else:
+			# 如果管理器未加载，直接开始聊天
+			character.start_chat()
+			chat_dialog.show_dialog()
 
 func _on_chat_ended():
 	# 聊天结束，角色返回场景
@@ -281,3 +329,45 @@ func _show_scene_menu(at_position: Vector2):
 		menu_pos.y = scene_bottom - scene_menu.size.y - 10
 	
 	scene_menu.show_menu(menu_pos)
+
+func _on_interaction_success(action_id: String):
+	"""交互成功处理"""
+	print("交互成功: ", action_id)
+
+func _on_interaction_failure(_action_id: String, message: String):
+	"""交互失败处理"""
+	if message != "":
+		_show_failure_message(message)
+
+func _show_failure_message(message: String):
+	"""显示失败消息"""
+	if failure_message_label == null:
+		return
+	
+	# 设置消息文本
+	failure_message_label.text = message
+	
+	# 计算位置（场景中央偏上）
+	var label_pos = Vector2(
+		scene_rect.position.x + scene_rect.size.x / 2,
+		scene_rect.position.y + scene_rect.size.y * 0.3
+	)
+	
+	failure_message_label.position = label_pos
+	failure_message_label.size = Vector2.ZERO  # 自动调整大小
+	
+	# 居中对齐
+	await get_tree().process_frame
+	failure_message_label.position.x -= failure_message_label.size.x / 2
+	
+	# 显示动画
+	failure_message_label.modulate.a = 0.0
+	failure_message_label.visible = true
+	
+	var tween = create_tween()
+	tween.tween_property(failure_message_label, "modulate:a", 1.0, 0.3)
+	tween.tween_interval(2.0)
+	tween.tween_property(failure_message_label, "modulate:a", 0.0, 0.5)
+	
+	await tween.finished
+	failure_message_label.visible = false
