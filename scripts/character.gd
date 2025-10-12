@@ -1,6 +1,6 @@
 extends TextureButton
 
-signal character_clicked
+signal character_clicked(char_position: Vector2, char_size: Vector2)
 
 var current_scene: String = ""
 var original_preset: Dictionary
@@ -221,4 +221,7 @@ func end_chat():
 
 func _on_pressed():
 	if not is_chatting:
-		character_clicked.emit()
+		# 发送角色的全局位置和大小
+		var global_pos = global_position
+		var char_size = size * scale
+		character_clicked.emit(global_pos, char_size)
