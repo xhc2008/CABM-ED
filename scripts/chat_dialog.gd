@@ -16,6 +16,7 @@ var current_message: String = ""
 var typing_timer: Timer
 var char_index: int = 0
 var waiting_for_continue: bool = false
+var is_animating: bool = false  # 标记是否正在进行高度动画
 
 const INPUT_HEIGHT = 80.0
 const REPLY_HEIGHT = 200.0
@@ -82,6 +83,7 @@ func _setup_input_mode():
 	continue_indicator.visible = false
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
+	input_field.modulate.a = 1.0  # 确保透明度重置
 	custom_minimum_size.y = INPUT_HEIGHT
 
 func _setup_reply_mode():
@@ -89,6 +91,8 @@ func _setup_reply_mode():
 	character_name_label.visible = true
 	message_label.visible = true
 	input_field.visible = false
+	character_name_label.modulate.a = 1.0  # 确保透明度重置
+	message_label.modulate.a = 1.0  # 确保透明度重置
 	character_name_label.text = app_config.get("character_name", "角色")
 	custom_minimum_size.y = REPLY_HEIGHT
 
@@ -133,31 +137,92 @@ func _on_input_submitted(text: String):
 	
 	print("用户输入: ", text)
 	
-	# 切换到回复模式
-	_transition_to_reply_mode()
-	
 	# 获取随机回复
 	var replies = app_config.get("preset_replies", ["你好！"])
 	var reply = replies[randi() % replies.size()]
+	
+	# 切换到回复模式
+	await _transition_to_reply_mode()
 	
 	# 开始流式输出
 	_start_typing_effect(reply)
 
 func _transition_to_reply_mode():
-	# 状态切换动画
-	var tween = create_tween()
-	tween.tween_property(self, "custom_minimum_size:y", REPLY_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# 第一步：输入框淡出
+	var fade_tween = create_tween()
+	fade_tween.tween_property(input_field, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	await fade_tween.finished
 	
-	await tween.finished
-	_setup_reply_mode()
+	# 第二步：隐藏输入框
+	input_field.visible = false
+	
+	# 第三步：准备回复UI元素（但保持透明）
+	is_input_mode = false
+	character_name_label.visible = true
+	message_label.visible = true
+	character_name_label.text = app_config.get("character_name", "角色")
+	character_name_label.modulate.a = 0.0
+	message_label.modulate.a = 0.0
+	
+	# 第四步：高度变化和内容淡入同时进行
+	is_animating = true
+	var combined_tween = create_tween()
+	combined_tween.set_parallel(true)
+	# 同时动画 custom_minimum_size 和 size
+	combined_tween.tween_property(self, "custom_minimum_size:y", REPLY_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	combined_tween.tween_property(self, "size:y", REPLY_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	combined_tween.tween_property(character_name_label, "modulate:a", 1.0, ANIMATION_DURATION)
+	combined_tween.tween_property(message_label, "modulate:a", 1.0, ANIMATION_DURATION)
+	await combined_tween.finished
+	is_animating = false
 
 func _transition_to_input_mode():
-	# 状态切换动画
-	var tween = create_tween()
-	tween.tween_property(self, "custom_minimum_size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	print("=== 开始转换到输入模式 ===")
+	print("当前高度: ", custom_minimum_size.y)
+	print("当前size: ", size)
 	
-	await tween.finished
-	_setup_input_mode()
+	# 第一步：回复内容淡出
+	print("步骤1: 开始淡出回复内容")
+	var fade_tween = create_tween()
+	fade_tween.set_parallel(true)
+	fade_tween.tween_property(character_name_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	fade_tween.tween_property(message_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	await fade_tween.finished
+	print("步骤1: 淡出完成")
+	
+	# 第二步：隐藏回复UI元素
+	character_name_label.visible = false
+	message_label.visible = false
+	print("步骤2: 隐藏回复UI")
+	
+	# 第三步：准备输入框（但保持透明）
+	is_input_mode = true
+	waiting_for_continue = false
+	continue_indicator.visible = false
+	input_field.visible = true
+	input_field.text = ""
+	input_field.placeholder_text = "输入消息..."
+	input_field.modulate.a = 0.0
+	print("步骤3: 准备输入框")
+	
+	# 第四步：高度变化和输入框淡入同时进行
+	print("步骤4: 开始高度动画，从 size.y=", size.y, " 到 ", INPUT_HEIGHT)
+	is_animating = true
+	var combined_tween = create_tween()
+	combined_tween.set_parallel(true)
+	# 同时动画 custom_minimum_size 和 size
+	combined_tween.tween_property(self, "custom_minimum_size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	combined_tween.tween_property(self, "size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	combined_tween.tween_property(input_field, "modulate:a", 1.0, ANIMATION_DURATION)
+	
+	# 等待动画完成
+	await combined_tween.finished
+	is_animating = false
+	print("步骤4: 动画完成")
+	print("最终 custom_minimum_size.y: ", custom_minimum_size.y)
+	print("最终 size.y: ", size.y)
+	print("=== 转换完成 ===")
+	
 	input_field.grab_focus()
 
 func _start_typing_effect(text: String):
@@ -204,4 +269,4 @@ func _on_continue_clicked():
 	continue_indicator.visible = false
 	
 	# 切换回输入模式
-	_transition_to_input_mode()
+	await _transition_to_input_mode()

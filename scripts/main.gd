@@ -71,6 +71,10 @@ func _load_scenes_config():
 func _process(_delta):
 	# 持续更新场景区域信息
 	_calculate_scene_rect()
+	
+	# 如果聊天框可见，持续更新其位置（因为高度可能在动画中变化）
+	if chat_dialog.visible:
+		_update_chat_dialog_layout()
 
 func _calculate_scene_rect():
 	"""计算场景图片在屏幕上的实际显示区域"""
@@ -120,14 +124,30 @@ func _update_sidebar_layout():
 
 func _update_chat_dialog_layout():
 	"""更新聊天对话框布局，使其与场景底部对齐"""
-	var dialog_height = chat_dialog.custom_minimum_size.y
+	# 使用实际size而不是custom_minimum_size，因为在动画过程中size会实时变化
+	var dialog_height = chat_dialog.size.y
 	
-	chat_dialog.position = Vector2(
-		scene_rect.position.x,
-		scene_rect.position.y + scene_rect.size.y - dialog_height
-	)
-	chat_dialog.size.x = scene_rect.size.x
-	chat_dialog.custom_minimum_size.x = scene_rect.size.x
+	# 计算侧边栏的实际宽度
+	var sidebar_width = sidebar.size.x if sidebar.visible else 0.0
+	
+	# 聊天框从侧边栏右侧开始，到场景右侧结束
+	var dialog_x = scene_rect.position.x + sidebar_width
+	var dialog_width = scene_rect.size.x - sidebar_width
+	
+	# 确保聊天框不会超出场景范围
+	if dialog_x + dialog_width > scene_rect.position.x + scene_rect.size.x:
+		dialog_width = scene_rect.position.x + scene_rect.size.x - dialog_x
+	
+	# 聊天框底部对齐场景底部
+	var dialog_y = scene_rect.position.y + scene_rect.size.y - dialog_height
+	
+	# 确保不会超出场景顶部
+	if dialog_y < scene_rect.position.y:
+		dialog_y = scene_rect.position.y
+	
+	chat_dialog.position = Vector2(dialog_x, dialog_y)
+	chat_dialog.size.x = dialog_width
+	chat_dialog.custom_minimum_size.x = dialog_width
 
 func _update_action_menu_position():
 	"""更新动作菜单位置，确保在场景范围内"""
