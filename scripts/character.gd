@@ -8,7 +8,7 @@ var is_chatting: bool = false
 var background_node: TextureRect
 
 # 聊天状态的配置
-const CHAT_POSITION_RATIO = Vector2(0.5, 0.6) # 向下调整到0.5
+const CHAT_POSITION_RATIO = Vector2(0.5, 0.55) # 向下调整到0.5
 const CHAT_SCALE = 0.7
 
 func _ready():
