@@ -8,12 +8,14 @@ signal chat_ended
 @onready var message_label: Label = $MarginContainer/VBoxContainer/MessageLabel
 @onready var input_field: LineEdit = $MarginContainer/VBoxContainer/InputField
 @onready var end_button: Button = $MarginContainer/VBoxContainer/EndButton
+@onready var continue_indicator: Label = $ContinueIndicator
 
 var app_config: Dictionary = {}
 var is_input_mode: bool = true
 var current_message: String = ""
 var typing_timer: Timer
 var char_index: int = 0
+var waiting_for_continue: bool = false
 
 const INPUT_HEIGHT = 80.0
 const REPLY_HEIGHT = 200.0
@@ -39,6 +41,12 @@ func _ready():
 	visible = false
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+
+func _input(event):
+	# 在等待继续状态时，点击任意位置继续
+	if waiting_for_continue and event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_on_continue_clicked()
 
 func _load_config():
 	var config_path = "res://config/app_config.json"
@@ -67,9 +75,11 @@ func _set_default_config():
 
 func _setup_input_mode():
 	is_input_mode = true
+	waiting_for_continue = false
 	character_name_label.visible = false
 	message_label.visible = false
 	input_field.visible = true
+	continue_indicator.visible = false
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
 	custom_minimum_size.y = INPUT_HEIGHT
@@ -162,6 +172,36 @@ func _on_typing_timer_timeout():
 		char_index += 1
 	else:
 		typing_timer.stop()
-		# 打字完成后，等待一段时间再切换回输入模式
-		await get_tree().create_timer(1.5).timeout
-		_transition_to_input_mode()
+		# 打字完成后，显示继续指示器并等待用户点击
+		_show_continue_indicator()
+
+func _show_continue_indicator():
+	waiting_for_continue = true
+	continue_indicator.visible = true
+	continue_indicator.modulate.a = 0.0
+	
+	# 淡入动画
+	var fade_tween = create_tween()
+	fade_tween.tween_property(continue_indicator, "modulate:a", 1.0, 0.3)
+	
+	# 循环闪烁动画
+	await fade_tween.finished
+	_start_indicator_blink()
+
+func _start_indicator_blink():
+	var blink_tween = create_tween()
+	blink_tween.set_loops()
+	blink_tween.tween_property(continue_indicator, "modulate:a", 0.3, 0.6)
+	blink_tween.tween_property(continue_indicator, "modulate:a", 1.0, 0.6)
+
+func _on_continue_clicked():
+	if not waiting_for_continue:
+		return
+	
+	waiting_for_continue = false
+	
+	# 隐藏指示器
+	continue_indicator.visible = false
+	
+	# 切换回输入模式
+	_transition_to_input_mode()

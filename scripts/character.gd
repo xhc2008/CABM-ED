@@ -128,7 +128,12 @@ func load_character_for_scene(scene_id: String):
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		
+		# 渐入动画
+		modulate.a = 0.0
 		visible = true
+		var fade_in_tween = create_tween()
+		fade_in_tween.tween_property(self, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		
 		print("角色已加载: ", image_path, " 预设位置: ", original_preset.position, " 实际位置: ", position)
 	else:
 		print("角色图片不存在: ", image_path)
