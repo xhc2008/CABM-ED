@@ -8,6 +8,7 @@ extends Control
 @onready var scene_menu = $SceneMenu
 @onready var right_click_area = $Background/RightClickArea
 @onready var debug_helper = $CharacterDebugHelper
+@onready var audio_manager = $AudioManager
 
 var current_scene: String = ""
 var current_weather: String = ""
@@ -50,6 +51,9 @@ func _ready():
 	# 初始化UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
+	
+	# 播放背景音乐
+	audio_manager.play_background_music("livingroom", "day", "sunny")
 
 func _load_scenes_config():
 	var config_path = "res://config/scenes.json"
@@ -191,6 +195,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	# 场景变化后更新UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
+	
+	# 切换背景音乐
+	audio_manager.play_background_music(scene_id, time_id, weather_id)
 
 func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	load_scene(scene_id, weather_id, time_id)

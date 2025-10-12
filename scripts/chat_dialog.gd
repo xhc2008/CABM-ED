@@ -177,23 +177,17 @@ func _transition_to_reply_mode():
 	is_animating = false
 
 func _transition_to_input_mode():
-	print("=== 开始转换到输入模式 ===")
-	print("当前高度: ", custom_minimum_size.y)
-	print("当前size: ", size)
 	
 	# 第一步：回复内容淡出
-	print("步骤1: 开始淡出回复内容")
 	var fade_tween = create_tween()
 	fade_tween.set_parallel(true)
 	fade_tween.tween_property(character_name_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	fade_tween.tween_property(message_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await fade_tween.finished
-	print("步骤1: 淡出完成")
 	
 	# 第二步：隐藏回复UI元素
 	character_name_label.visible = false
 	message_label.visible = false
-	print("步骤2: 隐藏回复UI")
 	
 	# 第三步：准备输入框（但保持透明）
 	is_input_mode = true
@@ -203,10 +197,8 @@ func _transition_to_input_mode():
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
 	input_field.modulate.a = 0.0
-	print("步骤3: 准备输入框")
 	
 	# 第四步：高度变化和输入框淡入同时进行
-	print("步骤4: 开始高度动画，从 size.y=", size.y, " 到 ", INPUT_HEIGHT)
 	is_animating = true
 	var combined_tween = create_tween()
 	combined_tween.set_parallel(true)
@@ -218,10 +210,6 @@ func _transition_to_input_mode():
 	# 等待动画完成
 	await combined_tween.finished
 	is_animating = false
-	print("步骤4: 动画完成")
-	print("最终 custom_minimum_size.y: ", custom_minimum_size.y)
-	print("最终 size.y: ", size.y)
-	print("=== 转换完成 ===")
 	
 	input_field.grab_focus()
 

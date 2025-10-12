@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=7 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/sidebar.gd" id="2_sidebar"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/character_debug.gd" id="5_debug"]
 [ext_resource type="Script" path="res://scripts/action_menu.gd" id="6_action_menu"]
 [ext_resource type="Script" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
+[ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -220,3 +221,6 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("5_debug")
+
+[node name="AudioManager" type="Node" parent="."]
+script = ExtResource("8_audio_manager")
