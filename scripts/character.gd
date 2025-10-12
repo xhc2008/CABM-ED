@@ -140,6 +140,14 @@ func start_chat():
 	
 	is_chatting = true
 	
+	# 消失动画
+	var fade_tween = create_tween()
+	fade_tween.tween_property(self, "modulate:a", 0.0, 0.3)
+	await fade_tween.finished
+	
+	visible = false
+	await get_tree().create_timer(0.7).timeout
+	
 	# 加载聊天图片
 	var chat_image_path = "res://assets/images/character/chat/normal.png"
 	if ResourceLoader.exists(chat_image_path):
@@ -178,12 +186,15 @@ func start_chat():
 	
 	print("聊天目标中心: ", center_pos, " 缩放: ", final_chat_scale, " 最终position: ", target_pos)
 	
-	# 消失后重新显示
-	visible = false
-	await get_tree().create_timer(1.0).timeout
+	# 设置位置并显示
 	position = target_pos
 	scale = Vector2(final_chat_scale, final_chat_scale)
+	modulate.a = 0.0
 	visible = true
+	
+	# 淡入动画
+	var appear_tween = create_tween()
+	appear_tween.tween_property(self, "modulate:a", 1.0, 0.3)
 
 func end_chat():
 	if not is_chatting:
@@ -191,7 +202,16 @@ func end_chat():
 	
 	is_chatting = false
 	
+	# 淡出动画
+	var fade_tween = create_tween()
+	fade_tween.tween_property(self, "modulate:a", 0.0, 0.3)
+	await fade_tween.finished
+	
+	visible = false
+	await get_tree().create_timer(0.3).timeout
+	
 	# 重新加载场景中的随机位置
+	modulate.a = 1.0
 	load_character_for_scene(current_scene)
 
 func _on_pressed():
