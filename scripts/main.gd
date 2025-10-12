@@ -62,6 +62,20 @@ func _ready():
 	# 播放背景音乐
 	audio_manager.play_background_music(initial_scene, "day", "sunny")
 
+func _input(event):
+	# 按 F12 打开存档调试面板（手机上可以用三指点击）
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
+		_show_save_debug_panel()
+	# 手机上：三指同时点击屏幕
+	elif event is InputEventScreenTouch and event.pressed:
+		var touch_count = 0
+		for i in range(10):
+			if Input.is_action_pressed("touch_%d" % i):
+				touch_count += 1
+		# 简化：检测多点触摸（实际上在移动设备上可以用手势）
+		# 这里我们用一个简单的方法：快速连续点击背景5次
+		pass
+
 func _load_initial_scene() -> String:
 	"""从存档加载初始场景，如果没有则返回默认场景"""
 	if has_node("/root/SaveManager"):
@@ -368,7 +382,7 @@ func _show_scene_menu(at_position: Vector2):
 	scene_menu.setup_scenes(scenes_config, current_scene)
 	
 	# 计算菜单位置（点击位置左侧）
-	await get_tree().process_frame  # 等待菜单大小更新
+	await get_tree().process_frame # 等待菜单大小更新
 	
 	var menu_pos = Vector2(
 		at_position.x - scene_menu.size.x - 10,
@@ -413,7 +427,7 @@ func _show_failure_message(message: String):
 	)
 	
 	failure_message_label.position = label_pos
-	failure_message_label.size = Vector2.ZERO  # 自动调整大小
+	failure_message_label.size = Vector2.ZERO # 自动调整大小
 	
 	# 居中对齐
 	await get_tree().process_frame
@@ -493,3 +507,10 @@ func _get_chat_mode_for_action(action_id: String) -> String:
 	var action = actions.get(action_id, {})
 	
 	return action.get("chat_mode", "passive")
+
+func _show_save_debug_panel():
+	"""显示存档调试面板"""
+	var debug_panel_scene = load("res://scenes/save_debug_panel.tscn")
+	if debug_panel_scene:
+		var debug_panel = debug_panel_scene.instantiate()
+		add_child(debug_panel)

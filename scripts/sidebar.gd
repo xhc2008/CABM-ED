@@ -477,6 +477,12 @@ func _setup_ai_settings(container: VBoxContainer):
 	# 分隔线
 	var separator3 = HSeparator.new()
 	container.add_child(separator3)
+	
+	# 存档调试按钮
+	var debug_button = Button.new()
+	debug_button.text = "存档调试"
+	debug_button.pressed.connect(_on_debug_save_pressed)
+	container.add_child(debug_button)
 
 func _load_api_key_display():
 	"""加载并显示 API 密钥状态"""
@@ -605,3 +611,10 @@ func _save_user_name(user_name: String):
 		file.store_string(JSON.stringify(config_data, "\t"))
 		file.close()
 		print("用户名已保存: ", user_name)
+
+func _on_debug_save_pressed():
+	"""打开存档调试面板"""
+	var debug_panel_scene = load("res://scenes/save_debug_panel.tscn")
+	if debug_panel_scene:
+		var debug_panel = debug_panel_scene.instantiate()
+		get_tree().root.add_child(debug_panel)

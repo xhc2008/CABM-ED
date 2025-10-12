@@ -392,14 +392,25 @@ func _append_to_permanent_storage(memory_item: Dictionary):
 	"""追加到永久存储文件（独立于存档）"""
 	var storage_dir = "user://ai_storage"
 	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录进行永久存储")
+		return
+	
 	if not dir.dir_exists("ai_storage"):
-		dir.make_dir("ai_storage")
+		var err = dir.make_dir("ai_storage")
+		if err != OK:
+			print("错误: 无法创建 ai_storage 目录，错误码: ", err)
+			return
 	
 	# 使用 JSONL 格式（每行一个 JSON 对象），便于追加
 	var storage_path = storage_dir + "/permanent_memory.jsonl"
 	var file = FileAccess.open(storage_path, FileAccess.READ_WRITE)
 	if file == null:
 		file = FileAccess.open(storage_path, FileAccess.WRITE)
+		if file == null:
+			var err = FileAccess.get_open_error()
+			print("错误: 无法创建永久存储文件，错误码: ", err)
+			return
 	else:
 		file.seek_end()
 	
@@ -413,13 +424,24 @@ func _log_api_call(log_type: String, messages: Array, response: String):
 	"""记录 API 调用日志"""
 	var log_dir = "user://ai_logs"
 	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录进行日志记录")
+		return
+	
 	if not dir.dir_exists("ai_logs"):
-		dir.make_dir("ai_logs")
+		var err = dir.make_dir("ai_logs")
+		if err != OK:
+			print("错误: 无法创建 ai_logs 目录，错误码: ", err)
+			return
 	
 	var log_path = log_dir + "/log.txt"
 	var log_file = FileAccess.open(log_path, FileAccess.READ_WRITE)
 	if log_file == null:
 		log_file = FileAccess.open(log_path, FileAccess.WRITE)
+		if log_file == null:
+			var err = FileAccess.get_open_error()
+			print("错误: 无法创建日志文件，错误码: ", err)
+			return
 	else:
 		log_file.seek_end()
 	
@@ -448,13 +470,24 @@ func _log_api_request(log_type: String, body: Dictionary, json_body: String):
 	"""记录完整的 API 请求"""
 	var log_dir = "user://ai_logs"
 	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录进行日志记录")
+		return
+	
 	if not dir.dir_exists("ai_logs"):
-		dir.make_dir("ai_logs")
+		var err = dir.make_dir("ai_logs")
+		if err != OK:
+			print("错误: 无法创建 ai_logs 目录，错误码: ", err)
+			return
 	
 	var log_path = log_dir + "/log.txt"
 	var log_file = FileAccess.open(log_path, FileAccess.READ_WRITE)
 	if log_file == null:
 		log_file = FileAccess.open(log_path, FileAccess.WRITE)
+		if log_file == null:
+			var err = FileAccess.get_open_error()
+			print("错误: 无法创建日志文件，错误码: ", err)
+			return
 	else:
 		log_file.seek_end()
 	
@@ -479,13 +512,24 @@ func _log_api_error(status_code: int, error_text: String, request_body: Dictiona
 	"""记录 API 错误的详细信息"""
 	var log_dir = "user://ai_logs"
 	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录进行日志记录")
+		return
+	
 	if not dir.dir_exists("ai_logs"):
-		dir.make_dir("ai_logs")
+		var err = dir.make_dir("ai_logs")
+		if err != OK:
+			print("错误: 无法创建 ai_logs 目录，错误码: ", err)
+			return
 	
 	var log_path = log_dir + "/log.txt"
 	var log_file = FileAccess.open(log_path, FileAccess.READ_WRITE)
 	if log_file == null:
 		log_file = FileAccess.open(log_path, FileAccess.WRITE)
+		if log_file == null:
+			var err = FileAccess.get_open_error()
+			print("错误: 无法创建日志文件，错误码: ", err)
+			return
 	else:
 		log_file.seek_end()
 	
