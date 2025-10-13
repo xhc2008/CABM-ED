@@ -3,8 +3,8 @@
   "save_slots": {
     "slot_1": {
       "character_data": {
-        "affection": 0,
-        "reply_willingness": 100,
+        "affection": 30,
+        "reply_willingness": 80,
         "mood": "normal",
         "energy": 100,
         "trust_level": 0,

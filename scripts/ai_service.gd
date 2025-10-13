@@ -598,7 +598,7 @@ func _apply_extracted_fields():
 	if extracted_fields.has("will"):
 		var will_delta = extracted_fields.will
 		var current_will = save_mgr.get_reply_willingness()
-		var new_will = clamp(current_will + will_delta, 0, 100)
+		var new_will = clamp(current_will + will_delta, 0, 150)
 		save_mgr.set_reply_willingness(new_will)
 		print("更新互动意愿: %d -> %d (增量: %d)" % [current_will, new_will, will_delta])
 	
