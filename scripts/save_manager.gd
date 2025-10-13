@@ -249,6 +249,13 @@ func update_most_used_action(action: String):
 
 # === 用户数据方法 ===
 
+func get_user_name() -> String:
+	return save_data.user_data.get("user_name", "未设置")
+
+func set_user_name(name: String):
+	save_data.user_data.user_name = name
+	_auto_save()
+
 func increment_chat_count():
 	save_data.user_data.total_chat_count += 1
 	_auto_save()

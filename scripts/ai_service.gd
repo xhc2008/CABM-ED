@@ -128,10 +128,12 @@ func _build_system_prompt() -> String:
 	var prompt_template = config.chat_model.system_prompt
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 从 app_config.json 读取角色信息
+	# 从 app_config.json 读取角色名称
 	var app_config = _load_app_config()
 	var character_name = app_config.get("character_name", "角色")
-	var user_name = app_config.get("user_name", "用户")
+	
+	# 从存档系统读取用户名
+	var user_name = save_mgr.get_user_name()
 	
 	# 获取记忆上下文
 	var memory_context = _get_memory_context()
@@ -588,10 +590,13 @@ func _flatten_conversation() -> String:
 	"""扁平化对话历史，只提取msg字段内容"""
 	var lines = []
 	
-	# 从 app_config.json 读取角色信息
+	# 从 app_config.json 读取角色名称
 	var app_config = _load_app_config()
 	var char_name = app_config.get("character_name", "角色")
-	var user_name = app_config.get("user_name", "用户")
+	
+	# 从存档系统读取用户名
+	var save_mgr = get_node("/root/SaveManager")
+	var user_name = save_mgr.get_user_name()
 	
 	for msg in current_conversation:
 		if msg.role == "user":

@@ -568,19 +568,10 @@ func _reload_ai_service():
 		print("AI 服务已重新加载密钥")
 
 func _load_user_name() -> String:
-	"""从 app_config.json 加载用户名"""
-	var config_path = "res://config/app_config.json"
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			var data = json.data
-			if data.has("user_name"):
-				return data["user_name"]
-	
+	"""从存档系统加载用户名"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_user_name()
 	return "未设置"
 
 func _on_user_name_changed(new_name: String):
@@ -588,29 +579,11 @@ func _on_user_name_changed(new_name: String):
 	_save_user_name(new_name)
 
 func _save_user_name(user_name: String):
-	"""保存用户名到 app_config.json"""
-	var config_path = "res://config/app_config.json"
-	
-	# 读取现有配置
-	var config_data = {}
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			config_data = json.data
-	
-	# 更新用户名
-	config_data["user_name"] = user_name
-	
-	# 保存回文件
-	var file = FileAccess.open(config_path, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(config_data, "\t"))
-		file.close()
-		print("用户名已保存: ", user_name)
+	"""保存用户名到存档系统"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_user_name(user_name)
+		print("用户名已保存到存档: ", user_name)
 
 func _on_debug_save_pressed():
 	"""打开存档调试面板"""
