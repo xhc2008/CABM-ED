@@ -5,6 +5,7 @@ extends Node
 
 signal chat_response_received(response: String)
 signal chat_response_completed()  # 流式响应完成信号
+signal chat_fields_extracted(fields: Dictionary)  # 字段提取完成信号（mood, will, like）
 signal chat_error(error_message: String)
 signal summary_completed(summary: String)
 
@@ -138,8 +139,8 @@ func _build_system_prompt() -> String:
 	# 获取记忆上下文
 	var memory_context = _get_memory_context()
 	
-	# 定义moods列表
-	var moods = "0=平静, 1=开心, 2=难过, 3=生气, 4=惊讶, 5=害怕, 6=厌恶"
+	# 从mood_config.json生成moods列表
+	var moods = _generate_moods_list()
 	
 	# 替换占位符
 	var prompt = prompt_template.replace("{character_name}", character_name)
@@ -150,6 +151,31 @@ func _build_system_prompt() -> String:
 	prompt = prompt.replace("{moods}", moods)
 	
 	return prompt
+
+func _generate_moods_list() -> String:
+	"""从mood_config.json生成moods列表字符串"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		# 如果配置文件不存在，使用默认值
+		return "0=平静, 1=开心, 2=难过, 3=生气, 4=惊讶, 5=害怕, 6=厌恶"
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "0=平静, 1=开心, 2=难过, 3=生气, 4=惊讶, 5=害怕, 6=厌恶"
+	
+	var mood_config = json.data
+	if not mood_config.has("moods"):
+		return "0=平静, 1=开心, 2=难过, 3=生气, 4=惊讶, 5=害怕, 6=厌恶"
+	
+	var moods_array = []
+	for mood in mood_config.moods:
+		moods_array.append("%d=%s" % [mood.id, mood.name])
+	
+	return ", ".join(moods_array)
 
 func _load_app_config() -> Dictionary:
 	"""加载应用配置"""
@@ -536,6 +562,9 @@ func _finalize_stream_response():
 		if full_response.has("like"):
 			extracted_fields["like"] = full_response.like
 		print("提取的字段: ", extracted_fields)
+		
+		# 应用字段到游戏状态
+		_apply_extracted_fields()
 	else:
 		print("JSON解析失败: ", json.get_error_message())
 		print("尝试解析的内容: ", clean_json.substr(0, 200))
@@ -549,6 +578,64 @@ func _finalize_stream_response():
 	
 	# 发送完成信号
 	chat_response_completed.emit()
+
+func _apply_extracted_fields():
+	"""应用提取的字段到游戏状态"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 应用mood字段
+	if extracted_fields.has("mood"):
+		var mood_id = extracted_fields.mood
+		var mood_name_en = _get_mood_name_en(mood_id)
+		if not mood_name_en.is_empty():
+			save_mgr.set_mood(mood_name_en)
+			print("更新心情: ", mood_name_en)
+	
+	# 应用will字段（互动意愿增量）
+	if extracted_fields.has("will"):
+		var will_delta = extracted_fields.will
+		var current_will = save_mgr.get_reply_willingness()
+		var new_will = clamp(current_will + will_delta, 0, 100)
+		save_mgr.set_reply_willingness(new_will)
+		print("更新互动意愿: %d -> %d (增量: %d)" % [current_will, new_will, will_delta])
+	
+	# 应用like字段（好感度增量）
+	if extracted_fields.has("like"):
+		var like_delta = extracted_fields.like
+		var current_affection = save_mgr.get_affection()
+		var new_affection = clamp(current_affection + like_delta, 0, 100)
+		save_mgr.set_affection(new_affection)
+		print("更新好感度: %d -> %d (增量: %d)" % [current_affection, new_affection, like_delta])
+	
+	# 发送字段提取完成信号
+	chat_fields_extracted.emit(extracted_fields)
+
+func _get_mood_name_en(mood_id: int) -> String:
+	"""根据mood ID获取英文名称"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		return ""
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return ""
+	
+	var mood_config = json.data
+	if not mood_config.has("moods"):
+		return ""
+	
+	for mood in mood_config.moods:
+		if mood.id == mood_id:
+			return mood.name_en
+	
+	return ""
 
 func _handle_chat_response(response: Dictionary):
 	"""处理对话响应（非流式，保留作为备用）"""

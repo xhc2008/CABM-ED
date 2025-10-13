@@ -40,8 +40,6 @@ var weather_buttons = {}
 var affection_label: Label
 var willingness_label: Label
 var mood_label: Label
-var energy_label: Label
-var trust_label: Label
 
 # 用户名输入框
 var user_name_input: LineEdit
@@ -77,6 +75,11 @@ func _ready():
 	if has_node("/root/InteractionManager"):
 		var interaction_mgr = get_node("/root/InteractionManager")
 		interaction_mgr.willingness_changed.connect(_update_character_stats)
+	
+	# 监听AI服务的字段提取信号以实时更新
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.chat_fields_extracted.connect(_on_ai_fields_updated)
 
 func _setup_clock_and_auto():
 	# 在场景列表顶部添加时钟和自动选项
@@ -141,16 +144,6 @@ func _setup_clock_and_auto():
 	mood_label = Label.new()
 	mood_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_container.add_child(mood_label)
-	
-	# 精力
-	energy_label = Label.new()
-	energy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header_container.add_child(energy_label)
-	
-	# 信任等级
-	trust_label = Label.new()
-	trust_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header_container.add_child(trust_label)
 	
 	# 更新数据显示
 	_update_character_stats()
@@ -378,16 +371,10 @@ func _update_character_stats(_new_value = null):
 	var mood_text = _get_mood_text(mood)
 	mood_label.text = "心情: %s" % mood_text
 	mood_label.add_theme_color_override("font_color", _get_mood_color(mood))
-	
-	# 精力
-	var energy = save_mgr.get_energy()
-	energy_label.text = "精力: %d" % energy
-	energy_label.add_theme_color_override("font_color", _get_stat_color(energy))
-	
-	# 信任等级
-	var trust = save_mgr.get_trust_level()
-	trust_label.text = "信任: %d" % trust
-	trust_label.add_theme_color_override("font_color", _get_stat_color(trust))
+
+func _on_ai_fields_updated(_fields: Dictionary):
+	"""AI字段更新时刷新显示"""
+	_update_character_stats()
 
 func _get_stat_color(value: int) -> Color:
 	"""根据数值返回颜色"""
@@ -401,21 +388,51 @@ func _get_stat_color(value: int) -> Color:
 		return Color(1.0, 0.3, 0.3) # 红色
 
 func _get_mood_text(mood: String) -> String:
-	"""获取心情文本"""
-	match mood:
-		"happy": return "开心"
-		"excited": return "兴奋"
-		"normal": return "普通"
-		"sad": return "难过"
-		"angry": return "生气"
-		_: return mood
+	"""获取心情文本（从配置文件）"""
+	var mood_config = _load_mood_config()
+	if mood_config.is_empty():
+		return mood
+	
+	for mood_data in mood_config.moods:
+		if mood_data.name_en == mood:
+			return mood_data.name
+	
+	return mood
 
 func _get_mood_color(mood: String) -> Color:
-	"""根据心情返回颜色"""
+	"""根据心情返回颜色（从配置文件）"""
+	var mood_config = _load_mood_config()
+	if mood_config.is_empty():
+		return Color(1.0, 1.0, 1.0)
+	
+	for mood_data in mood_config.moods:
+		if mood_data.name_en == mood:
+			return Color(mood_data.color)
+	
+	return Color(1.0, 1.0, 1.0)
+
+func _load_mood_config() -> Dictionary:
+	"""加载心情配置"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		return {}
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return {}
+	
+	return json.data
+
+func _get_mood_color_old(mood: String) -> Color:
+	"""根据心情返回颜色（旧版本，保留作为备用）"""
 	match mood:
 		"happy", "excited":
 			return Color(0.3, 1.0, 0.3) # 绿色
-		"normal":
+		"normal", "calm":
 			return Color(1.0, 1.0, 1.0) # 白色
 		"sad":
 			return Color(0.5, 0.5, 1.0) # 蓝色

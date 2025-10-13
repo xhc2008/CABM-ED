@@ -202,13 +202,14 @@ func start_chat():
 	visible = false
 	await get_tree().create_timer(0.7).timeout
 	
-	# 加载聊天图片
-	var chat_image_path = "res://assets/images/character/chat/normal.png"
-	if ResourceLoader.exists(chat_image_path):
-		texture_normal = load(chat_image_path)
-		# 更新按钮大小
-		custom_minimum_size = texture_normal.get_size()
-		size = texture_normal.get_size()
+	# 加载聊天图片（根据当前心情）
+	_load_chat_image_for_mood()
+	
+	# 连接AI服务的字段提取信号以更新心情图片
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		if not ai_service.chat_fields_extracted.is_connected(_on_mood_changed):
+			ai_service.chat_fields_extracted.connect(_on_mood_changed)
 	
 	# 计算背景中央位置（本地坐标）
 	if not background_node:
@@ -256,6 +257,12 @@ func end_chat():
 	
 	is_chatting = false
 	
+	# 断开AI服务信号
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		if ai_service.chat_fields_extracted.is_connected(_on_mood_changed):
+			ai_service.chat_fields_extracted.disconnect(_on_mood_changed)
+	
 	# 淡出动画
 	var fade_tween = create_tween()
 	fade_tween.tween_property(self, "modulate:a", 0.0, 0.3)
@@ -274,3 +281,113 @@ func _on_pressed():
 		var global_pos = global_position
 		var char_size = size * scale
 		character_clicked.emit(global_pos, char_size)
+
+func _load_chat_image_for_mood():
+	"""根据当前心情加载聊天图片"""
+	if not has_node("/root/SaveManager"):
+		_load_default_chat_image()
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var mood_name_en = save_mgr.get_mood()
+	
+	# 从mood_config.json获取图片文件名
+	var image_filename = _get_mood_image_filename(mood_name_en)
+	if image_filename.is_empty():
+		_load_default_chat_image()
+		return
+	
+	var chat_image_path = "res://assets/images/character/chat/" + image_filename
+	if ResourceLoader.exists(chat_image_path):
+		texture_normal = load(chat_image_path)
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+		print("加载心情图片: ", chat_image_path)
+	else:
+		print("心情图片不存在: ", chat_image_path, " 使用默认图片")
+		_load_default_chat_image()
+
+func _load_default_chat_image():
+	"""加载默认聊天图片"""
+	var chat_image_path = "res://assets/images/character/chat/normal.png"
+	if ResourceLoader.exists(chat_image_path):
+		texture_normal = load(chat_image_path)
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+
+func _get_mood_image_filename(mood_name_en: String) -> String:
+	"""根据心情英文名获取图片文件名"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		return ""
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return ""
+	
+	var mood_config = json.data
+	if not mood_config.has("moods"):
+		return ""
+	
+	for mood in mood_config.moods:
+		if mood.name_en == mood_name_en:
+			return mood.image
+	
+	return ""
+
+func _on_mood_changed(fields: Dictionary):
+	"""心情变化时切换图片"""
+	if not is_chatting:
+		return
+	
+	if not fields.has("mood"):
+		return
+	
+	# 获取新心情的英文名
+	var mood_id = fields.mood
+	var mood_name_en = _get_mood_name_en_by_id(mood_id)
+	if mood_name_en.is_empty():
+		return
+	
+	# 获取图片文件名
+	var image_filename = _get_mood_image_filename(mood_name_en)
+	if image_filename.is_empty():
+		return
+	
+	# 加载新图片
+	var chat_image_path = "res://assets/images/character/chat/" + image_filename
+	if ResourceLoader.exists(chat_image_path):
+		texture_normal = load(chat_image_path)
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+		print("切换心情图片: ", chat_image_path)
+	else:
+		print("心情图片不存在: ", chat_image_path)
+
+func _get_mood_name_en_by_id(mood_id: int) -> String:
+	"""根据mood ID获取英文名称"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		return ""
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return ""
+	
+	var mood_config = json.data
+	if not mood_config.has("moods"):
+		return ""
+	
+	for mood in mood_config.moods:
+		if mood.id == mood_id:
+			return mood.name_en
+	
+	return ""

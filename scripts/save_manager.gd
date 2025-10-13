@@ -252,8 +252,8 @@ func update_most_used_action(action: String):
 func get_user_name() -> String:
 	return save_data.user_data.get("user_name", "未设置")
 
-func set_user_name(name: String):
-	save_data.user_data.user_name = name
+func set_user_name(user_name: String):
+	save_data.user_data.user_name = user_name
 	_auto_save()
 
 func increment_chat_count():
