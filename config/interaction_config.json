@@ -12,7 +12,7 @@
     },
     "enter_scene": {
       "name": "进入角色所在场景",
-      "base_willingness": 60,
+      "base_willingness": 50,
       "on_success": "trigger_chat",
       "chat_mode": "active",
       "on_failure": {
@@ -21,7 +21,7 @@
     },
     "leave_scene": {
       "name": "离开角色所在场景",
-      "base_willingness": 40,
+      "base_willingness": 30,
       "on_success": "trigger_chat",
       "chat_mode": "active",
       "on_failure": {

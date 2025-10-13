@@ -662,16 +662,19 @@ func _show_history():
 	# 更新历史记录内容
 	_update_history_content()
 	
-	# 第一步：淡出输入框和发送按钮
+	# 第一步：淡出输入框、发送按钮、结束按钮和历史按钮
 	var fade_out_tween = create_tween()
 	fade_out_tween.set_parallel(true)
 	fade_out_tween.tween_property(input_field, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	fade_out_tween.tween_property(send_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	fade_out_tween.tween_property(end_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	fade_out_tween.tween_property(history_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await fade_out_tween.finished
 	
-	# 隐藏输入框和发送按钮
+	# 隐藏输入框、发送按钮和结束按钮
 	input_field.visible = false
 	send_button.visible = false
+	end_button.visible = false
 	
 	# 修改历史按钮文字为"返回"
 	history_button.text = "返回"
@@ -691,6 +694,13 @@ func _show_history():
 	expand_tween.tween_property(history_panel, "modulate:a", 1.0, ANIMATION_DURATION)
 	
 	await expand_tween.finished
+	
+	# 第三步：展开完成后，淡入返回按钮
+	history_button.modulate.a = 0.0
+	var button_fade_in = create_tween()
+	button_fade_in.tween_property(history_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	await button_fade_in.finished
+	
 	is_animating = false
 	
 	# 滚动到底部（最新消息）
@@ -702,32 +712,46 @@ func _hide_history():
 	if is_animating:
 		return
 	
-	# 第一步：收起高度并淡出历史面板
+	# 第一步：立即淡出返回按钮
 	is_animating = true
 	is_history_visible = false
 	
+	var button_fade_out = create_tween()
+	button_fade_out.tween_property(history_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	await button_fade_out.finished
+	
+	# 第二步：淡出历史面板
+	var fade_out_tween = create_tween()
+	fade_out_tween.tween_property(history_panel, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	await fade_out_tween.finished
+	
+	history_panel.visible = false
+	
+	# 第三步：收起高度
 	var collapse_tween = create_tween()
 	collapse_tween.set_parallel(true)
 	collapse_tween.tween_property(self, "custom_minimum_size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	collapse_tween.tween_property(self, "size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	collapse_tween.tween_property(history_panel, "modulate:a", 0.0, ANIMATION_DURATION)
-	
 	await collapse_tween.finished
-	history_panel.visible = false
 	
 	# 修改历史按钮文字为"历史"
 	history_button.text = "历史"
 	
-	# 第二步：显示并淡入输入框和发送按钮
+	# 第四步：显示并淡入输入框、发送按钮、结束按钮和历史按钮
 	input_field.visible = true
 	send_button.visible = true
+	end_button.visible = true
 	input_field.modulate.a = 0.0
 	send_button.modulate.a = 0.0
+	end_button.modulate.a = 0.0
+	history_button.modulate.a = 0.0
 	
 	var fade_in_tween = create_tween()
 	fade_in_tween.set_parallel(true)
 	fade_in_tween.tween_property(input_field, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	fade_in_tween.tween_property(send_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	fade_in_tween.tween_property(end_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	fade_in_tween.tween_property(history_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	
 	await fade_in_tween.finished
 	is_animating = false
