@@ -14,6 +14,7 @@ var api_key: String = ""
 var http_request: HTTPRequest
 var current_conversation: Array = []  # 当前对话历史
 var is_chatting: bool = false
+var is_first_message: bool = true  # 标记是否是本次会话的首次消息
 
 # 流式响应相关
 var http_client: HTTPClient
@@ -112,8 +113,11 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	
 	is_chatting = true
 	
+	# 判断实际使用的触发模式：首次消息使用传入的trigger_mode，后续使用"ongoing"
+	var actual_trigger_mode = trigger_mode if is_first_message else "ongoing"
+	
 	# 构建系统提示词
-	var system_prompt = _build_system_prompt(trigger_mode)
+	var system_prompt = _build_system_prompt(actual_trigger_mode)
 	
 	# 构建消息列表
 	var messages = [
@@ -130,6 +134,10 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	if trigger_mode == "user_initiated" and not user_message.is_empty():
 		messages.append({"role": "user", "content": user_message})
 		current_conversation.append({"role": "user", "content": user_message})
+	
+	# 标记已经不是首次消息了
+	if is_first_message:
+		is_first_message = false
 	
 	# 调用 API
 	_call_chat_api(messages, user_message)
@@ -219,11 +227,13 @@ func _get_trigger_context(trigger_mode: String) -> String:
 		# 如果配置中没有trigger_contexts，使用默认值
 		if trigger_mode == "character_initiated":
 			return "现在，你想主动找用户聊天，说点什么吧。"
+		elif trigger_mode == "ongoing":
+			return "你在和用户聊天。"
 		else:
 			return "现在，用户找你聊天。"
 	
 	var trigger_contexts = config.chat_model.trigger_contexts
-	return trigger_contexts.get(trigger_mode, "现在，用户找你聊天。")
+	return trigger_contexts.get(trigger_mode, "你在和用户聊天。")
 
 func _get_memory_context() -> String:
 	"""获取记忆上下文（仅从短期记忆）"""
@@ -699,6 +709,9 @@ func end_chat():
 	
 	# 清空当前对话
 	current_conversation.clear()
+	
+	# 重置首次消息标记
+	is_first_message = true
 
 func _flatten_conversation() -> String:
 	"""扁平化对话历史，只提取msg字段内容"""

@@ -13,6 +13,13 @@ signal chat_ended
 var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
+var history_button: Button
+
+# 历史记录相关
+var history_panel: Panel
+var history_scroll: ScrollContainer
+var history_vbox: VBoxContainer
+var is_history_visible: bool = false
 
 var app_config: Dictionary = {}
 var is_input_mode: bool = true
@@ -29,6 +36,7 @@ var is_receiving_stream: bool = false  # 是否正在接收流式数据
 
 const INPUT_HEIGHT = 120.0
 const REPLY_HEIGHT = 200.0
+const HISTORY_HEIGHT = 400.0
 const ANIMATION_DURATION = 0.3
 const TYPING_SPEED = 0.05 # 每个字符的显示间隔（最大输出速度）
 
@@ -41,6 +49,17 @@ func _ensure_ui_structure():
 		# InputContainer 已存在，获取子节点
 		input_field = input_container.get_node_or_null("InputField")
 		send_button = input_container.get_node_or_null("SendButton")
+		history_button = input_container.get_node_or_null("HistoryButton")
+		
+		# 如果没有历史按钮，添加一个
+		if history_button == null:
+			history_button = Button.new()
+			history_button.name = "HistoryButton"
+			history_button.text = "历史"
+			history_button.custom_minimum_size = Vector2(60, 0)
+			input_container.add_child(history_button)
+			input_container.move_child(history_button, send_button.get_index())
+		
 		print("使用现有的 InputContainer 结构")
 		return
 	
@@ -61,6 +80,13 @@ func _ensure_ui_structure():
 		# 将InputField添加到InputContainer
 		input_container.add_child(old_input_field)
 		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		
+		# 创建HistoryButton
+		history_button = Button.new()
+		history_button.name = "HistoryButton"
+		history_button.text = "历史"
+		history_button.custom_minimum_size = Vector2(60, 0)
+		input_container.add_child(history_button)
 		
 		# 创建SendButton
 		send_button = Button.new()
@@ -97,6 +123,13 @@ func _ensure_ui_structure():
 		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		input_container.add_child(input_field)
 		
+		# 创建HistoryButton
+		history_button = Button.new()
+		history_button.name = "HistoryButton"
+		history_button.text = "历史"
+		history_button.custom_minimum_size = Vector2(60, 0)
+		input_container.add_child(history_button)
+		
 		# 创建SendButton
 		send_button = Button.new()
 		send_button.name = "SendButton"
@@ -118,10 +151,15 @@ func _ready():
 	# 如果节点不存在，动态创建
 	_ensure_ui_structure()
 	
+	# 创建历史记录面板
+	_create_history_panel()
+	
 	if end_button:
 		end_button.pressed.connect(_on_end_button_pressed)
 	if send_button:
 		send_button.pressed.connect(_on_send_button_pressed)
+	if history_button:
+		history_button.pressed.connect(_on_history_button_pressed)
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 	
@@ -556,3 +594,210 @@ func _apply_refusal_effects():
 	
 	# 心情不变
 	print("拒绝回复 - 心情保持不变")
+
+func _create_history_panel():
+	"""创建历史记录面板"""
+	# 创建历史面板（初始隐藏）
+	history_panel = Panel.new()
+	history_panel.name = "HistoryPanel"
+	history_panel.visible = false
+	history_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	history_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	
+	# 添加到VBox中（在InputContainer之前）
+	var input_index = input_container.get_index()
+	vbox.add_child(history_panel)
+	vbox.move_child(history_panel, input_index)
+	
+	# 创建边距容器
+	var history_margin = MarginContainer.new()
+	history_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	history_margin.add_theme_constant_override("margin_left", 10)
+	history_margin.add_theme_constant_override("margin_top", 10)
+	history_margin.add_theme_constant_override("margin_right", 10)
+	history_margin.add_theme_constant_override("margin_bottom", 10)
+	history_panel.add_child(history_margin)
+	
+	# 创建垂直布局
+	var history_main_vbox = VBoxContainer.new()
+	history_main_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	history_main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	history_main_vbox.add_theme_constant_override("separation", 8)
+	history_margin.add_child(history_main_vbox)
+	
+	# 添加标题
+	var history_title = Label.new()
+	history_title.text = "对话历史"
+	history_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	history_main_vbox.add_child(history_title)
+	
+	# 添加分隔线
+	var separator = HSeparator.new()
+	history_main_vbox.add_child(separator)
+	
+	# 创建滚动容器
+	history_scroll = ScrollContainer.new()
+	history_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	history_scroll.custom_minimum_size.y = 250
+	history_main_vbox.add_child(history_scroll)
+	
+	# 创建历史记录列表容器
+	history_vbox = VBoxContainer.new()
+	history_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	history_vbox.add_theme_constant_override("separation", 5)
+	history_scroll.add_child(history_vbox)
+
+func _on_history_button_pressed():
+	"""历史按钮点击事件"""
+	if is_history_visible:
+		_hide_history()
+	else:
+		_show_history()
+
+func _show_history():
+	"""显示历史记录"""
+	if is_animating:
+		return
+	
+	# 更新历史记录内容
+	_update_history_content()
+	
+	# 第一步：淡出输入框和发送按钮
+	var fade_out_tween = create_tween()
+	fade_out_tween.set_parallel(true)
+	fade_out_tween.tween_property(input_field, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	fade_out_tween.tween_property(send_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	await fade_out_tween.finished
+	
+	# 隐藏输入框和发送按钮
+	input_field.visible = false
+	send_button.visible = false
+	
+	# 修改历史按钮文字为"返回"
+	history_button.text = "返回"
+	
+	# 显示历史面板（初始透明）
+	history_panel.visible = true
+	history_panel.modulate.a = 0.0
+	
+	# 第二步：展开高度并淡入历史面板
+	is_animating = true
+	is_history_visible = true
+	
+	var expand_tween = create_tween()
+	expand_tween.set_parallel(true)
+	expand_tween.tween_property(self, "custom_minimum_size:y", HISTORY_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	expand_tween.tween_property(self, "size:y", HISTORY_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	expand_tween.tween_property(history_panel, "modulate:a", 1.0, ANIMATION_DURATION)
+	
+	await expand_tween.finished
+	is_animating = false
+	
+	# 滚动到底部（最新消息）
+	await get_tree().process_frame
+	history_scroll.scroll_vertical = int(history_scroll.get_v_scroll_bar().max_value)
+
+func _hide_history():
+	"""隐藏历史记录"""
+	if is_animating:
+		return
+	
+	# 第一步：收起高度并淡出历史面板
+	is_animating = true
+	is_history_visible = false
+	
+	var collapse_tween = create_tween()
+	collapse_tween.set_parallel(true)
+	collapse_tween.tween_property(self, "custom_minimum_size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	collapse_tween.tween_property(self, "size:y", INPUT_HEIGHT, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	collapse_tween.tween_property(history_panel, "modulate:a", 0.0, ANIMATION_DURATION)
+	
+	await collapse_tween.finished
+	history_panel.visible = false
+	
+	# 修改历史按钮文字为"历史"
+	history_button.text = "历史"
+	
+	# 第二步：显示并淡入输入框和发送按钮
+	input_field.visible = true
+	send_button.visible = true
+	input_field.modulate.a = 0.0
+	send_button.modulate.a = 0.0
+	
+	var fade_in_tween = create_tween()
+	fade_in_tween.set_parallel(true)
+	fade_in_tween.tween_property(input_field, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	fade_in_tween.tween_property(send_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	
+	await fade_in_tween.finished
+	is_animating = false
+
+func _update_history_content():
+	"""更新历史记录内容"""
+	# 清空现有内容
+	for child in history_vbox.get_children():
+		child.queue_free()
+	
+	# 从AIService获取对话历史
+	if not has_node("/root/AIService"):
+		var empty_label = Label.new()
+		empty_label.text = "暂无对话历史"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		history_vbox.add_child(empty_label)
+		return
+	
+	var ai_service = get_node("/root/AIService")
+	var conversation = ai_service.current_conversation
+	
+	if conversation.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "暂无对话历史"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		history_vbox.add_child(empty_label)
+		return
+	
+	# 获取角色名和用户名
+	var character_name = app_config.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	var user_name = save_mgr.get_user_name() if save_mgr else "用户"
+	
+	# 显示对话历史（扁平化格式）
+	for msg in conversation:
+		var history_item = Label.new()
+		history_item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		history_item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		
+		var speaker_name = ""
+		var content = msg.content
+		
+		if msg.role == "user":
+			speaker_name = user_name
+		elif msg.role == "assistant":
+			speaker_name = character_name
+			# 尝试从JSON中提取msg字段
+			var clean_content = content
+			if clean_content.contains("```json"):
+				var json_start = clean_content.find("```json") + 7
+				clean_content = clean_content.substr(json_start)
+			elif clean_content.contains("```"):
+				var json_start = clean_content.find("```") + 3
+				clean_content = clean_content.substr(json_start)
+			
+			if clean_content.contains("```"):
+				var json_end = clean_content.find("```")
+				clean_content = clean_content.substr(0, json_end)
+			
+			clean_content = clean_content.strip_edges()
+			
+			var json = JSON.new()
+			if json.parse(clean_content) == OK:
+				var data = json.data
+				if data.has("msg"):
+					content = data.msg
+		else:
+			continue  # 跳过system消息
+		
+		history_item.text = "%s：%s" % [speaker_name, content]
+		history_vbox.add_child(history_item)

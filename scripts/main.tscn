@@ -131,10 +131,25 @@ size_flags_vertical = 3
 text = "角色回复内容..."
 autowrap_mode = 3
 
-[node name="InputField" type="LineEdit" parent="ChatDialog/MarginContainer/VBoxContainer"]
+[node name="InputContainer" type="HBoxContainer" parent="ChatDialog/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InputField" type="LineEdit" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 placeholder_text = "输入消息..."
+
+[node name="HistoryButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "历史"
+
+[node name="SendButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "发送"
 
 [node name="EndButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer"]
 layout_mode = 2
