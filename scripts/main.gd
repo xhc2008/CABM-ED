@@ -51,16 +51,22 @@ func _ready():
 	# 监听窗口大小变化
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	
+	# 等待侧边栏初始化完成（包括自动时间调整）
+	await get_tree().process_frame
+	
 	# 尝试从存档加载场景，否则加载默认场景
 	var initial_scene = _load_initial_scene()
-	load_scene(initial_scene, "sunny", "day")
+	# 从侧边栏获取当前的时间和天气设置（可能已经被自动时间调整过）
+	var initial_weather = sidebar.current_weather_id
+	var initial_time = sidebar.current_time_id
+	load_scene(initial_scene, initial_weather, initial_time)
 	
 	# 初始化UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
 	
 	# 播放背景音乐
-	audio_manager.play_background_music(initial_scene, "day", "sunny")
+	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
 
 func _input(event):
 	# 按 F12 打开存档调试面板（手机上可以用三指点击）

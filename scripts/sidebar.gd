@@ -5,7 +5,7 @@ signal scene_changed(scene_id: String, weather_id: String, time_id: String)
 @onready var scene_list: VBoxContainer = $MarginContainer/VBoxContainer/ScrollContainer/SceneList
 @onready var toggle_button: Button = $ToggleButton
 
-var is_expanded: bool = true
+var is_expanded: bool = false  # 默认收起
 var collapsed_width: float = 50.0
 var expanded_width: float = 320.0
 
@@ -29,7 +29,7 @@ var scenes = {
 var current_scene_id: String = "livingroom"
 var current_time_id: String = "day"
 var current_weather_id: String = "sunny"
-var auto_time_enabled: bool = false
+var auto_time_enabled: bool = true  # 默认开启自动调整时间
 var clock_label: Label
 var auto_checkbox: CheckBox
 var time_update_timer: Timer
@@ -50,8 +50,22 @@ var auto_save_timer: Timer
 func _ready():
 	toggle_button.pressed.connect(_on_toggle_pressed)
 	_load_scenes_config()
+	
+	# 如果启用了自动时间，在构建UI之前先调整时间
+	if auto_time_enabled:
+		var time_dict = Time.get_time_dict_from_system()
+		var time_id = _get_time_period_from_hour(time_dict["hour"])
+		current_time_id = time_id
+		print("初始化自动时间: ", time_id)
+	
 	_setup_clock_and_auto()
 	_build_scene_list()
+	
+	# 设置初始状态为收起
+	custom_minimum_size.x = collapsed_width
+	size.x = collapsed_width
+	toggle_button.text = "▶"
+	$MarginContainer.visible = false
 	
 	# 启动时钟更新定时器
 	time_update_timer = Timer.new()
@@ -97,6 +111,7 @@ func _setup_clock_and_auto():
 	auto_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	auto_checkbox = CheckBox.new()
 	auto_checkbox.text = "自动调整时间"
+	auto_checkbox.button_pressed = true  # 默认勾选
 	auto_checkbox.toggled.connect(_on_auto_time_toggled)
 	auto_container.add_child(auto_checkbox)
 	header_container.add_child(auto_container)
