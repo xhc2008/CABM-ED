@@ -22,10 +22,15 @@ var char_index: int = 0
 var waiting_for_continue: bool = false
 var is_animating: bool = false # 标记是否正在进行高度动画
 
+# 流式输出相关
+var display_buffer: String = ""  # 待显示的内容缓冲
+var displayed_text: String = ""  # 已显示的内容
+var is_receiving_stream: bool = false  # 是否正在接收流式数据
+
 const INPUT_HEIGHT = 120.0
 const REPLY_HEIGHT = 200.0
 const ANIMATION_DURATION = 0.3
-const TYPING_SPEED = 0.05 # 每个字符的显示间隔
+const TYPING_SPEED = 0.05 # 每个字符的显示间隔（最大输出速度）
 
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
@@ -133,6 +138,7 @@ func _ready():
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.chat_response_received.connect(_on_ai_response)
+		ai_service.chat_response_completed.connect(_on_ai_response_completed)
 		ai_service.chat_error.connect(_on_ai_error)
 	
 	# 初始化为输入模式
@@ -262,12 +268,30 @@ func _on_end_button_pressed():
 	chat_ended.emit()
 
 func _on_ai_response(response: String):
-	"""AI 响应回调"""
-	_start_typing_effect(response)
+	"""AI 响应回调 - 接收流式增量内容"""
+	if not is_receiving_stream:
+		# 第一次接收，开始流式显示
+		is_receiving_stream = true
+		display_buffer = ""
+		displayed_text = ""
+		message_label.text = ""
+		typing_timer.start(TYPING_SPEED)
+	
+	# 将新内容添加到buffer
+	display_buffer += response
+
+func _on_ai_response_completed():
+	"""AI 流式响应完成回调"""
+	is_receiving_stream = false
+	# 如果buffer已全部显示，立即显示继续指示器
+	if displayed_text.length() >= display_buffer.length():
+		typing_timer.stop()
+		_show_continue_indicator()
 
 func _on_ai_error(error_message: String):
 	"""AI 错误回调"""
 	print("AI 错误: ", error_message)
+	is_receiving_stream = false
 	# 显示错误消息
 	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...")
 
@@ -366,17 +390,29 @@ func _transition_to_input_mode():
 	input_field.grab_focus()
 
 func _start_typing_effect(text: String):
+	"""启动打字机效果（用于非流式模式）"""
 	current_message = text
 	char_index = 0
 	message_label.text = ""
+	is_receiving_stream = false
+	display_buffer = text
+	displayed_text = ""
 	typing_timer.start(TYPING_SPEED)
 
 func _on_typing_timer_timeout():
-	if char_index < current_message.length():
-		message_label.text += current_message[char_index]
-		char_index += 1
+	"""打字机效果定时器 - 支持流式buffer"""
+	if displayed_text.length() < display_buffer.length():
+		# buffer中还有未显示的内容，继续显示
+		var next_char = display_buffer[displayed_text.length()]
+		displayed_text += next_char
+		message_label.text = displayed_text
+	elif is_receiving_stream:
+		# 正在接收流式数据，但buffer已显示完，等待更多数据
+		pass
 	else:
+		# 所有内容已显示完毕
 		typing_timer.stop()
+		is_receiving_stream = false
 		# 打字完成后，显示继续指示器并等待用户点击
 		_show_continue_indicator()
 

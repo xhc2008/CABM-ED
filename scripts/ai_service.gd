@@ -4,6 +4,7 @@ extends Node
 # 自动加载单例
 
 signal chat_response_received(response: String)
+signal chat_response_completed()  # 流式响应完成信号
 signal chat_error(error_message: String)
 signal summary_completed(summary: String)
 
@@ -13,14 +14,28 @@ var http_request: HTTPRequest
 var current_conversation: Array = []  # 当前对话历史
 var is_chatting: bool = false
 
+# 流式响应相关
+var http_client: HTTPClient
+var sse_buffer: String = ""  # SSE行缓冲
+var json_response_buffer: String = ""  # 完整JSON响应缓冲
+var msg_buffer: String = ""  # 提取的msg内容缓冲
+var extracted_fields: Dictionary = {}  # 提取的其他字段（mood, will, like）
+var is_streaming: bool = false
+var stream_host: String = ""
+var stream_port: int = 443
+var stream_use_tls: bool = true
+
 func _ready():
 	_load_config()
 	_load_api_key()
 	
-	# 创建 HTTP 请求节点
+	# 创建 HTTP 请求节点（用于非流式请求，如总结）
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
+	
+	# 创建 HTTPClient（用于流式请求）
+	http_client = HTTPClient.new()
 
 func _load_config():
 	"""加载 AI 配置"""
@@ -121,12 +136,16 @@ func _build_system_prompt() -> String:
 	# 获取记忆上下文
 	var memory_context = _get_memory_context()
 	
+	# 定义moods列表
+	var moods = "0=平静, 1=开心, 2=难过, 3=生气, 4=惊讶, 5=害怕, 6=厌恶"
+	
 	# 替换占位符
 	var prompt = prompt_template.replace("{character_name}", character_name)
 	prompt = prompt.replace("{user_name}", user_name)
 	prompt = prompt.replace("{current_scene}", _get_scene_description(save_mgr.get_character_scene()))
 	prompt = prompt.replace("{current_weather}", "晴朗")  # 可以后续扩展
 	prompt = prompt.replace("{memory_context}", memory_context)
+	prompt = prompt.replace("{moods}", moods)
 	
 	return prompt
 
@@ -174,7 +193,7 @@ func _get_memory_context() -> String:
 	
 	return "\n".join(context_lines)
 
-func _call_chat_api(messages: Array, user_message: String):
+func _call_chat_api(messages: Array, _user_message: String):
 	"""调用对话 API"""
 	var chat_config = config.chat_model
 	var url = chat_config.base_url + "/chat/completions"
@@ -184,13 +203,14 @@ func _call_chat_api(messages: Array, user_message: String):
 		"Authorization: Bearer " + api_key
 	]
 	
-	# 构建请求体 - 确保格式正确
+	# 构建请求体 - 确保格式正确，启用流式响应
 	var body = {
 		"model": chat_config.model,
 		"messages": messages,
 		"max_tokens": int(chat_config.max_tokens),
 		"temperature": float(chat_config.temperature),
-		"top_p": float(chat_config.top_p)
+		"top_p": float(chat_config.top_p),
+		"stream": true  # 启用流式响应
 	}
 	
 	var json_body = JSON.stringify(body)
@@ -198,16 +218,25 @@ func _call_chat_api(messages: Array, user_message: String):
 	# 记录完整的请求日志（包含 JSON 请求体）
 	_log_api_request("CHAT_REQUEST", body, json_body)
 	
-	# 存储用户消息用于后续处理
-	http_request.set_meta("user_message", user_message)
-	http_request.set_meta("request_type", "chat")
+	# 重置流式缓冲
+	sse_buffer = ""
+	json_response_buffer = ""
+	msg_buffer = ""
+	extracted_fields = {}
+	is_streaming = true
+	
+	# 存储消息用于日志
 	http_request.set_meta("messages", messages)
 	http_request.set_meta("request_body", body)
 	
-	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
-	if error != OK:
-		is_chatting = false
-		chat_error.emit("HTTP 请求失败: " + str(error))
+	# 解析URL
+	var url_parts = chat_config.base_url.replace("https://", "").replace("http://", "").split("/")
+	stream_host = url_parts[0]
+	stream_use_tls = chat_config.base_url.begins_with("https://")
+	stream_port = 443 if stream_use_tls else 80
+	
+	# 启动流式连接
+	_start_stream_request(url, headers, json_body)
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""HTTP 请求完成回调"""
@@ -215,11 +244,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
 		is_chatting = false
+		is_streaming = false
 		chat_error.emit("请求失败: " + str(result))
 		return
 	
 	if response_code != 200:
 		is_chatting = false
+		is_streaming = false
 		var error_text = body.get_string_from_utf8()
 		var error_msg = "API 错误 (%d): %s" % [response_code, error_text]
 		print(error_msg)
@@ -230,23 +261,295 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		_log_api_error(response_code, error_text, request_body)
 		return
 	
-	var json_string = body.get_string_from_utf8()
-	var json = JSON.new()
-	
-	if json.parse(json_string) != OK:
-		is_chatting = false
-		chat_error.emit("响应解析失败")
-		return
-	
-	var response = json.data
+	var response_text = body.get_string_from_utf8()
 	
 	if request_type == "chat":
-		_handle_chat_response(response)
+		# 处理流式响应
+		_process_stream_data(response_text)
 	elif request_type == "summary":
-		_handle_summary_response(response)
+		# 总结请求不使用流式
+		var json = JSON.new()
+		if json.parse(response_text) != OK:
+			push_error("总结响应解析失败")
+			return
+		_handle_summary_response(json.data)
+
+func _start_stream_request(url: String, headers: Array, json_body: String):
+	"""启动流式HTTP请求"""
+	var tls_options = null
+	if stream_use_tls:
+		tls_options = TLSOptions.client()
+	
+	var err = http_client.connect_to_host(stream_host, stream_port, tls_options)
+	if err != OK:
+		is_chatting = false
+		is_streaming = false
+		chat_error.emit("连接失败: " + str(err))
+		return
+	
+	# 存储请求信息以便在_process中使用
+	set_meta("stream_url", url)
+	set_meta("stream_headers", headers)
+	set_meta("stream_body", json_body)
+	set_meta("stream_state", "connecting")
+
+func _process(_delta):
+	"""处理流式HTTP连接"""
+	if not is_streaming:
+		return
+	
+	http_client.poll()
+	var status = http_client.get_status()
+	
+	match status:
+		HTTPClient.STATUS_DISCONNECTED:
+			if get_meta("stream_state", "") == "connecting":
+				# 连接失败
+				is_chatting = false
+				is_streaming = false
+				chat_error.emit("连接断开")
+		
+		HTTPClient.STATUS_RESOLVING, HTTPClient.STATUS_CONNECTING:
+			# 等待连接
+			pass
+		
+		HTTPClient.STATUS_CONNECTED:
+			# 连接成功，发送请求
+			if get_meta("stream_state", "") == "connecting":
+				_send_stream_request()
+		
+		HTTPClient.STATUS_REQUESTING:
+			# 等待响应
+			pass
+		
+		HTTPClient.STATUS_BODY:
+			# 接收响应体
+			_receive_stream_chunk()
+		
+		HTTPClient.STATUS_CONNECTION_ERROR, HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
+			is_chatting = false
+			is_streaming = false
+			chat_error.emit("连接错误: " + str(status))
+
+func _send_stream_request():
+	"""发送流式请求"""
+	var headers_array = get_meta("stream_headers", [])
+	var body = get_meta("stream_body", "")
+	
+	# 提取路径
+	var path = "/v1/chat/completions"
+	
+	var err = http_client.request(HTTPClient.METHOD_POST, path, headers_array, body)
+	if err != OK:
+		is_chatting = false
+		is_streaming = false
+		chat_error.emit("请求发送失败: " + str(err))
+		return
+	
+	set_meta("stream_state", "requesting")
+
+func _receive_stream_chunk():
+	"""接收流式数据块"""
+	if http_client.has_response():
+		var response_code = http_client.get_response_code()
+		if response_code != 200:
+			is_chatting = false
+			is_streaming = false
+			chat_error.emit("API 错误: " + str(response_code))
+			return
+		
+		# 读取数据块
+		var chunk = http_client.read_response_body_chunk()
+		if chunk.size() > 0:
+			var text = chunk.get_string_from_utf8()
+			_process_stream_data(text)
+
+func _process_stream_data(data: String):
+	"""处理流式响应数据（SSE格式）"""
+	sse_buffer += data
+	
+	# 处理SSE格式的数据流
+	var lines = sse_buffer.split("\n")
+	
+	# 保留最后一行（可能不完整）
+	if not sse_buffer.ends_with("\n"):
+		sse_buffer = lines[-1]
+		lines = lines.slice(0, -1)
+	else:
+		sse_buffer = ""
+	
+	for line in lines:
+		line = line.strip_edges()
+		if line.is_empty():
+			continue
+		
+		if line == "data: [DONE]":
+			# 流式结束，完成处理
+			_finalize_stream_response()
+			continue
+		
+		if line.begins_with("data: "):
+			var json_str = line.substr(6)  # 移除 "data: " 前缀
+			_parse_stream_chunk(json_str)
+
+func _parse_stream_chunk(json_str: String):
+	"""解析单个流式数据块"""
+	var json = JSON.new()
+	if json.parse(json_str) != OK:
+		print("流式块解析失败: ", json_str.substr(0, 100))
+		return
+	
+	var chunk = json.data
+	if not chunk.has("choices") or chunk.choices.is_empty():
+		return
+	
+	var delta = chunk.choices[0].get("delta", {})
+	if delta.has("content"):
+		var content = delta.content
+		# 将内容添加到完整响应缓冲（用于保存上下文）
+		json_response_buffer += content
+		print("接收到内容块: ", content)
+		# 实时提取msg字段内容
+		_extract_msg_from_buffer()
+
+func _extract_msg_from_buffer():
+	"""从流式缓冲中实时提取msg字段内容"""
+	var buffer_to_parse = json_response_buffer
+	
+	# 处理可能的 ```json 包裹
+	if buffer_to_parse.contains("```json"):
+		var json_start = buffer_to_parse.find("```json") + 7
+		buffer_to_parse = buffer_to_parse.substr(json_start)
+	elif buffer_to_parse.contains("```"):
+		var json_start = buffer_to_parse.find("```") + 3
+		buffer_to_parse = buffer_to_parse.substr(json_start)
+	
+	# 移除可能的结束标记
+	if buffer_to_parse.contains("```"):
+		var json_end = buffer_to_parse.find("```")
+		buffer_to_parse = buffer_to_parse.substr(0, json_end)
+	
+	buffer_to_parse = buffer_to_parse.strip_edges()
+	
+	# 查找 "msg" 字段的开始位置
+	var msg_start = buffer_to_parse.find('"msg"')
+	if msg_start == -1:
+		return
+	
+	# 查找冒号和引号
+	var colon_pos = buffer_to_parse.find(':', msg_start)
+	if colon_pos == -1:
+		return
+	
+	# 跳过空格找到引号
+	var quote_start = -1
+	for i in range(colon_pos + 1, buffer_to_parse.length()):
+		if buffer_to_parse[i] == '"':
+			quote_start = i
+			break
+		elif buffer_to_parse[i] != ' ' and buffer_to_parse[i] != '\t':
+			break
+	
+	if quote_start == -1:
+		return
+	
+	# 从引号后开始提取内容
+	var content_start = quote_start + 1
+	var current_pos = content_start
+	var extracted_content = ""
+	
+	# 逐字符提取，直到遇到未转义的引号或数据结束
+	while current_pos < buffer_to_parse.length():
+		var ch = buffer_to_parse[current_pos]
+		
+		if ch == '\\' and current_pos + 1 < buffer_to_parse.length():
+			# 处理转义字符
+			var next_ch = buffer_to_parse[current_pos + 1]
+			if next_ch == '"':
+				extracted_content += '"'
+				current_pos += 2
+				continue
+			elif next_ch == 'n':
+				extracted_content += '\n'
+				current_pos += 2
+				continue
+			elif next_ch == 't':
+				extracted_content += '\t'
+				current_pos += 2
+				continue
+			elif next_ch == '\\':
+				extracted_content += '\\'
+				current_pos += 2
+				continue
+			else:
+				extracted_content += ch
+				current_pos += 1
+		elif ch == '"':
+			# 找到结束引号，msg字段完整
+			break
+		else:
+			extracted_content += ch
+			current_pos += 1
+	
+	# 计算新增的内容
+	if extracted_content.length() > msg_buffer.length():
+		var new_content = extracted_content.substr(msg_buffer.length())
+		msg_buffer = extracted_content
+		
+		# 发送新增内容给chat_dialog
+		if not new_content.is_empty():
+			print("发送新内容: ", new_content)
+			chat_response_received.emit(new_content)
+
+func _finalize_stream_response():
+	"""完成流式响应处理"""
+	is_streaming = false
+	is_chatting = false
+	
+	print("流式响应完成，完整内容: ", json_response_buffer)
+	
+	# 处理可能的 ```json 包裹
+	var clean_json = json_response_buffer
+	if clean_json.contains("```json"):
+		var json_start = clean_json.find("```json") + 7
+		clean_json = clean_json.substr(json_start)
+	elif clean_json.contains("```"):
+		var json_start = clean_json.find("```") + 3
+		clean_json = clean_json.substr(json_start)
+	
+	if clean_json.contains("```"):
+		var json_end = clean_json.find("```")
+		clean_json = clean_json.substr(0, json_end)
+	
+	clean_json = clean_json.strip_edges()
+	
+	# 尝试解析完整的JSON以提取其他字段
+	var json = JSON.new()
+	if json.parse(clean_json) == OK:
+		var full_response = json.data
+		if full_response.has("mood"):
+			extracted_fields["mood"] = full_response.mood
+		if full_response.has("will"):
+			extracted_fields["will"] = full_response.will
+		if full_response.has("like"):
+			extracted_fields["like"] = full_response.like
+		print("提取的字段: ", extracted_fields)
+	else:
+		print("JSON解析失败: ", json.get_error_message())
+		print("尝试解析的内容: ", clean_json.substr(0, 200))
+	
+	# 将完整的JSON添加到对话历史（用于上下文）
+	current_conversation.append({"role": "assistant", "content": json_response_buffer})
+	
+	# 记录响应日志
+	var messages = http_request.get_meta("messages", [])
+	_log_api_call("CHAT_RESPONSE", messages, json_response_buffer)
+	
+	# 发送完成信号
+	chat_response_completed.emit()
 
 func _handle_chat_response(response: Dictionary):
-	"""处理对话响应"""
+	"""处理对话响应（非流式，保留作为备用）"""
 	if not response.has("choices") or response.choices.is_empty():
 		is_chatting = false
 		chat_error.emit("响应格式错误")
@@ -282,7 +585,7 @@ func end_chat():
 	current_conversation.clear()
 
 func _flatten_conversation() -> String:
-	"""扁平化对话历史"""
+	"""扁平化对话历史，只提取msg字段内容"""
 	var lines = []
 	
 	# 从 app_config.json 读取角色信息
@@ -294,7 +597,31 @@ func _flatten_conversation() -> String:
 		if msg.role == "user":
 			lines.append("%s：%s" % [user_name, msg.content])
 		elif msg.role == "assistant":
-			lines.append("%s：%s" % [char_name, msg.content])
+			# 尝试从JSON中提取msg字段
+			var content = msg.content
+			
+			# 处理可能的 ```json 包裹
+			var clean_content = content
+			if clean_content.contains("```json"):
+				var json_start = clean_content.find("```json") + 7
+				clean_content = clean_content.substr(json_start)
+			elif clean_content.contains("```"):
+				var json_start = clean_content.find("```") + 3
+				clean_content = clean_content.substr(json_start)
+			
+			if clean_content.contains("```"):
+				var json_end = clean_content.find("```")
+				clean_content = clean_content.substr(0, json_end)
+			
+			clean_content = clean_content.strip_edges()
+			
+			var json = JSON.new()
+			if json.parse(clean_content) == OK:
+				var data = json.data
+				if data.has("msg"):
+					content = data.msg
+			
+			lines.append("%s：%s" % [char_name, content])
 	
 	return "\n".join(lines)
 
