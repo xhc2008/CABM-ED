@@ -8,6 +8,10 @@
 
 config_version=5
 
+[android]
+
+window/keyboard_mode=1
+
 [application]
 
 config/name="CABM-ED"
@@ -27,7 +31,6 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=0
 window/ios/hide_home_indicator=false
 window/ios/hide_status_bar=false
 window/ios/suppress_ui_gesture=false
@@ -39,10 +42,6 @@ common/snap_controls_to_pixels=false
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
-
-[android]
-
-window/keyboard_mode=1
 
 [rendering]
 

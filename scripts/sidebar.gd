@@ -5,7 +5,7 @@ signal scene_changed(scene_id: String, weather_id: String, time_id: String)
 @onready var scene_list: VBoxContainer = $MarginContainer/VBoxContainer/ScrollContainer/SceneList
 @onready var toggle_button: Button = $ToggleButton
 
-var is_expanded: bool = false  # 默认收起
+var is_expanded: bool = false # 默认收起
 var collapsed_width: float = 50.0
 var expanded_width: float = 320.0
 
@@ -29,7 +29,7 @@ var scenes = {
 var current_scene_id: String = "livingroom"
 var current_time_id: String = "day"
 var current_weather_id: String = "sunny"
-var auto_time_enabled: bool = true  # 默认开启自动调整时间
+var auto_time_enabled: bool = true # 默认开启自动调整时间
 var clock_label: Label
 var auto_checkbox: CheckBox
 var time_update_timer: Timer
@@ -111,7 +111,7 @@ func _setup_clock_and_auto():
 	auto_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	auto_checkbox = CheckBox.new()
 	auto_checkbox.text = "自动调整时间"
-	auto_checkbox.button_pressed = true  # 默认勾选
+	auto_checkbox.button_pressed = true # 默认勾选
 	auto_checkbox.toggled.connect(_on_auto_time_toggled)
 	auto_container.add_child(auto_checkbox)
 	header_container.add_child(auto_container)

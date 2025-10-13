@@ -235,6 +235,9 @@ func _update_action_menu_position():
 	action_menu.position = menu_pos
 
 func load_scene(scene_id: String, weather_id: String, time_id: String):
+	# 记录场景是否真的改变了
+	var scene_changed = (current_scene != scene_id)
+	
 	current_scene = scene_id
 	current_weather = weather_id
 	current_time = time_id
@@ -258,8 +261,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	# 计算场景区域，确保角色加载时可以使用正确的坐标
 	_calculate_scene_rect()
 	
-	# 加载角色到新场景
-	character.load_character_for_scene(scene_id)
+	# 只有在场景真正改变时才重新加载角色位置
+	if scene_changed:
+		character.load_character_for_scene(scene_id)
 	
 	# 场景变化后更新UI布局
 	await get_tree().process_frame
