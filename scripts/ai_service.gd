@@ -91,8 +91,17 @@ func _load_api_key():
 	else:
 		push_error("API 密钥文件解析失败")
 
-func start_chat(user_message: String):
-	"""开始对话"""
+func add_to_history(role: String, content: String):
+	"""手动添加消息到对话历史（用于特殊情况，如拒绝回复）"""
+	current_conversation.append({"role": role, "content": content})
+	print("手动添加到历史: ", role, " - ", content)
+
+func start_chat(user_message: String = "", trigger_mode: String = "user_initiated"):
+	"""
+	开始对话
+	user_message: 用户消息（角色主动触发时可为空）
+	trigger_mode: "user_initiated" = 用户主动触发, "character_initiated" = 角色主动触发
+	"""
 	if is_chatting:
 		push_warning("正在对话中，请等待...")
 		return
@@ -104,7 +113,7 @@ func start_chat(user_message: String):
 	is_chatting = true
 	
 	# 构建系统提示词
-	var system_prompt = _build_system_prompt()
+	var system_prompt = _build_system_prompt(trigger_mode)
 	
 	# 构建消息列表
 	var messages = [
@@ -117,14 +126,15 @@ func start_chat(user_message: String):
 	for i in range(history_start, current_conversation.size()):
 		messages.append(current_conversation[i])
 	
-	# 添加用户消息
-	messages.append({"role": "user", "content": user_message})
-	current_conversation.append({"role": "user", "content": user_message})
+	# 只有用户主动触发时才添加用户消息
+	if trigger_mode == "user_initiated" and not user_message.is_empty():
+		messages.append({"role": "user", "content": user_message})
+		current_conversation.append({"role": "user", "content": user_message})
 	
 	# 调用 API
 	_call_chat_api(messages, user_message)
 
-func _build_system_prompt() -> String:
+func _build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	"""构建系统提示词"""
 	var prompt_template = config.chat_model.system_prompt
 	var save_mgr = get_node("/root/SaveManager")
@@ -142,6 +152,9 @@ func _build_system_prompt() -> String:
 	# 从mood_config.json生成moods列表
 	var moods = _generate_moods_list()
 	
+	# 获取触发上下文
+	var trigger_context = _get_trigger_context(trigger_mode)
+	
 	# 替换占位符
 	var prompt = prompt_template.replace("{character_name}", character_name)
 	prompt = prompt.replace("{user_name}", user_name)
@@ -149,6 +162,7 @@ func _build_system_prompt() -> String:
 	prompt = prompt.replace("{current_weather}", "晴朗")  # 可以后续扩展
 	prompt = prompt.replace("{memory_context}", memory_context)
 	prompt = prompt.replace("{moods}", moods)
+	prompt = prompt.replace("{trigger_context}", trigger_context)
 	
 	return prompt
 
@@ -199,6 +213,18 @@ func _get_scene_description(scene_id: String) -> String:
 	}
 	return scene_names.get(scene_id, "未知场景")
 
+func _get_trigger_context(trigger_mode: String) -> String:
+	"""获取触发上下文文本"""
+	if not config.has("chat_model") or not config.chat_model.has("trigger_contexts"):
+		# 如果配置中没有trigger_contexts，使用默认值
+		if trigger_mode == "character_initiated":
+			return "现在，你想主动找用户聊天，说点什么吧。"
+		else:
+			return "现在，用户找你聊天。"
+	
+	var trigger_contexts = config.chat_model.trigger_contexts
+	return trigger_contexts.get(trigger_mode, "现在，用户找你聊天。")
+
 func _get_memory_context() -> String:
 	"""获取记忆上下文（仅从短期记忆）"""
 	var save_mgr = get_node("/root/SaveManager")
@@ -238,7 +264,8 @@ func _call_chat_api(messages: Array, _user_message: String):
 		"max_tokens": int(chat_config.max_tokens),
 		"temperature": float(chat_config.temperature),
 		"top_p": float(chat_config.top_p),
-		"stream": true  # 启用流式响应
+		"stream": true,  # 启用流式响应
+		"response_format": {"type": "json_object"}
 	}
 	
 	var json_body = JSON.stringify(body)

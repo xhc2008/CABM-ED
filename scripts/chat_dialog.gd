@@ -233,10 +233,15 @@ func show_dialog(mode: String = "passive"):
 	
 	# 根据模式执行后续操作
 	if mode == "active":
-		# 角色主动模式：开始打字效果
-		var replies = app_config.get("preset_replies", ["你好！"])
-		var active_reply = replies[randi() % replies.size()]
-		_start_typing_effect(active_reply)
+		# 角色主动模式：调用AI生成第一句话
+		if has_node("/root/AIService"):
+			var ai_service = get_node("/root/AIService")
+			ai_service.start_chat("", "character_initiated")
+		else:
+			# 如果 AI 服务不可用，使用预设回复
+			var replies = app_config.get("preset_replies", ["你好！"])
+			var active_reply = replies[randi() % replies.size()]
+			_start_typing_effect(active_reply)
 	else:
 		# 被动模式：聚焦输入框
 		if is_input_mode:
@@ -307,10 +312,18 @@ func _on_input_submitted(text: String):
 	# 切换到回复模式
 	await _transition_to_reply_mode()
 	
-	# 调用 AI 服务
+	# 判断角色是否愿意回复（与start_chat事件相同的判定机制）
+	var will_reply = _check_reply_willingness()
+	
+	if not will_reply:
+		# 角色不愿意回复，显示"……"
+		_handle_reply_refusal(text)
+		return
+	
+	# 调用 AI 服务（用户主动触发）
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
-		ai_service.start_chat(text)
+		ai_service.start_chat(text, "user_initiated")
 	else:
 		# 如果 AI 服务不可用，使用预设回复
 		var replies = app_config.get("preset_replies", ["你好！"])
@@ -446,3 +459,100 @@ func _on_continue_clicked():
 	
 	# 切换回输入模式
 	await _transition_to_input_mode()
+
+
+# 检查角色是否愿意回复（与start_chat事件相同的判定机制）
+func _check_reply_willingness() -> bool:
+	if not has_node("/root/InteractionManager"):
+		return true  # 如果没有交互管理器，默认愿意回复
+	
+	var interaction_mgr = get_node("/root/InteractionManager")
+	
+	# 使用与start_chat相同的判定逻辑
+	var success_chance = interaction_mgr.calculate_success_chance("chat")
+	var roll = randf()
+	var success = roll < success_chance
+	
+	print("回复意愿判定 - 成功率: ", success_chance * 100, "% 掷骰: ", roll, " 结果: ", "愿意回复" if success else "不愿意回复")
+	
+	return success
+
+# 处理角色拒绝回复的情况
+func _handle_reply_refusal(user_message: String):
+	# 显示"……"作为角色的回复
+	_start_typing_effect("……")
+	
+	# 等待打字效果完成
+	while typing_timer.time_left > 0 or displayed_text.length() < display_buffer.length():
+		await get_tree().process_frame
+	
+	# 在对话框下方显示红色提示文字
+	await _show_refusal_message()
+	
+	# 将"……"作为历史记录添加到AI服务
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		# 添加用户消息和角色的"……"回复到历史记录
+		ai_service.add_to_history("user", user_message)
+		ai_service.add_to_history("assistant", "……")
+	
+	# 修改属性值
+	_apply_refusal_effects()
+
+# 显示拒绝回复的提示消息
+func _show_refusal_message():
+	var character_name = app_config.get("character_name", "角色")
+	var refusal_text = character_name + "似乎不太想继续这个话题"
+	
+	# 在message_label下方创建一个临时的红色提示标签
+	var refusal_label = Label.new()
+	refusal_label.name = "RefusalLabel"
+	refusal_label.text = refusal_text
+	refusal_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))  # 红色
+	refusal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	refusal_label.modulate.a = 0.0
+	
+	# 添加到VBox中（在message_label之后）
+	var message_index = message_label.get_index()
+	vbox.add_child(refusal_label)
+	vbox.move_child(refusal_label, message_index + 1)
+	
+	# 淡入动画
+	var fade_in = create_tween()
+	fade_in.tween_property(refusal_label, "modulate:a", 1.0, 0.3)
+	await fade_in.finished
+	
+	# 等待2秒
+	await get_tree().create_timer(2.0).timeout
+	
+	# 淡出动画
+	var fade_out = create_tween()
+	fade_out.tween_property(refusal_label, "modulate:a", 0.0, 0.3)
+	await fade_out.finished
+	
+	# 移除标签
+	refusal_label.queue_free()
+
+# 应用拒绝回复的属性变化
+func _apply_refusal_effects():
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 回复意愿随机增加 -20~10（负值就是减少）
+	var willingness_change = randi_range(-20, 10)
+	var current_willingness = save_mgr.get_reply_willingness()
+	var new_willingness = clamp(current_willingness + willingness_change, 0, 100)
+	save_mgr.set_reply_willingness(new_willingness)
+	print("拒绝回复 - 回复意愿变化: ", current_willingness, " -> ", new_willingness, " (", willingness_change, ")")
+	
+	# 好感度随机增加 -5~0
+	var affection_change = randi_range(-5, 0)
+	var current_affection = save_mgr.get_affection()
+	var new_affection = clamp(current_affection + affection_change, 0, 100)
+	save_mgr.set_affection(new_affection)
+	print("拒绝回复 - 好感度变化: ", current_affection, " -> ", new_affection, " (", affection_change, ")")
+	
+	# 心情不变
+	print("拒绝回复 - 心情保持不变")
