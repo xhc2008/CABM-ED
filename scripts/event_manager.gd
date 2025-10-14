@@ -70,9 +70,9 @@ func on_character_clicked() -> EventResult:
 	var result = EventResult.new(success)
 	
 	if success:
-		result.affection_change = randi_range(1, 3)
-		result.willingness_change = randi_range(5, 10)
-		result.message = "角色注意到了你"
+		# result.affection_change = randi_range(1, 3)
+		# result.willingness_change = randi_range(-5, 10)
+		result.message = helpers.get_character_name() + "注意到了你"
 		_set_cooldown("character_clicked", 5.0)
 	else:
 		result.message = helpers.get_character_name() + "似乎没注意到你"
@@ -96,8 +96,8 @@ func on_user_start_chat() -> EventResult:
 	var result = EventResult.new(success)
 	
 	if success:
-		result.affection_change = randi_range(1, 5)
-		result.willingness_change = randi_range(3, 8)
+		result.affection_change = randi_range(-1, 5)
+		result.willingness_change = randi_range(-5, 5)
 		result.message = "开始聊天"
 		_set_cooldown("user_start_chat", 3.0)
 	else:
@@ -123,7 +123,7 @@ func on_enter_scene() -> EventResult:
 	var result = EventResult.new(success)
 	
 	if success:
-		result.affection_change = randi_range(1, 2)
+		result.affection_change = randi_range(0, 2)
 		result.willingness_change = randi_range(5, 15)
 		result.message = helpers.get_character_name() + "注意到你进来了"
 		_set_cooldown("enter_scene", 10.0)
@@ -174,12 +174,12 @@ func on_chat_turn_end() -> EventResult:
 	
 	if success:
 		# AI决定回复
-		result.affection_change = randi_range(0, 2)
-		result.willingness_change = randi_range(-5, 5)
+		# result.affection_change = randi_range(0, 2)
+		# result.willingness_change = randi_range(-5, 5)
 		result.message = "决定回复"
 	else:
 		# AI决定不回复
-		result.willingness_change = randi_range(-10, -5)
+		result.willingness_change = randi_range(-15, -5)
 		result.message = ""
 	
 	_apply_result(result)
@@ -198,18 +198,18 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 	
 	if turn_count > 10:
 		# 长对话，大幅提升好感
-		result.affection_change = randi_range(5, 10)
-		result.willingness_change = randi_range(10, 20)
+		result.affection_change = randi_range(0, 10)
+		result.willingness_change = randi_range(-20, 0)
 	elif turn_count > 5:
 		# 中等对话
-		result.affection_change = randi_range(3, 6)
-		result.willingness_change = randi_range(5, 15)
+		result.affection_change = randi_range(0, 6)
+		result.willingness_change = randi_range(-10, 10)
 	else:
 		# 短对话
-		result.affection_change = randi_range(1, 3)
-		result.willingness_change = randi_range(0, 10)
+		result.affection_change = randi_range(0, 3)
+		result.willingness_change = randi_range(-5, 5)
 	
-	_set_cooldown("chat_session_end", 30.0)
+	_set_cooldown("chat_session_end", 0.0)
 	
 	_apply_result(result)
 	event_completed.emit("chat_session_end", result)
@@ -221,7 +221,7 @@ func on_idle_timeout() -> EventResult:
 	
 	# 长时间无操作，降低交互意愿
 	var result = EventResult.new(true, "长时间无互动")
-	result.willingness_change = randi_range(-15, -10)
+	result.willingness_change = randi_range(0, 20)
 	
 	_apply_result(result)
 	event_completed.emit("idle_timeout", result)
