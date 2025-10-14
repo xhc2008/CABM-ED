@@ -82,6 +82,7 @@ ai_logs/
 
 # 临时与构建产物
 temp/
+packages/
 plan.txt
 old/
 static/

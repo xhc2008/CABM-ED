@@ -17,8 +17,8 @@ func calculate_success_chance(base_willingness: int) -> float:
 	var chance = (base_willingness + current_willingness - 100.0) / 100.0
 	
 	# 应用修正
-	chance += get_mood_modifier()
-	chance += get_energy_modifier()
+	# chance += get_mood_modifier()
+	# chance += get_energy_modifier()
 	
 	# 限制在 0-1 范围
 	return clamp(chance, 0.0, 1.0)

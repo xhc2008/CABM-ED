@@ -78,11 +78,11 @@ func _update_app_config(character_name: String):
 		print("角色名称已保存: ", character_name)
 
 func _save_api_key(api_key: String):
-	"""保存API密钥"""
-	var keys_path = "user://api_keys.json"
+	"""保存API密钥（使用新格式）"""
+	var keys_path = "user://ai_keys.json"
 	var keys = {
-		"openai_api_key": api_key,
-		"api_base_url": "https://api.openai.com/v1"
+		"mode": "simple",
+		"api_key": api_key
 	}
 	
 	var file = FileAccess.open(keys_path, FileAccess.WRITE)
@@ -90,6 +90,12 @@ func _save_api_key(api_key: String):
 		file.store_string(JSON.stringify(keys, "\t"))
 		file.close()
 		print("API密钥已保存")
+		
+		# 重新加载AI服务配置
+		if has_node("/root/AIService"):
+			var ai_service = get_node("/root/AIService")
+			ai_service._load_api_key()
+			print("AI服务已重新加载配置")
 
 func _create_initial_save(user_name: String, character_name: String):
 	"""创建初始存档"""

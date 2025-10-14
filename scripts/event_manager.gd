@@ -63,7 +63,7 @@ func on_character_clicked() -> EventResult:
 		return EventResult.new(false, helpers.get_character_name() + "似乎没注意到你")
 	
 	# 计算成功率
-	var base_willingness = 150
+	var base_willingness = 170
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
@@ -73,7 +73,8 @@ func on_character_clicked() -> EventResult:
 	if success:
 		# result.affection_change = randi_range(1, 3)
 		# result.willingness_change = randi_range(-5, 10)
-		_set_cooldown("character_clicked", 5.0)
+		# _set_cooldown("character_clicked", 5.0)
+		pass
 	else:
 		result.message = helpers.get_character_name() + "似乎没注意到你"
 		_set_cooldown("character_clicked", 10.0)
@@ -99,7 +100,7 @@ func on_user_start_chat() -> EventResult:
 	if success:
 		result.affection_change = randi_range(-1, 5)
 		result.willingness_change = randi_range(-5, 5)
-		_set_cooldown("user_start_chat", 3.0)
+		# _set_cooldown("user_start_chat", 3.0)
 	else:
 		result.message = helpers.get_character_name() + "不想理你"
 		_set_cooldown("user_start_chat", 15.0)
