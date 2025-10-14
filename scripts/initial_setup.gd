@@ -58,9 +58,10 @@ func _update_app_config(character_name: String):
 	"""更新应用配置文件"""
 	var config_path = "res://config/app_config.json"
 	var config = {}
+	var file
 	
 	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
+		file = FileAccess.open(config_path, FileAccess.READ)
 		var json_string = file.get_as_text()
 		file.close()
 		
@@ -70,7 +71,7 @@ func _update_app_config(character_name: String):
 	
 	config["character_name"] = character_name
 	
-	var file = FileAccess.open(config_path, FileAccess.WRITE)
+	file = FileAccess.open(config_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(config, "\t"))
 		file.close()
