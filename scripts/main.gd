@@ -90,13 +90,12 @@ func _setup_managers():
 	# 等待自动加载节点准备好
 	await get_tree().process_frame
 	
-	# 连接交互管理器信号
-	if has_node("/root/InteractionManager"):
-		var interaction_mgr = get_node("/root/InteractionManager")
-		interaction_mgr.interaction_success.connect(_on_interaction_success)
-		interaction_mgr.interaction_failure.connect(_on_interaction_failure)
+	# 连接事件管理器信号
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.event_completed.connect(_on_event_completed)
 	else:
-		print("警告: InteractionManager 未找到，请检查自动加载配置")
+		print("警告: EventManager 未找到，请检查自动加载配置")
 	
 	# 创建失败消息标签
 	failure_message_label = Label.new()
@@ -309,13 +308,15 @@ func _on_scene_menu_selected(scene_id: String):
 
 func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	# 尝试交互
-	if has_node("/root/InteractionManager"):
-		var interaction_mgr = get_node("/root/InteractionManager")
-		var success = interaction_mgr.try_interaction("click_character")
-		if not success:
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		var result = event_mgr.on_character_clicked()
+		if not result.success:
+			if result.message != "":
+				_show_failure_message(result.message)
 			return
 	else:
-		print("警告: InteractionManager 未找到")
+		print("警告: EventManager 未找到")
 	
 	# 角色被点击，显示选项菜单
 	# 将角色位置转换为场景坐标
@@ -348,17 +349,21 @@ func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 func _on_action_selected(action: String):
 	if action == "chat":
 		# 尝试聊天交互
-		if has_node("/root/InteractionManager"):
-			var interaction_mgr = get_node("/root/InteractionManager")
-			var success = interaction_mgr.try_interaction("chat")
-			if success:
-				# 获取聊天模式
-				var chat_mode = _get_chat_mode_for_action("chat")
+		if has_node("/root/EventManager"):
+			var event_mgr = get_node("/root/EventManager")
+			var result = event_mgr.on_user_start_chat()
+			if result.success:
+				# 获取聊天模式（从 result.message 中）
+				var chat_mode = result.message if result.message != "" else "passive"
 				# 开始聊天
 				character.start_chat()
 				chat_dialog.show_dialog(chat_mode)
 				# 禁用右侧点击区域
 				right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			else:
+				# 显示失败消息
+				if result.message != "":
+					_show_failure_message(result.message)
 		else:
 			# 如果管理器未加载，直接开始聊天
 			character.start_chat()
@@ -407,17 +412,13 @@ func _show_scene_menu(at_position: Vector2):
 	
 	scene_menu.show_menu(menu_pos)
 
-func _on_interaction_success(action_id: String):
-	"""交互成功处理"""
-	print("交互成功: ", action_id)
-	
-	# 对于场景交互，在这里不做处理，由 _try_scene_interaction 处理
-	# 其他交互类型可以在这里添加特殊处理
-
-func _on_interaction_failure(_action_id: String, message: String):
-	"""交互失败处理"""
-	if message != "":
-		_show_failure_message(message)
+func _on_event_completed(event_name: String, result):
+	"""事件完成处理"""
+	if result.success:
+		print("事件成功: ", event_name)
+	else:
+		print("事件失败: ", event_name)
+		# 失败消息已在各个事件调用处处理
 
 func _show_failure_message(message: String):
 	"""显示失败消息"""
@@ -470,15 +471,21 @@ func _has_character_in_scene(scene_id: String) -> bool:
 	return config.has(scene_id) and config[scene_id].size() > 0
 
 func _try_scene_interaction(action_id: String):
-	"""尝试场景交互（进入/离开）- 这是主动触发"""
-	if not has_node("/root/InteractionManager"):
+	"""尝试场景交互（进入/离开）"""
+	if not has_node("/root/EventManager"):
 		return
 	
-	var interaction_mgr = get_node("/root/InteractionManager")
-	# 场景交互是主动触发（角色触发），传递 true
-	var success = interaction_mgr.try_interaction(action_id, true)
+	var event_mgr = get_node("/root/EventManager")
+	var result
 	
-	if success:
+	if action_id == "enter_scene":
+		result = event_mgr.on_enter_scene()
+	elif action_id == "leave_scene":
+		result = event_mgr.on_leave_scene()
+	else:
+		return
+	
+	if result.success:
 		# 成功触发，开始聊天
 		print("场景交互成功，触发聊天: ", action_id)
 		# 等待一小段时间让场景加载完成
@@ -486,34 +493,14 @@ func _try_scene_interaction(action_id: String):
 		
 		# 确保角色可见且不在聊天状态
 		if character.visible and not character.is_chatting:
-			# 获取聊天模式
-			var chat_mode = _get_chat_mode_for_action(action_id)
+			# 获取聊天模式（从 result.message 中）
+			var chat_mode = result.message if result.message != "" else "passive"
 			character.start_chat()
 			chat_dialog.show_dialog(chat_mode)
 			# 禁用右侧点击区域
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	else:
 		print("场景交互失败或在冷却中: ", action_id)
-
-func _get_chat_mode_for_action(action_id: String) -> String:
-	"""获取指定动作的聊天模式"""
-	var config_path = "res://config/interaction_config.json"
-	if not FileAccess.file_exists(config_path):
-		return "passive"
-	
-	var file = FileAccess.open(config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		return "passive"
-	
-	var config = json.data
-	var actions = config.get("actions", {})
-	var action = actions.get(action_id, {})
-	
-	return action.get("chat_mode", "passive")
 
 func _show_save_debug_panel():
 	"""显示存档调试面板"""

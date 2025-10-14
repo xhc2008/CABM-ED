@@ -60,7 +60,7 @@ func on_character_clicked() -> EventResult:
 	
 	# 检查冷却
 	if is_on_cooldown("character_clicked"):
-		return EventResult.new(false, "冷却中")
+		return EventResult.new(false, helpers.get_character_name() + "似乎没注意到你")
 	
 	# 计算成功率
 	var base_willingness = 150
@@ -68,11 +68,11 @@ func on_character_clicked() -> EventResult:
 	var success = randf() < success_chance
 	
 	var result = EventResult.new(success)
+	result.message = "passive" # chat_mode
 	
 	if success:
 		# result.affection_change = randi_range(1, 3)
 		# result.willingness_change = randi_range(-5, 10)
-		result.message = helpers.get_character_name() + "注意到了你"
 		_set_cooldown("character_clicked", 5.0)
 	else:
 		result.message = helpers.get_character_name() + "似乎没注意到你"
@@ -87,21 +87,20 @@ func on_user_start_chat() -> EventResult:
 	reset_idle_timer()
 	
 	if is_on_cooldown("user_start_chat"):
-		return EventResult.new(false, "冷却中")
+		return EventResult.new(false, helpers.get_character_name() + "不想理你")
 	
 	var base_willingness = 120
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
 	var result = EventResult.new(success)
+	result.message = "passive" # chat_mode
 	
 	if success:
 		result.affection_change = randi_range(-1, 5)
 		result.willingness_change = randi_range(-5, 5)
-		result.message = "开始聊天"
 		_set_cooldown("user_start_chat", 3.0)
 	else:
-		result.willingness_change = randi_range(-5, -2)
 		result.message = helpers.get_character_name() + "不想理你"
 		_set_cooldown("user_start_chat", 15.0)
 	
@@ -114,19 +113,19 @@ func on_enter_scene() -> EventResult:
 	reset_idle_timer()
 	
 	if is_on_cooldown("enter_scene"):
-		return EventResult.new(false, "冷却中")
+		return EventResult.new(false, "")
 	
 	var base_willingness = 50
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
 	var result = EventResult.new(success)
+	result.message = "active" # chat_mode
 	
 	if success:
 		result.affection_change = randi_range(0, 2)
 		result.willingness_change = randi_range(5, 15)
-		result.message = helpers.get_character_name() + "注意到你进来了"
-		_set_cooldown("enter_scene", 10.0)
+		_set_cooldown("enter_scene", 30.0)
 	else:
 		result.message = ""
 		# 失败不设置冷却
@@ -140,17 +139,17 @@ func on_leave_scene() -> EventResult:
 	reset_idle_timer()
 	
 	if is_on_cooldown("leave_scene"):
-		return EventResult.new(false, "冷却中")
+		return EventResult.new(false, "")
 	
 	var base_willingness = 30
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
 	var result = EventResult.new(success)
+	result.message = "active" # chat_mode
 	
 	if success:
 		result.willingness_change = randi_range(-10, -5)
-		result.message = helpers.get_character_name() + "看着你离开"
 		_set_cooldown("leave_scene", 20.0)
 	else:
 		result.message = ""
@@ -191,7 +190,7 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 	reset_idle_timer()
 	
 	if is_on_cooldown("chat_session_end"):
-		return EventResult.new(false, "冷却中")
+		return EventResult.new(false, "")
 	
 	# 对话结束总是成功，根据对话轮数调整数值
 	var result = EventResult.new(true, "对话结束")
