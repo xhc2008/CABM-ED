@@ -163,6 +163,20 @@ func _build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	# 获取触发上下文
 	var trigger_context = _get_trigger_context(trigger_mode)
 	
+	# 获取好感度和交互意愿
+	var affection = save_mgr.get_affection()
+	var interaction_will = save_mgr.get_reply_willingness()
+	
+	# 转换为"高/中/低"
+	var affection_level = _convert_to_level(affection, 100)
+	var interaction_level = _convert_to_level(interaction_will, 150)
+	
+	# 获取当前心情的文字描述
+	var current_mood = _get_current_mood_name(save_mgr.get_mood())
+	
+	# 格式化当前时间
+	var current_time = _format_current_time()
+	
 	# 替换占位符
 	var prompt = prompt_template.replace("{character_name}", character_name)
 	prompt = prompt.replace("{user_name}", user_name)
@@ -171,6 +185,10 @@ func _build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	prompt = prompt.replace("{memory_context}", memory_context)
 	prompt = prompt.replace("{moods}", moods)
 	prompt = prompt.replace("{trigger_context}", trigger_context)
+	prompt = prompt.replace("{affection_level}", affection_level)
+	prompt = prompt.replace("{interaction_level}", interaction_level)
+	prompt = prompt.replace("{current_mood}", current_mood)
+	prompt = prompt.replace("{current_time}", current_time)
 	
 	return prompt
 
@@ -229,6 +247,55 @@ func _get_weather_description(weather_id: String) -> String:
 		"storm": "雷雨"
 	}
 	return weather_names.get(weather_id, "晴天")
+
+func _convert_to_level(value: int, max_value: int) -> String:
+	"""将数值转换为"高/中/低"等级"""
+	var percentage = float(value) / float(max_value)
+	if percentage >= 0.7:
+		return "高"
+	elif percentage >= 0.3:
+		return "中"
+	else:
+		return "低"
+
+func _get_current_mood_name(mood_id: String) -> String:
+	"""获取当前心情的中文名称"""
+	var mood_config_path = "res://config/mood_config.json"
+	if not FileAccess.file_exists(mood_config_path):
+		return "平静"
+	
+	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "平静"
+	
+	var mood_config = json.data
+	if not mood_config.has("moods"):
+		return "平静"
+	
+	for mood in mood_config.moods:
+		if mood.name_en == mood_id:
+			return mood.name
+	
+	return "平静"
+
+func _format_current_time() -> String:
+	"""格式化当前时间为"xx月xx日xx:xx，星期x"格式"""
+	var datetime = Time.get_datetime_dict_from_system()
+	
+	var weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+	var weekday = weekdays[datetime.weekday]
+	
+	return "%d月%d日%02d:%02d，星期%s" % [
+		datetime.month,
+		datetime.day,
+		datetime.hour,
+		datetime.minute,
+		weekday
+	]
 
 func _get_trigger_context(trigger_mode: String) -> String:
 	"""获取触发上下文文本"""
