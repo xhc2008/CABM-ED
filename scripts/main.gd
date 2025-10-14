@@ -21,6 +21,7 @@ var scene_scale: Vector2 = Vector2.ONE
 
 # 失败消息标签
 var failure_message_label: Label = null
+var failure_message_tween: Tween = null
 
 func _ready():
 	# 初始化管理器
@@ -425,6 +426,10 @@ func _show_failure_message(message: String):
 	if failure_message_label == null:
 		return
 	
+	# 如果有正在运行的 tween，先停止并清除
+	if failure_message_tween != null and failure_message_tween.is_valid():
+		failure_message_tween.kill()
+	
 	# 设置消息文本
 	failure_message_label.text = message
 	
@@ -445,13 +450,14 @@ func _show_failure_message(message: String):
 	failure_message_label.modulate.a = 0.0
 	failure_message_label.visible = true
 	
-	var tween = create_tween()
-	tween.tween_property(failure_message_label, "modulate:a", 1.0, 0.3)
-	tween.tween_interval(2.0)
-	tween.tween_property(failure_message_label, "modulate:a", 0.0, 0.5)
+	failure_message_tween = create_tween()
+	failure_message_tween.tween_property(failure_message_label, "modulate:a", 1.0, 0.3)
+	failure_message_tween.tween_interval(2.0)
+	failure_message_tween.tween_property(failure_message_label, "modulate:a", 0.0, 0.5)
 	
-	await tween.finished
+	await failure_message_tween.finished
 	failure_message_label.visible = false
+	failure_message_tween = null
 
 func _has_character_in_scene(scene_id: String) -> bool:
 	"""检查场景是否有角色配置"""
