@@ -350,13 +350,18 @@ func _on_input_submitted(text: String):
 	# 切换到回复模式
 	await _transition_to_reply_mode()
 	
-	# 判断角色是否愿意回复（与start_chat事件相同的判定机制）
-	var will_reply = _check_reply_willingness()
-	
-	if not will_reply:
-		# 角色不愿意回复，显示"……"
-		_handle_reply_refusal(text)
-		return
+	# 使用事件系统判断角色是否愿意回复
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		var result = event_mgr.on_chat_turn_end()
+		
+		if not result.success:
+			# 角色不愿意回复，显示"……"
+			_handle_reply_refusal(text, result.message)
+			return
+	else:
+		# 如果EventManager不存在，默认允许回复
+		print("警告: EventManager未找到，默认允许回复")
 	
 	# 调用 AI 服务（用户主动触发）
 	if has_node("/root/AIService"):
@@ -499,24 +504,8 @@ func _on_continue_clicked():
 	await _transition_to_input_mode()
 
 
-# 检查角色是否愿意回复（与start_chat事件相同的判定机制）
-func _check_reply_willingness() -> bool:
-	if not has_node("/root/InteractionManager"):
-		return true  # 如果没有交互管理器，默认愿意回复
-	
-	var interaction_mgr = get_node("/root/InteractionManager")
-	
-	# 使用与start_chat相同的判定逻辑
-	var success_chance = interaction_mgr.calculate_success_chance("chat")
-	var roll = randf()
-	var success = roll < success_chance
-	
-	print("回复意愿判定 - 成功率: ", success_chance * 100, "% 掷骰: ", roll, " 结果: ", "愿意回复" if success else "不愿意回复")
-	
-	return success
-
 # 处理角色拒绝回复的情况
-func _handle_reply_refusal(user_message: String):
+func _handle_reply_refusal(user_message: String, refusal_message: String):
 	# 显示"……"作为角色的回复
 	_start_typing_effect("……")
 	
@@ -525,7 +514,7 @@ func _handle_reply_refusal(user_message: String):
 		await get_tree().process_frame
 	
 	# 在对话框下方显示红色提示文字
-	await _show_refusal_message()
+	await _show_refusal_message(refusal_message)
 	
 	# 将"……"作为历史记录添加到AI服务
 	if has_node("/root/AIService"):
@@ -534,13 +523,12 @@ func _handle_reply_refusal(user_message: String):
 		ai_service.add_to_history("user", user_message)
 		ai_service.add_to_history("assistant", "……")
 	
-	# 修改属性值
-	_apply_refusal_effects()
+	# 注意：数值变化已经由 EventManager.on_chat_turn_end() 处理，这里不需要再修改
 
 # 显示拒绝回复的提示消息
-func _show_refusal_message():
+func _show_refusal_message(message: String = ""):
 	var character_name = app_config.get("character_name", "角色")
-	var refusal_text = character_name + "似乎不太想继续这个话题"
+	var refusal_text = message if not message.is_empty() else (character_name + "似乎不想说话说话")
 	
 	# 在message_label下方创建一个临时的红色提示标签
 	var refusal_label = Label.new()
@@ -570,30 +558,6 @@ func _show_refusal_message():
 	
 	# 移除标签
 	refusal_label.queue_free()
-
-# 应用拒绝回复的属性变化
-func _apply_refusal_effects():
-	if not has_node("/root/SaveManager"):
-		return
-	
-	var save_mgr = get_node("/root/SaveManager")
-	
-	# 回复意愿随机增加 -20~10（负值就是减少）
-	var willingness_change = randi_range(-20, 10)
-	var current_willingness = save_mgr.get_reply_willingness()
-	var new_willingness = clamp(current_willingness + willingness_change, 0, 100)
-	save_mgr.set_reply_willingness(new_willingness)
-	print("拒绝回复 - 回复意愿变化: ", current_willingness, " -> ", new_willingness, " (", willingness_change, ")")
-	
-	# 好感度随机增加 -5~0
-	var affection_change = randi_range(-5, 0)
-	var current_affection = save_mgr.get_affection()
-	var new_affection = clamp(current_affection + affection_change, 0, 100)
-	save_mgr.set_affection(new_affection)
-	print("拒绝回复 - 好感度变化: ", current_affection, " -> ", new_affection, " (", affection_change, ")")
-	
-	# 心情不变
-	print("拒绝回复 - 心情保持不变")
 
 func _create_history_panel():
 	"""创建历史记录面板"""
