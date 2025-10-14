@@ -465,45 +465,23 @@ func _on_auto_save():
 
 # === AI 设置相关 ===
 
-var api_key_input: LineEdit
 var api_key_status: Label
-var api_key_save_button: Button
 
 func _setup_ai_settings(container: VBoxContainer):
 	"""设置 AI 配置区域"""
-	# AI 设置标题
-	var ai_label = Label.new()
-	ai_label.text = "AI 设置"
-	ai_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ai_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-	container.add_child(ai_label)
+	# AI 配置按钮
+	var ai_config_button = Button.new()
+	ai_config_button.text = "AI 配置"
+	ai_config_button.pressed.connect(_on_ai_config_pressed)
+	container.add_child(ai_config_button)
 	
-	# API 密钥输入
-	var key_label = Label.new()
-	key_label.text = "API 密钥:"
-	key_label.add_theme_font_size_override("font_size", 12)
-	container.add_child(key_label)
-	
-	api_key_input = LineEdit.new()
-	api_key_input.placeholder_text = "sk-..."
-	api_key_input.secret = true
-	api_key_input.text_changed.connect(_on_api_key_changed)
-	container.add_child(api_key_input)
-	
-	# 保存按钮
-	api_key_save_button = Button.new()
-	api_key_save_button.text = "保存密钥"
-	api_key_save_button.pressed.connect(_on_save_api_key)
-	api_key_save_button.disabled = true
-	container.add_child(api_key_save_button)
-	
-	# 状态标签
+	# 配置状态标签
 	api_key_status = Label.new()
 	api_key_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	api_key_status.add_theme_font_size_override("font_size", 11)
 	container.add_child(api_key_status)
 	
-	# 加载现有密钥
+	# 加载并显示配置状态
 	_load_api_key_display()
 	
 	# 分隔线
@@ -517,8 +495,8 @@ func _setup_ai_settings(container: VBoxContainer):
 	container.add_child(debug_button)
 
 func _load_api_key_display():
-	"""加载并显示 API 密钥状态"""
-	var key_path = "user://api_keys.json"
+	"""加载并显示 API 配置状态"""
+	var key_path = "user://ai_keys.json"
 	
 	if FileAccess.file_exists(key_path):
 		var file = FileAccess.open(key_path, FileAccess.READ)
@@ -527,17 +505,33 @@ func _load_api_key_display():
 		
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
-			var keys = json.data
-			var api_key = keys.get("openai_api_key", "")
-			if not api_key.is_empty():
-				# 显示部分密钥
-				var masked_key = _mask_api_key(api_key)
-				api_key_input.text = api_key
-				api_key_status.text = "✓ 已配置: " + masked_key
+			var config = json.data
+			var mode = config.get("mode", "")
+			
+			if mode == "simple" and config.has("api_key"):
+				var masked_key = _mask_api_key(config.api_key)
+				api_key_status.text = "✓ 已配置 (简单): " + masked_key
 				api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
-				
-				# 通知 AI 服务重新加载
-				_reload_ai_service()
+				return
+			elif mode == "detailed":
+				api_key_status.text = "✓ 已配置 (详细)"
+				api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+				return
+	
+	# 尝试从旧配置加载
+	var old_key_path = "user://api_keys.json"
+	if FileAccess.file_exists(old_key_path):
+		var file = FileAccess.open(old_key_path, FileAccess.READ)
+		var json_string = file.get_as_text()
+		file.close()
+		
+		var json = JSON.new()
+		if json.parse(json_string) == OK:
+			var keys = json.data
+			if keys.has("openai_api_key") and not keys.openai_api_key.is_empty():
+				var masked_key = _mask_api_key(keys.openai_api_key)
+				api_key_status.text = "✓ 已配置 (旧): " + masked_key
+				api_key_status.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
 				return
 	
 	api_key_status.text = "✗ 未配置"
@@ -549,55 +543,14 @@ func _mask_api_key(key: String) -> String:
 		return "***"
 	return key.substr(0, 7) + "..." + key.substr(key.length() - 4)
 
-func _on_api_key_changed(new_text: String):
-	"""API 密钥输入变化"""
-	api_key_save_button.disabled = new_text.strip_edges().is_empty()
-
-func _on_save_api_key():
-	"""保存 API 密钥"""
-	var api_key = api_key_input.text.strip_edges()
-	
-	if api_key.is_empty():
-		api_key_status.text = "✗ 密钥不能为空"
-		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
-		return
-	
-	# 简单验证格式
-	if not api_key.begins_with("sk-"):
-		api_key_status.text = "⚠ 密钥格式可能不正确"
-		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-	
-	# 保存到文件
-	var key_path = "user://api_keys.json"
-	var keys_data = {
-		"openai_api_key": api_key
-	}
-	
-	var file = FileAccess.open(key_path, FileAccess.WRITE)
-	if file == null:
-		api_key_status.text = "✗ 保存失败"
-		api_key_status.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
-		return
-	
-	file.store_string(JSON.stringify(keys_data, "\t"))
-	file.close()
-	
-	# 更新状态
-	var masked_key = _mask_api_key(api_key)
-	api_key_status.text = "✓ 已保存: " + masked_key
-	api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
-	
-	# 通知 AI 服务重新加载
-	_reload_ai_service()
-	
-	print("API 密钥已保存")
-
-func _reload_ai_service():
-	"""重新加载 AI 服务的 API 密钥"""
-	if has_node("/root/AIService"):
-		var ai_service = get_node("/root/AIService")
-		ai_service._load_api_key()
-		print("AI 服务已重新加载密钥")
+func _on_ai_config_pressed():
+	"""打开AI配置面板"""
+	var config_panel_scene = load("res://scenes/ai_config_panel.tscn")
+	if config_panel_scene:
+		var config_panel = config_panel_scene.instantiate()
+		get_tree().root.add_child(config_panel)
+		# 面板关闭后刷新状态显示
+		config_panel.tree_exited.connect(_load_api_key_display)
 
 func _load_user_name() -> String:
 	"""从存档系统加载用户名"""
