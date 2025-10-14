@@ -69,18 +69,9 @@ func _ready():
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
 
 func _input(event):
-	# 按 F12 打开存档调试面板（手机上可以用三指点击）
+	# 按 F12 打开存档调试面板
 	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
 		_show_save_debug_panel()
-	# 手机上：三指同时点击屏幕
-	elif event is InputEventScreenTouch and event.pressed:
-		var touch_count = 0
-		for i in range(10):
-			if Input.is_action_pressed("touch_%d" % i):
-				touch_count += 1
-		# 简化：检测多点触摸（实际上在移动设备上可以用手势）
-		# 这里我们用一个简单的方法：快速连续点击背景5次
-		pass
 
 func _load_initial_scene() -> String:
 	"""从存档加载初始场景，如果没有则返回默认场景"""
@@ -241,6 +232,12 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	current_scene = scene_id
 	current_weather = weather_id
 	current_time = time_id
+	
+	# 保存到 SaveManager
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_current_weather(weather_id)
+		save_mgr.set_current_time(time_id)
 	
 	var image_path = "res://assets/images/%s/%s/%s.png" % [scene_id, weather_id, time_id]
 	

@@ -185,6 +185,24 @@ func set_character_scene(scene_id: String):
 	save_data.character_data.current_scene = scene_id
 	_auto_save()
 
+func get_current_weather() -> String:
+	"""获取当前天气"""
+	return save_data.character_data.get("current_weather", "sunny")
+
+func set_current_weather(weather_id: String):
+	"""设置当前天气"""
+	save_data.character_data.current_weather = weather_id
+	_auto_save()
+
+func get_current_time() -> String:
+	"""获取当前时间段"""
+	return save_data.character_data.get("current_time", "day")
+
+func set_current_time(time_id: String):
+	"""设置当前时间段"""
+	save_data.character_data.current_time = time_id
+	_auto_save()
+
 func get_character_preset() -> Dictionary:
 	"""获取角色当前预设动作"""
 	return save_data.character_data.get("current_preset", {})

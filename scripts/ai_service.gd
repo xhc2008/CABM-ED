@@ -167,7 +167,7 @@ func _build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	var prompt = prompt_template.replace("{character_name}", character_name)
 	prompt = prompt.replace("{user_name}", user_name)
 	prompt = prompt.replace("{current_scene}", _get_scene_description(save_mgr.get_character_scene()))
-	prompt = prompt.replace("{current_weather}", "晴朗")  # 可以后续扩展
+	prompt = prompt.replace("{current_weather}", _get_weather_description(save_mgr.get_current_weather()))
 	prompt = prompt.replace("{memory_context}", memory_context)
 	prompt = prompt.replace("{moods}", moods)
 	prompt = prompt.replace("{trigger_context}", trigger_context)
@@ -220,6 +220,15 @@ func _get_scene_description(scene_id: String) -> String:
 		"livingroom": "客厅"
 	}
 	return scene_names.get(scene_id, "未知场景")
+
+func _get_weather_description(weather_id: String) -> String:
+	"""获取天气描述"""
+	var weather_names = {
+		"sunny": "晴天",
+		"rainy": "雨天",
+		"storm": "雷雨"
+	}
+	return weather_names.get(weather_id, "晴天")
 
 func _get_trigger_context(trigger_mode: String) -> String:
 	"""获取触发上下文文本"""
