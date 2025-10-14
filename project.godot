@@ -22,6 +22,7 @@ config/icon="res://icon.png"
 [autoload]
 
 SaveManager="*res://scripts/save_manager.gd"
+OfflineTimeManager="*res://scripts/offline_time_manager.gd"
 InteractionManager="*res://scripts/interaction_manager.gd"
 AIService="*res://scripts/ai_service.gd"
 EventHelpers="*res://scripts/event_helpers.gd"

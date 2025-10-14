@@ -21,7 +21,7 @@ var cooldowns: Dictionary = {}
 
 # 空闲计时器
 var idle_timer: Timer
-var idle_timeout: float = 300.0  # 5分钟
+var idle_timeout: float = 300.0 # 5分钟
 
 # 信号
 signal event_completed(event_name: String, result: EventResult)
@@ -219,7 +219,7 @@ func on_idle_timeout() -> EventResult:
 	"""事件：空闲超时（长时间无操作）"""
 	# 这个事件不重置空闲计时器
 	
-	# 长时间无操作，降低交互意愿
+	# 长时间无操作
 	var result = EventResult.new(true, "长时间无互动")
 	result.willingness_change = randi_range(0, 20)
 	

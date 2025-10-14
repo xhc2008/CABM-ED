@@ -97,12 +97,22 @@ func _on_auto_save_timeout():
 	save_game(current_slot)
 	print("自动保存完成")
 
-func save_game(slot: int = 1) -> bool:
-	"""保存游戏数据"""
+func save_game(slot: int = 1, update_play_time: bool = true) -> bool:
+	"""保存游戏数据
+	
+	参数:
+		slot: 存档槽位
+		update_play_time: 是否更新最后游玩时间（默认true）
+	"""
 	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
 	
 	# 更新时间戳
-	save_data.timestamp.last_saved_at = Time.get_datetime_string_from_system()
+	var now = Time.get_datetime_string_from_system()
+	var now_unix = Time.get_unix_time_from_system()
+	save_data.timestamp.last_saved_at = now
+	if update_play_time:
+		save_data.timestamp.last_played_at = now
+		save_data.timestamp.last_played_at_unix = now_unix
 	
 	# 转换为JSON
 	var json_string = JSON.stringify(save_data, "\t")
@@ -141,9 +151,11 @@ func load_game(slot: int = 1) -> bool:
 		print("存档不存在，使用默认数据: ", save_path)
 		# 初始化时间戳
 		var now = Time.get_datetime_string_from_system()
+		var now_unix = Time.get_unix_time_from_system()
 		save_data.timestamp.created_at = now
 		save_data.timestamp.last_saved_at = now
 		save_data.timestamp.last_played_at = now
+		save_data.timestamp.last_played_at_unix = now_unix
 		return false
 	
 	var file = FileAccess.open(save_path, FileAccess.READ)
@@ -167,8 +179,9 @@ func load_game(slot: int = 1) -> bool:
 	save_data = json.data
 	current_slot = slot
 	
-	# 更新最后游玩时间
-	save_data.timestamp.last_played_at = Time.get_datetime_string_from_system()
+	# 先检查离线时间变化（使用存档中的旧时间）
+	# 延迟调用以确保 OfflineTimeManager 已经加载
+	call_deferred("_check_offline_time")
 	
 	print("游戏已从槽位 ", slot, " 加载")
 	load_completed.emit(slot)
@@ -283,6 +296,18 @@ func add_play_time(seconds: float):
 	_auto_save()
 
 # === 内部方法 ===
+
+func _check_offline_time():
+	"""检查离线时间（延迟调用）"""
+	if has_node("/root/OfflineTimeManager"):
+		get_node("/root/OfflineTimeManager").check_and_apply_offline_changes()
+		
+		# 检查完离线时间后，更新最后游玩时间并保存
+		var now = Time.get_unix_time_from_system()
+		save_data.timestamp.last_played_at = Time.get_datetime_string_from_system()
+		save_data.timestamp.last_played_at_unix = now
+		# 保存时不再更新 last_played_at（因为我们刚刚手动更新了）
+		save_game(current_slot, false)
 
 func _auto_save():
 	"""数据变更时自动保存"""

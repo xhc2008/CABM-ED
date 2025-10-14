@@ -35,7 +35,8 @@
       "timestamp": {
         "created_at": "",
         "last_saved_at": "",
-        "last_played_at": ""
+        "last_played_at": "",
+        "last_played_at_unix": 0.0
       },
       "ai_data": {
         "memory": []
