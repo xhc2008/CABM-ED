@@ -21,7 +21,7 @@ var cooldowns: Dictionary = {}
 
 # 空闲计时器
 var idle_timer: Timer
-var idle_timeout: float = 300.0 # 5分钟
+var idle_timeout: float = 120.0 # 2分钟
 
 # 信号
 signal event_completed(event_name: String, result: EventResult)
@@ -166,7 +166,7 @@ func on_chat_turn_end() -> EventResult:
 	
 	# 这个事件不检查冷却，每轮都可以触发
 	
-	var base_willingness = 150
+	var base_willingness = 170
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
@@ -221,7 +221,7 @@ func on_idle_timeout() -> EventResult:
 	
 	# 长时间无操作
 	var result = EventResult.new(true, "长时间无互动")
-	result.willingness_change = randi_range(0, 20)
+	result.willingness_change = randi_range(0, 30)
 	
 	_apply_result(result)
 	event_completed.emit("idle_timeout", result)

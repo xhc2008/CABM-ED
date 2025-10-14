@@ -528,7 +528,7 @@ func _handle_reply_refusal(user_message: String, refusal_message: String):
 # 显示拒绝回复的提示消息
 func _show_refusal_message(message: String = ""):
 	var character_name = app_config.get("character_name", "角色")
-	var refusal_text = message if not message.is_empty() else (character_name + "似乎不想说话说话")
+	var refusal_text = message if not message.is_empty() else (character_name + "似乎不想说话")
 	
 	# 在message_label下方创建一个临时的红色提示标签
 	var refusal_label = Label.new()
