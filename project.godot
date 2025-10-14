@@ -15,7 +15,7 @@ window/keyboard_mode=1
 [application]
 
 config/name="CABM-ED"
-run/main_scene="res://scripts/main.tscn"
+run/main_scene="res://scenes/game_launcher.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.png"
 

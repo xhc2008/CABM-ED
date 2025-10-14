@@ -13,6 +13,7 @@ var auto_save_timer: Timer
 var is_auto_save_enabled: bool = true
 var auto_save_interval: float = 300.0 # 默认5分钟
 var enable_instant_save: bool = true # 启用即时保存
+var is_initial_setup_completed: bool = false # 初始设置是否完成
 
 signal save_completed(slot: int)
 signal load_completed(slot: int)
@@ -29,14 +30,30 @@ func _ready():
 	# 设置自动保存定时器
 	_setup_auto_save_timer()
 	
-	# 自动加载默认存档
-	load_game(current_slot)
+	# 检查是否存在存档
+	var has_save = _has_save_file()
+	
+	# 如果存在存档，则加载并标记初始设置已完成
+	if has_save:
+		load_game(current_slot)
+		is_initial_setup_completed = true
+	else:
+		# 首次启动，不加载存档，等待初始设置完成
+		print("首次启动，等待初始设置完成")
+		is_initial_setup_completed = false
+
+func _has_save_file() -> bool:
+	"""检查存档文件是否存在"""
+	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(current_slot) + SAVE_FILE_EXT
+	return FileAccess.file_exists(save_path)
 
 func _notification(what):
 	"""捕获窗口关闭事件"""
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		print("检测到窗口关闭，正在保存游戏...")
-		save_game(current_slot)
+		# 只有在初始设置完成后才保存
+		if is_initial_setup_completed:
+			print("检测到窗口关闭，正在保存游戏...")
+			save_game(current_slot)
 		# 等待保存完成后再退出
 		get_tree().quit()
 
@@ -94,8 +111,10 @@ func _setup_auto_save_timer():
 
 func _on_auto_save_timeout():
 	"""自动保存触发"""
-	save_game(current_slot)
-	print("自动保存完成")
+	# 只有在初始设置完成后才允许自动保存
+	if is_initial_setup_completed:
+		save_game(current_slot)
+		print("自动保存完成")
 
 func save_game(slot: int = 1, update_play_time: bool = true) -> bool:
 	"""保存游戏数据
@@ -311,5 +330,6 @@ func _check_offline_time():
 
 func _auto_save():
 	"""数据变更时自动保存"""
-	if enable_instant_save:
+	# 只有在初始设置完成后才允许自动保存
+	if enable_instant_save and is_initial_setup_completed:
 		save_game(current_slot)
