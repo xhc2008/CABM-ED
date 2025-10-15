@@ -180,11 +180,11 @@ func _convert_willingness_to_text(willingness: int) -> String:
 	elif percentage >= 0.6:
 		return "中，愿意交流"
 	elif percentage >= 0.4:
-		return "中，态度平常"
+		return "中，略显冷漠"
 	elif percentage >= 0.2:
-		return "中，略显冷淡"
+		return "中，比较冷淡"
 	else:
-		return "低，想独自呆着"
+		return "低，不想互动"
 
 func get_current_mood_name(mood_id: String) -> String:
 	"""获取当前心情的中文名称"""
@@ -256,8 +256,27 @@ func get_memory_context() -> String:
 	
 	var context_lines = []
 	for memory in memories:
-		var time_str = memory.timestamp.split("T")[1].substr(0, 5) # 提取 HH:MM
-		context_lines.append("[%s] %s" % [time_str, memory.content])
+		# timestamp 格式: "2024-01-15T14:30:00"
+		# 提取为 "MM-DD HH:MM" 格式
+		var timestamp_parts = memory.timestamp.split("T")
+		if timestamp_parts.size() >= 2:
+			var date_part = timestamp_parts[0] # "2024-01-15"
+			var time_part = timestamp_parts[1] # "14:30:00"
+			
+			var date_components = date_part.split("-")
+			var time_str = time_part.substr(0, 5) # "14:30"
+			
+			if date_components.size() >= 3:
+				var month = date_components[1]
+				var day = date_components[2]
+				var formatted_time = "%s-%s %s" % [month, day, time_str]
+				context_lines.append("[%s] %s" % [formatted_time, memory.content])
+			else:
+				# 如果日期格式不对，只显示时间
+				context_lines.append("[%s] %s" % [time_str, memory.content])
+		else:
+			# 如果时间戳格式不对，直接显示内容
+			context_lines.append("%s" % memory.content)
 	
 	return "\n".join(context_lines)
 
