@@ -85,10 +85,13 @@ func _ready():
 	# 等待自动加载节点准备好
 	await get_tree().process_frame
 	
-	# 监听数据变化
-	if has_node("/root/InteractionManager"):
-		var interaction_mgr = get_node("/root/InteractionManager")
-		interaction_mgr.willingness_changed.connect(_update_character_stats)
+	# 监听SaveManager的数据变化信号
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.affection_changed.connect(_update_character_stats)
+		save_mgr.willingness_changed.connect(_update_character_stats)
+		save_mgr.mood_changed.connect(_update_character_stats)
+		save_mgr.energy_changed.connect(_update_character_stats)
 	
 	# 监听AI服务的字段提取信号以实时更新
 	if has_node("/root/AIService"):
@@ -197,14 +200,14 @@ func _auto_adjust_time_period(hour: int):
 
 func _get_time_period_from_hour(hour: int) -> String:
 	# 7:00-17:59 = 白天 (day)
-	# 18:00-19:59 = 黄昏 (dusk)
+	# 17:00-18:59 = 黄昏 (dusk)
 	# 20:00-3:59 = 夜晚 (night)
 	# 4:00-6:59 (凌晨) = 黄昏 (dusk)
 	if hour >= 4 and hour < 7:
 		return "dusk" # 凌晨算作黄昏
-	elif hour >= 7 and hour < 18:
+	elif hour >= 7 and hour < 17:
 		return "day"
-	elif hour >= 18 and hour < 20:
+	elif hour >= 17 and hour < 19:
 		return "dusk"
 	else:
 		return "night"

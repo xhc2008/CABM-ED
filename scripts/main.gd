@@ -417,9 +417,51 @@ func _on_event_completed(event_name: String, result):
 	"""事件完成处理"""
 	if result.success:
 		print("事件成功: ", event_name)
+		
+		# 处理空闲超时事件的特殊情况
+		if event_name == "idle_timeout":
+			if result.message == "active":
+				# 触发主动聊天
+				_trigger_active_chat()
+			elif result.message == "chat_idle_timeout":
+				# 聊天状态下空闲超时，强制结束聊天
+				_force_end_chat()
 	else:
 		print("事件失败: ", event_name)
 		# 失败消息已在各个事件调用处处理
+
+func _trigger_active_chat():
+	"""触发角色主动聊天"""
+	# 检查角色是否在当前场景且可见
+	if not character.visible or character.is_chatting:
+		return
+	
+	# 检查是否在有角色的场景
+	if not _has_character_in_scene(current_scene):
+		return
+	
+	print("触发角色主动聊天")
+	character.start_chat()
+	chat_dialog.show_dialog("active")
+	# 禁用右侧点击区域
+	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _force_end_chat():
+	"""强制结束聊天（由于空闲超时）"""
+	if chat_dialog.visible:
+		print("聊天空闲超时，强制结束聊天")
+		
+		# 获取角色名称
+		var character_name = "角色"
+		if has_node("/root/EventHelpers"):
+			var helpers = get_node("/root/EventHelpers")
+			character_name = helpers.get_character_name()
+		
+		# 显示提示消息
+		_show_failure_message(character_name + "默默离开了")
+		
+		# 调用chat_dialog的正常结束流程（包括总结模型等）
+		chat_dialog._on_end_button_pressed()
 
 func _show_failure_message(message: String):
 	"""显示失败消息"""

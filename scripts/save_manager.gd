@@ -19,6 +19,10 @@ signal save_completed(slot: int)
 signal load_completed(slot: int)
 signal save_failed(slot: int, error: String)
 signal load_failed(slot: int, error: String)
+signal affection_changed(new_value: int)
+signal willingness_changed(new_value: int)
+signal mood_changed(new_value: String)
+signal energy_changed(new_value: int)
 
 func _ready():
 	# 确保保存目录存在
@@ -249,6 +253,7 @@ func get_affection() -> int:
 
 func set_affection(value: int):
 	save_data.character_data.affection = value
+	affection_changed.emit(value)
 	_auto_save()
 
 func get_reply_willingness() -> int:
@@ -256,6 +261,7 @@ func get_reply_willingness() -> int:
 
 func set_reply_willingness(value: int):
 	save_data.character_data.reply_willingness = clamp(value, 0, 100)
+	willingness_changed.emit(value)
 	_auto_save()
 
 func get_mood() -> String:
@@ -263,6 +269,7 @@ func get_mood() -> String:
 
 func set_mood(value: String):
 	save_data.character_data.mood = value
+	mood_changed.emit(value)
 	_auto_save()
 
 func get_energy() -> int:
@@ -270,6 +277,7 @@ func get_energy() -> int:
 
 func set_energy(value: int):
 	save_data.character_data.energy = clamp(value, 0, 100)
+	energy_changed.emit(value)
 	_auto_save()
 
 func get_trust_level() -> int:

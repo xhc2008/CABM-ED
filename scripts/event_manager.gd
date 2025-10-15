@@ -39,15 +39,20 @@ func _ready():
 func _setup_idle_timer():
 	"""设置空闲计时器"""
 	idle_timer = Timer.new()
-	idle_timer.wait_time = idle_timeout
+	idle_timer.wait_time = _get_random_idle_timeout()
 	idle_timer.one_shot = false
 	idle_timer.timeout.connect(on_idle_timeout)
 	add_child(idle_timer)
 	idle_timer.start()
 
+func _get_random_idle_timeout() -> float:
+	"""获取随机的空闲超时时间（60-180秒）"""
+	return randf_range(60.0, 180.0)
+
 func reset_idle_timer():
 	"""重置空闲计时器"""
 	if idle_timer:
+		idle_timer.wait_time = _get_random_idle_timeout()
 		idle_timer.start()
 
 # ========================================
@@ -217,15 +222,50 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 
 func on_idle_timeout() -> EventResult:
 	"""事件：空闲超时（长时间无操作）"""
-	# 这个事件不重置空闲计时器
+	# 这个事件不重置空闲计时器，但会设置新的随机超时时间
+	if idle_timer:
+		idle_timer.wait_time = _get_random_idle_timeout()
 	
-	# 长时间无操作
-	var result = EventResult.new(true, "长时间无互动")
-	result.willingness_change = randi_range(0, 30)
+	# 检查是否处于聊天状态
+	var is_in_chat = _is_chat_active()
+	
+	var result = EventResult.new(true)
+	
+	if is_in_chat:
+		# 处于聊天状态：长时间无操作视为结束聊天，降低好感
+		result.message = "chat_idle_timeout"
+		result.affection_change = randi_range(-5, -2)
+		result.willingness_change = randi_range(-10, -5)
+		print("聊天状态空闲超时：降低好感和回复意愿")
+	else:
+		# 处于非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
+		result.message = "idle_increase_willingness"
+		result.willingness_change = randi_range(10, 30)
+		print("非聊天状态空闲超时：提高回复意愿")
+		
+		# 尝试触发主动聊天
+		var base_willingness = 80
+		var success_chance = helpers.calculate_success_chance(base_willingness)
+		if randf() < success_chance:
+			result.message = "active" # 触发主动聊天
+			print("空闲超时触发主动聊天")
 	
 	_apply_result(result)
 	event_completed.emit("idle_timeout", result)
 	return result
+
+func _is_chat_active() -> bool:
+	"""检查聊天对话框是否处于活动状态"""
+	# 尝试获取主场景中的聊天对话框
+	var main_scene = get_tree().root.get_node_or_null("Main")
+	if main_scene == null:
+		return false
+	
+	var chat_dialog = main_scene.get_node_or_null("ChatDialog")
+	if chat_dialog == null:
+		return false
+	
+	return chat_dialog.visible
 
 # ========================================
 # 冷却管理
