@@ -259,7 +259,7 @@ func on_idle_timeout() -> EventResult:
 		print("非聊天状态空闲超时：提高回复意愿")
 		
 		# 尝试触发主动聊天
-		var base_willingness = 80
+		var base_willingness = 60
 		var success_chance = helpers.calculate_success_chance(base_willingness)
 		if randf() < success_chance:
 			result.message = "active" # 触发主动聊天

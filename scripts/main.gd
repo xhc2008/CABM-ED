@@ -273,18 +273,21 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	# 记录旧场景
 	var old_scene = current_scene
 	
+	# 检查场景是否真的改变了
+	var scene_actually_changed = (old_scene != scene_id)
+	
 	# 检查是否离开有角色的场景
-	if _has_character_in_scene(old_scene) and old_scene != scene_id:
+	if scene_actually_changed and _has_character_in_scene(old_scene):
 		_try_scene_interaction("leave_scene")
 	
-	# 加载新场景
+	# 加载新场景（或更新天气/时间）
 	load_scene(scene_id, weather_id, time_id)
 	
 	# 等待场景加载完成
 	await get_tree().process_frame
 	
-	# 检查是否进入有角色的场景
-	if _has_character_in_scene(scene_id):
+	# 只有在场景真正改变时，才检查是否进入有角色的场景
+	if scene_actually_changed and _has_character_in_scene(scene_id):
 		_try_scene_interaction("enter_scene")
 
 func _on_scene_menu_selected(scene_id: String):
