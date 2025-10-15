@@ -221,26 +221,41 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 	return result
 
 func on_idle_timeout() -> EventResult:
-	"""事件：空闲超时（长时间无操作）"""
+	"""事件：空闲超时（长时间无操作）
+	
+	分四种情况处理：
+	1. 等待点击继续：自动继续，进入输入状态
+	2. 等待用户输入：长时间无操作视为结束聊天，降低好感
+	3. 聊天中但不需要用户操作（AI正在回复等）：不做任何操作
+	4. 非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
+	"""
 	# 这个事件不重置空闲计时器，但会设置新的随机超时时间
 	if idle_timer:
 		idle_timer.wait_time = _get_random_idle_timeout()
 	
-	# 检查是否处于聊天状态
-	var is_in_chat = _is_chat_active()
+	# 获取聊天状态
+	var chat_state = _get_chat_state()
 	
 	var result = EventResult.new(true)
 	
-	if is_in_chat:
-		# 处于聊天状态：长时间无操作视为结束聊天，降低好感
+	if chat_state == "waiting_continue":
+		# 等待点击继续：自动继续
+		result.message = "auto_continue"
+		print("等待继续时空闲超时：自动继续")
+	elif chat_state == "waiting_input":
+		# 等待用户输入期间：长时间无操作视为结束聊天，降低好感
 		result.message = "chat_idle_timeout"
 		result.affection_change = randi_range(-5, -2)
 		result.willingness_change = randi_range(-10, -5)
-		print("聊天状态空闲超时：降低好感和回复意愿")
+		print("等待用户输入时空闲超时：降低好感和回复意愿")
+	elif chat_state == "chatting":
+		# 聊天中但不需要用户操作（AI正在回复等）：不做任何操作
+		result.message = "no_action"
+		print("聊天中但不需要用户操作，空闲超时不做任何操作")
 	else:
-		# 处于非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
+		# 非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
 		result.message = "idle_increase_willingness"
-		result.willingness_change = randi_range(10, 30)
+		result.willingness_change = randi_range(5, 15)
 		print("非聊天状态空闲超时：提高回复意愿")
 		
 		# 尝试触发主动聊天
@@ -254,18 +269,37 @@ func on_idle_timeout() -> EventResult:
 	event_completed.emit("idle_timeout", result)
 	return result
 
-func _is_chat_active() -> bool:
-	"""检查聊天对话框是否处于活动状态"""
+func _get_chat_state() -> String:
+	"""获取聊天状态
+	
+	返回值：
+	- "waiting_continue": 等待用户点击继续（角色回复完成）
+	- "waiting_input": 等待用户输入消息
+	- "chatting": 聊天中但不需要用户操作（AI正在回复、打字动画等）
+	- "idle": 非聊天状态（聊天框不可见）
+	"""
 	# 尝试获取主场景中的聊天对话框
 	var main_scene = get_tree().root.get_node_or_null("Main")
 	if main_scene == null:
-		return false
+		return "idle"
 	
 	var chat_dialog = main_scene.get_node_or_null("ChatDialog")
 	if chat_dialog == null:
-		return false
+		return "idle"
 	
-	return chat_dialog.visible
+	if not chat_dialog.visible:
+		return "idle"
+	
+	# 聊天框可见，检查具体状态
+	if chat_dialog.waiting_for_continue:
+		# 等待点击继续（优先级最高）
+		return "waiting_continue"
+	elif chat_dialog.is_input_mode:
+		# 等待用户输入消息
+		return "waiting_input"
+	else:
+		# AI正在回复或打字动画进行中
+		return "chatting"
 
 # ========================================
 # 冷却管理

@@ -288,6 +288,14 @@ func show_dialog(mode: String = "passive"):
 func hide_dialog():
 	pivot_offset = size / 2.0
 	
+	# 停止所有正在进行的动画和计时器
+	if typing_timer and typing_timer.time_left > 0:
+		typing_timer.stop()
+	
+	# 隐藏继续指示器
+	if continue_indicator:
+		continue_indicator.visible = false
+	
 	# 收起动画
 	var tween = create_tween()
 	tween.set_parallel(true)
@@ -297,14 +305,30 @@ func hide_dialog():
 	await tween.finished
 	visible = false
 	
-	# 重置为输入模式
+	# 重置所有状态标志
+	is_receiving_stream = false
+	waiting_for_continue = false
+	
+	# 重置为输入模式（这会重置UI和高度）
 	_setup_input_mode()
 
 func _on_end_button_pressed():
-	# 结束聊天时调用总结
+	# 获取对话轮数
+	var turn_count = 0
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
+		# 计算对话轮数（用户消息数量）
+		for msg in ai_service.current_conversation:
+			if msg.role == "user":
+				turn_count += 1
+		
+		# 结束聊天时调用总结
 		ai_service.end_chat()
+	
+	# 调用事件管理器的对话结束事件
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.on_chat_session_end(turn_count)
 	
 	hide_dialog()
 	await get_tree().create_timer(0.3).timeout
@@ -476,6 +500,11 @@ func _show_continue_indicator():
 	waiting_for_continue = true
 	continue_indicator.visible = true
 	continue_indicator.modulate.a = 0.0
+	
+	# 角色回复完成，重置空闲计时器
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.reset_idle_timer()
 	
 	# 淡入动画
 	var fade_tween = create_tween()

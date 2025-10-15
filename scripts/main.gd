@@ -423,8 +423,11 @@ func _on_event_completed(event_name: String, result):
 			if result.message == "active":
 				# 触发主动聊天
 				_trigger_active_chat()
+			elif result.message == "auto_continue":
+				# 等待继续时超时，自动继续
+				_auto_continue_chat()
 			elif result.message == "chat_idle_timeout":
-				# 聊天状态下空闲超时，强制结束聊天
+				# 等待输入时超时，强制结束聊天
 				_force_end_chat()
 	else:
 		print("事件失败: ", event_name)
@@ -445,6 +448,13 @@ func _trigger_active_chat():
 	chat_dialog.show_dialog("active")
 	# 禁用右侧点击区域
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _auto_continue_chat():
+	"""自动继续聊天（等待继续时超时）"""
+	if chat_dialog.visible and chat_dialog.waiting_for_continue:
+		print("等待继续时超时，自动继续")
+		# 调用聊天框的继续点击处理
+		chat_dialog._on_continue_clicked()
 
 func _force_end_chat():
 	"""强制结束聊天（由于空闲超时）"""
