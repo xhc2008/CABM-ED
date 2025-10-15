@@ -175,12 +175,16 @@ func _convert_willingness_to_text(willingness: int) -> String:
 	"""将回复意愿数值转换为描述文本"""
 	# TODO: 根据需要自定义回复意愿描述
 	var percentage = float(willingness) / 100.0
-	if percentage >= 0.7:
-		return "高"
-	elif percentage >= 0.3:
-		return "中"
+	if percentage >= 0.8:
+		return "高，乐意交流"
+	elif percentage >= 0.6:
+		return "中，愿意交流"
+	elif percentage >= 0.4:
+		return "中，态度平常"
+	elif percentage >= 0.2:
+		return "中，略显冷淡"
 	else:
-		return "低，"
+		return "低，想独自呆着"
 
 func get_current_mood_name(mood_id: String) -> String:
 	"""获取当前心情的中文名称"""
