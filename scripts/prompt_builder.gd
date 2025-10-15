@@ -55,9 +55,9 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	var affection = save_mgr.get_affection()
 	var interaction_will = save_mgr.get_reply_willingness()
 	
-	# 转换为"高/中/低"
-	var affection_level = _convert_to_level(affection, 100)
-	var interaction_level = _convert_to_level(interaction_will, 150)
+	# 转换为描述文本
+	var affection_level = _convert_affection_to_text(affection)
+	var interaction_level = _convert_willingness_to_text(interaction_will)
 	
 	# 获取当前心情的文字描述
 	var current_mood = get_current_mood_name(save_mgr.get_mood())
@@ -121,30 +121,66 @@ func _load_app_config() -> Dictionary:
 	return {}
 
 func _get_scene_description(scene_id: String) -> String:
-	"""获取场景描述"""
-	var scene_names = {
-		"livingroom": "客厅"
-	}
-	return scene_names.get(scene_id, "未知场景")
+	"""获取场景描述（从配置文件读取）"""
+	var scenes_config = _load_scenes_config()
+	if scenes_config.has("scenes") and scenes_config.scenes.has(scene_id):
+		return scenes_config.scenes[scene_id].get("name", "未知场景")
+	return "未知场景"
 
 func _get_weather_description(weather_id: String) -> String:
-	"""获取天气描述"""
-	var weather_names = {
-		"sunny": "晴天",
-		"rainy": "雨天",
-		"storm": "雷雨"
-	}
-	return weather_names.get(weather_id, "晴天")
+	"""获取天气描述（从配置文件读取）"""
+	var save_mgr = get_node("/root/SaveManager")
+	var current_scene = save_mgr.get_character_scene()
+	
+	var scenes_config = _load_scenes_config()
+	if scenes_config.has("scenes") and scenes_config.scenes.has(current_scene):
+		var scene = scenes_config.scenes[current_scene]
+		if scene.has("weathers") and scene.weathers.has(weather_id):
+			return scene.weathers[weather_id]
+	
+	# 如果找不到，返回默认值
+	return "晴天"
 
-func _convert_to_level(value: int, max_value: int) -> String:
-	"""将数值转换为"高/中/低"等级"""
-	var percentage = float(value) / float(max_value)
+func _load_scenes_config() -> Dictionary:
+	"""加载场景配置"""
+	var config_path = "res://config/scenes.json"
+	if not FileAccess.file_exists(config_path):
+		return {}
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) == OK:
+		return json.data
+	return {}
+
+func _convert_affection_to_text(affection: int) -> String:
+	"""将好感度数值转换为描述文本"""
+	# TODO: 根据需要自定义好感度描述
+	var percentage = float(affection) / 100.0
+	if percentage >= 0.8:
+		return "高，愿意进行亲密互动"
+	elif percentage >= 0.6:
+		return "高"
+	elif percentage >= 0.4:
+		return "中"
+	elif percentage >= 0.2:
+		return "低"
+	else:
+		return "低，有些反感"
+
+func _convert_willingness_to_text(willingness: int) -> String:
+	"""将回复意愿数值转换为描述文本"""
+	# TODO: 根据需要自定义回复意愿描述
+	var percentage = float(willingness) / 100.0
 	if percentage >= 0.7:
 		return "高"
 	elif percentage >= 0.3:
 		return "中"
 	else:
-		return "低"
+		return "低，"
 
 func get_current_mood_name(mood_id: String) -> String:
 	"""获取当前心情的中文名称"""
@@ -216,7 +252,7 @@ func get_memory_context() -> String:
 	
 	var context_lines = []
 	for memory in memories:
-		var time_str = memory.timestamp.split("T")[1].substr(0, 5)  # 提取 HH:MM
+		var time_str = memory.timestamp.split("T")[1].substr(0, 5) # 提取 HH:MM
 		context_lines.append("[%s] %s" % [time_str, memory.content])
 	
 	return "\n".join(context_lines)
