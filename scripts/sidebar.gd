@@ -260,14 +260,16 @@ func _build_scene_list():
 	
 	var scene_data = scenes[current_scene_id]
 	
-	# 场景标题
+	# 场景标题（隐藏）
 	var scene_label = Label.new()
 	scene_label.text = "当前场景: " + scene_data["name"]
 	scene_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scene_label.visible = false # 隐藏调试元素
 	scene_list.add_child(scene_label)
 	
-	# 分隔线
+	# 分隔线（隐藏）
 	var separator1 = HSeparator.new()
+	separator1.visible = false # 隐藏调试元素
 	scene_list.add_child(separator1)
 	
 	# 时间按钮组（隐藏）

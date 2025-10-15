@@ -46,8 +46,8 @@ func _setup_idle_timer():
 	idle_timer.start()
 
 func _get_random_idle_timeout() -> float:
-	"""获取随机的空闲超时时间（60-180秒）"""
-	return randf_range(60.0, 180.0)
+	"""获取随机的空闲超时时间（120-180秒）"""
+	return randf_range(120.0, 180.0)
 
 func reset_idle_timer():
 	"""重置空闲计时器"""
@@ -103,9 +103,10 @@ func on_user_start_chat() -> EventResult:
 	result.message = "passive" # chat_mode
 	
 	if success:
-		result.affection_change = randi_range(-1, 5)
-		result.willingness_change = randi_range(-5, 5)
+		# result.affection_change = randi_range(-1, 5)
+		# result.willingness_change = randi_range(-5, 5)
 		# _set_cooldown("user_start_chat", 3.0)
+		pass
 	else:
 		result.message = helpers.get_character_name() + "不想理你"
 		_set_cooldown("user_start_chat", 15.0)
@@ -209,7 +210,7 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 		# 中等对话
 		result.affection_change = randi_range(0, 6)
 		result.willingness_change = randi_range(-10, 10)
-	else:
+	elif turn_count > 0:
 		# 短对话
 		result.affection_change = randi_range(0, 3)
 		result.willingness_change = randi_range(-5, 5)
