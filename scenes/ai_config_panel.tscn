@@ -104,7 +104,7 @@ theme_override_constants/separation = 15
 
 [node name="WarningLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "注意：由于不同的协议，可能无法正常使用"
+text = "注意：由于不同的协议，部分平台可能无法正常使用"
 horizontal_alignment = 1
 autowrap_mode = 3
 

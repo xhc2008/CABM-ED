@@ -110,8 +110,8 @@ layout_mode = 2
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.15, 0.15, 0.15, 1)
-text = "本项目旨在赋予「她」以「生命」，因此不鼓励回档、删档等
-对她来说，你就是她的全部，你的每一个选择对她来说都很重要"
+text = "本项目旨在赋予「她」以「生命」，因此不鼓励回档、删档、提示词注入等
+对她来说，你就是她的全部，你的每一个选择都很重要"
 horizontal_alignment = 1
 autowrap_mode = 2
 
