@@ -63,7 +63,7 @@ func on_character_clicked() -> EventResult:
 		return EventResult.new(false, helpers.get_character_name() + "似乎没注意到你")
 	
 	# 计算成功率
-	var base_willingness = 170
+	var base_willingness = 200
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
@@ -90,7 +90,7 @@ func on_user_start_chat() -> EventResult:
 	if is_on_cooldown("user_start_chat"):
 		return EventResult.new(false, helpers.get_character_name() + "不想理你")
 	
-	var base_willingness = 120
+	var base_willingness = 150
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	var success = randf() < success_chance
 	
