@@ -109,9 +109,10 @@ func _setup_clock_and_auto():
 	clock_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0))
 	header_container.add_child(clock_label)
 	
-	# 自动时间勾选框
+	# 自动时间勾选框（隐藏）
 	var auto_container = HBoxContainer.new()
 	auto_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	auto_container.visible = false # 隐藏调试元素
 	auto_checkbox = CheckBox.new()
 	auto_checkbox.text = "自动调整时间"
 	auto_checkbox.button_pressed = true # 默认勾选
@@ -123,11 +124,12 @@ func _setup_clock_and_auto():
 	var separator1 = HSeparator.new()
 	header_container.add_child(separator1)
 	
-	# 用户名编辑
+	# 用户名编辑（隐藏）
 	var user_name_label = Label.new()
 	user_name_label.text = "用户名:"
 	user_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	user_name_label.add_theme_color_override("font_color", Color(0.5, 0.9, 1.0))
+	user_name_label.visible = false # 隐藏调试元素
 	header_container.add_child(user_name_label)
 	
 	user_name_input = LineEdit.new()
@@ -135,10 +137,12 @@ func _setup_clock_and_auto():
 	user_name_input.placeholder_text = "输入用户名"
 	user_name_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	user_name_input.text_changed.connect(_on_user_name_changed)
+	user_name_input.visible = false # 隐藏调试元素
 	header_container.add_child(user_name_input)
 	
-	# 分隔线
+	# 分隔线（隐藏）
 	var separator_user = HSeparator.new()
+	separator_user.visible = false # 隐藏调试元素
 	header_container.add_child(separator_user)
 	
 	# 角色数据显示
@@ -266,15 +270,17 @@ func _build_scene_list():
 	var separator1 = HSeparator.new()
 	scene_list.add_child(separator1)
 	
-	# 时间按钮组
+	# 时间按钮组（隐藏）
 	if scene_data.has("times"):
 		var time_label = Label.new()
 		time_label.text = "时间"
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		time_label.visible = false # 隐藏调试元素
 		scene_list.add_child(time_label)
 		
 		var time_container = VBoxContainer.new()
 		time_container.add_theme_constant_override("separation", 5)
+		time_container.visible = false # 隐藏调试元素
 		for time_id in scene_data["times"]:
 			var time_name = scene_data["times"][time_id]
 			var button = Button.new()
@@ -491,10 +497,11 @@ func _setup_ai_settings(container: VBoxContainer):
 	var separator3 = HSeparator.new()
 	container.add_child(separator3)
 	
-	# 存档调试按钮
+	# 存档调试按钮（隐藏）
 	var debug_button = Button.new()
 	debug_button.text = "存档调试"
 	debug_button.pressed.connect(_on_debug_save_pressed)
+	debug_button.visible = false # 隐藏调试元素
 	container.add_child(debug_button)
 
 func _load_api_key_display():
