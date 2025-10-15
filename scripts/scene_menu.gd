@@ -41,6 +41,13 @@ func show_menu(at_position: Vector2):
 	position = at_position
 	
 	visible = true
+	
+	# 强制更新布局和尺寸
+	vbox.reset_size()
+	await get_tree().process_frame
+	custom_minimum_size = vbox.size + Vector2(20, 20)
+	reset_size()
+	
 	pivot_offset = size / 2.0
 	
 	# 展开动画

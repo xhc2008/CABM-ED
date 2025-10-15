@@ -6,10 +6,10 @@ func _ready():
 	# 检查存档是否存在
 	if _has_save_file():
 		print("检测到存档，直接进入游戏")
-		_load_main_game()
+		_load_main_game.call_deferred()
 	else:
 		print("首次进入游戏，播放开场动画")
-		_load_intro_story()
+		_load_intro_story.call_deferred()
 
 func _has_save_file() -> bool:
 	"""检查是否存在存档文件"""
