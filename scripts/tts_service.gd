@@ -113,6 +113,14 @@ func _load_tts_settings():
 				print("API密钥已加载: ", api_key.substr(0, 10) + "...")
 			else:
 				print("警告: 未找到API密钥")
+	else:
+		print("警告: AI配置文件不存在")
+	
+	# 最终状态总结
+	print("=== TTS设置加载完成 ===")
+	print("API密钥: %s" % ("已配置" if not api_key.is_empty() else "未配置"))
+	print("启用状态: %s" % is_enabled)
+	print("音量: %.2f" % volume)
 
 func save_tts_settings():
 	"""保存TTS设置"""
@@ -160,8 +168,12 @@ func _save_voice_cache():
 
 func upload_reference_audio():
 	"""上传参考音频"""
+	print("=== 开始上传参考音频 ===")
+	
 	if api_key.is_empty():
-		push_error("TTS API密钥未配置")
+		var error_msg = "TTS API密钥未配置"
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 		return
 	
 	var ref_audio_path = "res://assets/audio/ref.wav"
@@ -169,11 +181,15 @@ func upload_reference_audio():
 	
 	# 检查文件是否存在
 	if not FileAccess.file_exists(ref_audio_path):
-		push_error("参考音频文件不存在: " + ref_audio_path)
+		var error_msg = "参考音频文件不存在: " + ref_audio_path
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 		return
 	
 	if not FileAccess.file_exists(ref_text_path):
-		push_error("参考文本文件不存在: " + ref_text_path)
+		var error_msg = "参考文本文件不存在: " + ref_text_path
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 		return
 	
 	# 读取参考文本
@@ -226,29 +242,43 @@ func upload_reference_audio():
 
 func _on_upload_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""上传完成回调"""
+	print("=== 参考音频上传完成 ===")
+	print("result: %d, response_code: %d, body_size: %d" % [result, response_code, body.size()])
+	
 	if result != HTTPRequest.RESULT_SUCCESS:
-		tts_error.emit("上传失败: " + str(result))
+		var error_msg = "上传失败: " + str(result)
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 		return
 	
 	if response_code != 200:
 		var error_text = body.get_string_from_utf8()
-		tts_error.emit("上传错误 (%d): %s" % [response_code, error_text])
+		var error_msg = "上传错误 (%d): %s" % [response_code, error_text]
+		push_error(error_msg)
+		print("错误详情: ", error_text)
+		tts_error.emit(error_msg)
 		return
 	
 	var response_text = body.get_string_from_utf8()
+	print("上传响应: ", response_text)
+	
 	var json = JSON.new()
 	if json.parse(response_text) != OK:
-		tts_error.emit("解析上传响应失败")
+		var error_msg = "解析上传响应失败: " + json.get_error_message()
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 		return
 	
 	var response = json.data
 	if response.has("uri"):
 		voice_uri = response.uri
-		print("声音URI获取成功: ", voice_uri)
+		print("✓ 声音URI获取成功: ", voice_uri)
 		_save_voice_cache()
 		voice_ready.emit(voice_uri)
 	else:
-		tts_error.emit("响应中没有URI字段")
+		var error_msg = "响应中没有URI字段，响应内容: " + response_text
+		push_error(error_msg)
+		tts_error.emit(error_msg)
 
 func synthesize_speech(text: String):
 	"""合成语音（并发请求）"""

@@ -96,6 +96,12 @@ func _save_api_key(api_key: String):
 			var ai_service = get_node("/root/AIService")
 			ai_service._load_api_key()
 			print("AI服务已重新加载配置")
+		
+		# 重新加载TTS服务配置
+		if has_node("/root/TTSService"):
+			var tts_service = get_node("/root/TTSService")
+			tts_service._load_tts_settings()
+			print("TTS服务已重新加载配置")
 
 func _create_initial_save(user_name: String, character_name: String):
 	"""创建初始存档"""

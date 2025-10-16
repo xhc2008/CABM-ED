@@ -130,6 +130,8 @@ func _on_quick_save_pressed():
 	if _save_config(config):
 		_update_quick_status(true, "已保存: " + _mask_key(api_key))
 		_reload_ai_service()
+		_reload_tts_service() # 重新加载TTS服务
+		_load_voice_settings() # 刷新声音设置显示
 	else:
 		_update_quick_status(false, "保存失败")
 
@@ -227,17 +229,27 @@ func _load_voice_settings():
 	voice_volume_slider.value = tts.volume
 	_update_voice_volume_label(tts.volume)
 	
+	# 连接信号（如果还没连接）
+	if not tts.voice_ready.is_connected(_on_voice_ready):
+		tts.voice_ready.connect(_on_voice_ready)
+	if not tts.tts_error.is_connected(_on_tts_error):
+		tts.tts_error.connect(_on_tts_error)
+	
 	# 检查配置状态
-	if tts.api_key.is_empty():
+	if not tts.is_enabled:
+		# 未启用
+		voice_status_label.text = "TTS已禁用"
+		voice_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	elif tts.api_key.is_empty():
+		# 已启用但API密钥未配置
 		voice_status_label.text = "⚠ 请先配置API密钥"
 		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
 	elif tts.voice_uri.is_empty():
+		# 已启用，有密钥，但声音URI未准备好
 		voice_status_label.text = "⏳ 正在准备声音..."
 		voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
-		# 连接voice_ready信号
-		if not tts.voice_ready.is_connected(_on_voice_ready):
-			tts.voice_ready.connect(_on_voice_ready)
 	else:
+		# 已启用且已就绪
 		voice_status_label.text = "✓ TTS已就绪"
 		voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
@@ -276,6 +288,13 @@ func _update_voice_volume_label(value: float):
 func _on_voice_ready(_voice_uri: String):
 	"""声音准备完成"""
 	voice_status_label.text = "✓ TTS已就绪"
+	voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+
+func _on_tts_error(error_message: String):
+	"""TTS错误"""
+	voice_status_label.text = "✗ " + error_message
+	voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	push_error("TTS错误: " + error_message)
 	voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
 func _mask_key(key: String) -> String:
