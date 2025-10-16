@@ -56,10 +56,10 @@ func _on_enable_toggled(enabled: bool):
 	tts.set_enabled(enabled)
 	
 	if enabled:
-		status_label.text = "✓ 语音合成已启用"
+		status_label.text = "✓ TTS已启用"
 		status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 	else:
-		status_label.text = "语音合成已禁用"
+		status_label.text = "TTS已禁用"
 		status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 
 func _on_volume_changed(value: float):

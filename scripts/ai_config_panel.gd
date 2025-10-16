@@ -238,7 +238,7 @@ func _load_voice_settings():
 		if not tts.voice_ready.is_connected(_on_voice_ready):
 			tts.voice_ready.connect(_on_voice_ready)
 	else:
-		voice_status_label.text = "✓ 声音已准备好"
+		voice_status_label.text = "✓ TTS已就绪"
 		voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
 func _on_voice_enable_toggled(enabled: bool):
@@ -250,14 +250,14 @@ func _on_voice_enable_toggled(enabled: bool):
 	tts.set_enabled(enabled)
 	
 	if enabled:
-		voice_status_label.text = "✓ 语音合成已启用"
+		voice_status_label.text = "✓ TTS已启用"
 		voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 		# 如果voice_uri为空，会自动上传
 		if tts.voice_uri.is_empty():
 			voice_status_label.text = "⏳ 正在上传参考音频..."
 			voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
 	else:
-		voice_status_label.text = "语音合成已禁用"
+		voice_status_label.text = "TTS已禁用"
 		voice_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 
 func _on_voice_volume_changed(value: float):
@@ -275,7 +275,7 @@ func _update_voice_volume_label(value: float):
 
 func _on_voice_ready(_voice_uri: String):
 	"""声音准备完成"""
-	voice_status_label.text = "✓ 声音已准备好"
+	voice_status_label.text = "✓ TTS已就绪"
 	voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
 func _mask_key(key: String) -> String:
