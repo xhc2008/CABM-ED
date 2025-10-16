@@ -380,7 +380,7 @@ func _on_ai_error(error_message: String):
 	print("AI 错误: ", error_message)
 	is_receiving_stream = false
 	# 显示错误消息
-	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...")
+	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息："+error_message)
 
 func _on_send_button_pressed():
 	_on_input_submitted(input_field.text)

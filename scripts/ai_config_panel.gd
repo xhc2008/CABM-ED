@@ -23,13 +23,22 @@ extends Panel
 @onready var detail_save_button = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailSaveButton
 @onready var detail_status_label = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailStatusLabel
 
+# 声音设置
+@onready var voice_enable_checkbox = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / EnableContainer / EnableCheckBox
+@onready var voice_volume_slider = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / VolumeContainer / VolumeSlider
+@onready var voice_volume_label = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / VolumeContainer / VolumeValueLabel
+@onready var voice_status_label = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / StatusLabel
+
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
 	quick_save_button.pressed.connect(_on_quick_save_pressed)
 	detail_save_button.pressed.connect(_on_detail_save_pressed)
+	voice_enable_checkbox.toggled.connect(_on_voice_enable_toggled)
+	voice_volume_slider.value_changed.connect(_on_voice_volume_changed)
 	
 	# 加载现有配置
 	_load_existing_config()
+	_load_voice_settings()
 
 func _load_existing_config():
 	"""加载现有的AI配置"""
@@ -202,6 +211,72 @@ func _reload_tts_service():
 		var tts_service = get_node("/root/TTSService")
 		tts_service._load_tts_settings()
 		print("TTS服务已重新加载配置")
+
+# === 声音设置相关 ===
+
+func _load_voice_settings():
+	"""加载声音设置"""
+	if not has_node("/root/TTSService"):
+		voice_status_label.text = "TTS服务未加载"
+		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		return
+	
+	var tts = get_node("/root/TTSService")
+	
+	voice_enable_checkbox.button_pressed = tts.is_enabled
+	voice_volume_slider.value = tts.volume
+	_update_voice_volume_label(tts.volume)
+	
+	# 检查配置状态
+	if tts.api_key.is_empty():
+		voice_status_label.text = "⚠ 请先配置API密钥"
+		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	elif tts.voice_uri.is_empty():
+		voice_status_label.text = "⏳ 正在准备声音..."
+		voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+		# 连接voice_ready信号
+		if not tts.voice_ready.is_connected(_on_voice_ready):
+			tts.voice_ready.connect(_on_voice_ready)
+	else:
+		voice_status_label.text = "✓ 声音已准备好"
+		voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+
+func _on_voice_enable_toggled(enabled: bool):
+	"""启用/禁用TTS"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	tts.set_enabled(enabled)
+	
+	if enabled:
+		voice_status_label.text = "✓ 语音合成已启用"
+		voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		# 如果voice_uri为空，会自动上传
+		if tts.voice_uri.is_empty():
+			voice_status_label.text = "⏳ 正在上传参考音频..."
+			voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+	else:
+		voice_status_label.text = "语音合成已禁用"
+		voice_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+
+func _on_voice_volume_changed(value: float):
+	"""音量改变"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	tts.set_volume(value)
+	_update_voice_volume_label(value)
+
+func _update_voice_volume_label(value: float):
+	"""更新音量显示"""
+	voice_volume_label.text = "%d%%" % int(value * 100)
+
+func _on_voice_ready(_voice_uri: String):
+	"""声音准备完成"""
+	voice_status_label.text = "✓ 声音已准备好"
+	voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
 func _mask_key(key: String) -> String:
 	"""遮蔽密钥显示"""
