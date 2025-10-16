@@ -62,33 +62,67 @@ func get_energy_modifier() -> float:
 	else:
 		return -0.30
 
+# === 边界常量 ===
+const AFFECTION_MIN = 0
+const AFFECTION_MAX = 100
+const WILLINGNESS_MIN = 0
+const WILLINGNESS_MAX = 100  # 回复意愿上限为100
+const ENERGY_MIN = 0
+const ENERGY_MAX = 100
+
 # === 数值修改 ===
 
 func modify_affection(change: int):
-	"""修改好感度"""
+	"""修改好感度（带边界控制）"""
 	if not has_node("/root/SaveManager"):
 		return
 	
 	var save_mgr = get_node("/root/SaveManager")
 	var current = save_mgr.get_affection()
-	var new_value = clamp(current + change, 0, 100)
+	var new_value = clamp(current + change, AFFECTION_MIN, AFFECTION_MAX)
 	save_mgr.set_affection(new_value)
 	
 	if change != 0:
 		print("好感度变化: %d -> %d (%+d)" % [current, new_value, change])
 
 func modify_willingness(change: int):
-	"""修改交互意愿"""
+	"""修改交互意愿（带边界控制）"""
 	if not has_node("/root/SaveManager"):
 		return
 	
 	var save_mgr = get_node("/root/SaveManager")
 	var current = save_mgr.get_reply_willingness()
-	var new_value = clamp(current + change, 0, 100)
+	var new_value = clamp(current + change, WILLINGNESS_MIN, WILLINGNESS_MAX)
 	save_mgr.set_reply_willingness(new_value)
 	
 	if change != 0:
 		print("交互意愿变化: %d -> %d (%+d)" % [current, new_value, change])
+
+func set_affection_safe(value: int):
+	"""安全设置好感度（带边界控制）"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var current = save_mgr.get_affection()
+	var new_value = clamp(value, AFFECTION_MIN, AFFECTION_MAX)
+	save_mgr.set_affection(new_value)
+	
+	if current != new_value:
+		print("好感度设置: %d -> %d" % [current, new_value])
+
+func set_willingness_safe(value: int):
+	"""安全设置交互意愿（带边界控制）"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var current = save_mgr.get_reply_willingness()
+	var new_value = clamp(value, WILLINGNESS_MIN, WILLINGNESS_MAX)
+	save_mgr.set_reply_willingness(new_value)
+	
+	if current != new_value:
+		print("交互意愿设置: %d -> %d" % [current, new_value])
 
 func modify_mood(new_mood: String):
 	"""修改心情"""

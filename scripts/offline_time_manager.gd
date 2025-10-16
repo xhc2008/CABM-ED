@@ -81,57 +81,81 @@ func _apply_no_change():
 	pass
 
 func _apply_short_offline(_minutes: float):
-	"""5分钟~3小时：心情变化，回复意愿随机增加-30~30"""
+	"""5分钟~3小时：心情变化，回复意愿随机增加-10~30"""
 	# 心情变化
 	_change_mood_randomly()
 	
-	# 回复意愿随机增加-10~30
-	var current_willingness = SaveManager.get_reply_willingness()
-	var change = randi_range(-10, 30)
-	var new_willingness = clamp(current_willingness + change, 0, 100)
-	SaveManager.set_reply_willingness(new_willingness)
-	
-	print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, change])
+	# 回复意愿随机增加-10~30（使用统一的边界控制）
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		var change = randi_range(-10, 30)
+		helpers.modify_willingness(change)
+	else:
+		# 降级方案：直接使用 SaveManager
+		var current_willingness = SaveManager.get_reply_willingness()
+		var change = randi_range(-10, 30)
+		var new_willingness = clamp(current_willingness + change, 0, 150)
+		SaveManager.set_reply_willingness(new_willingness)
+		print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, change])
 
 func _apply_medium_offline(_hours: float):
 	"""3小时~24小时：心情变化；好感度随机增加-20~10；回复意愿随机增加0~50"""
 	# 心情变化
 	_change_mood_randomly()
 	
-	# 好感度随机增加-20~10
-	var current_affection = SaveManager.get_affection()
-	var affection_change = randi_range(-20, 10)
-	var new_affection = current_affection + affection_change
-	SaveManager.set_affection(new_affection)
-	
-	print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
-	
-	# 回复意愿随机增加0~50
-	var current_willingness = SaveManager.get_reply_willingness()
-	var willingness_change = randi_range(0, 50)
-	var new_willingness = clamp(current_willingness + willingness_change, 0, 100)
-	SaveManager.set_reply_willingness(new_willingness)
-	
-	print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, willingness_change])
+	# 使用统一的边界控制
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		
+		# 好感度随机增加-20~10
+		var affection_change = randi_range(-20, 10)
+		helpers.modify_affection(affection_change)
+		
+		# 回复意愿随机增加0~50
+		var willingness_change = randi_range(0, 50)
+		helpers.modify_willingness(willingness_change)
+	else:
+		# 降级方案：直接使用 SaveManager
+		var current_affection = SaveManager.get_affection()
+		var affection_change = randi_range(-20, 10)
+		var new_affection = clamp(current_affection + affection_change, 0, 100)
+		SaveManager.set_affection(new_affection)
+		print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
+		
+		var current_willingness = SaveManager.get_reply_willingness()
+		var willingness_change = randi_range(0, 50)
+		var new_willingness = clamp(current_willingness + willingness_change, 0, 150)
+		SaveManager.set_reply_willingness(new_willingness)
+		print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, willingness_change])
 
 func _apply_long_offline(_hours: float):
 	"""24小时以上：心情变化；好感度增加-50~0；回复意愿随机置为70~100"""
 	# 心情变化
 	_change_mood_randomly()
 	
-	# 好感度增加-50~0
-	var current_affection = SaveManager.get_affection()
-	var affection_change = randi_range(-50, 0)
-	var new_affection = current_affection + affection_change
-	SaveManager.set_affection(new_affection)
-	
-	print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
-	
-	# 回复意愿随机置为70~100
-	var new_willingness = randi_range(70, 100)
-	SaveManager.set_reply_willingness(new_willingness)
-	
-	print("回复意愿重置为: %d" % new_willingness)
+	# 使用统一的边界控制
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		
+		# 好感度增加-50~0
+		var affection_change = randi_range(-50, 0)
+		helpers.modify_affection(affection_change)
+		
+		# 回复意愿随机置为70~100
+		var new_willingness = randi_range(70, 100)
+		helpers.set_willingness_safe(new_willingness)
+	else:
+		# 降级方案：直接使用 SaveManager
+		var current_affection = SaveManager.get_affection()
+		var affection_change = randi_range(-50, 0)
+		var new_affection = clamp(current_affection + affection_change, 0, 100)
+		SaveManager.set_affection(new_affection)
+		print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
+		
+		var new_willingness = randi_range(70, 100)
+		var clamped_willingness = clamp(new_willingness, 0, 150)
+		SaveManager.set_reply_willingness(clamped_willingness)
+		print("回复意愿重置为: %d" % clamped_willingness)
 
 func _change_mood_randomly():
 	"""随机改变心情，平静权重最高"""

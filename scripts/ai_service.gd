@@ -571,7 +571,7 @@ func _finalize_stream_response():
 	chat_response_completed.emit()
 
 func _apply_extracted_fields():
-	"""应用提取的字段到游戏状态"""
+	"""应用提取的字段到游戏状态（使用统一的边界控制）"""
 	if not has_node("/root/SaveManager"):
 		return
 	
@@ -586,21 +586,34 @@ func _apply_extracted_fields():
 			save_mgr.set_mood(mood_name_en)
 			print("更新心情: ", mood_name_en)
 	
-	# 应用will字段（互动意愿增量）
-	if extracted_fields.has("will"):
-		var will_delta = extracted_fields.will
-		var current_will = save_mgr.get_reply_willingness()
-		var new_will = clamp(current_will + will_delta, 0, 150)
-		save_mgr.set_reply_willingness(new_will)
-		print("更新互动意愿: %d -> %d (增量: %d)" % [current_will, new_will, will_delta])
-	
-	# 应用like字段（好感度增量）
-	if extracted_fields.has("like"):
-		var like_delta = extracted_fields.like
-		var current_affection = save_mgr.get_affection()
-		var new_affection = clamp(current_affection + like_delta, 0, 100)
-		save_mgr.set_affection(new_affection)
-		print("更新好感度: %d -> %d (增量: %d)" % [current_affection, new_affection, like_delta])
+	# 使用统一的边界控制
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		
+		# 应用will字段（互动意愿增量）
+		if extracted_fields.has("will"):
+			var will_delta = extracted_fields.will
+			helpers.modify_willingness(will_delta)
+		
+		# 应用like字段（好感度增量）
+		if extracted_fields.has("like"):
+			var like_delta = extracted_fields.like
+			helpers.modify_affection(like_delta)
+	else:
+		# 降级方案：直接使用 SaveManager（保留原有逻辑）
+		if extracted_fields.has("will"):
+			var will_delta = extracted_fields.will
+			var current_will = save_mgr.get_reply_willingness()
+			var new_will = clamp(current_will + will_delta, 0, 150)
+			save_mgr.set_reply_willingness(new_will)
+			print("更新互动意愿: %d -> %d (增量: %d)" % [current_will, new_will, will_delta])
+		
+		if extracted_fields.has("like"):
+			var like_delta = extracted_fields.like
+			var current_affection = save_mgr.get_affection()
+			var new_affection = clamp(current_affection + like_delta, 0, 100)
+			save_mgr.set_affection(new_affection)
+			print("更新好感度: %d -> %d (增量: %d)" % [current_affection, new_affection, like_delta])
 	
 	# 发送字段提取完成信号
 	chat_fields_extracted.emit(extracted_fields)
