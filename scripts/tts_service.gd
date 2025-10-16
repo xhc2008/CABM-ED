@@ -15,16 +15,17 @@ var volume: float = 0.8 # 音量 (0.0 - 1.0)
 
 # HTTP请求节点
 var upload_request: HTTPRequest
-var tts_request: HTTPRequest
 
-# TTS请求队列
-var tts_request_queue: Array = [] # 存储待发送的TTS请求文本
-var is_requesting: bool = false # 是否正在发送请求
+# TTS请求管理（并发）
+var tts_requests: Dictionary = {} # {request_id: HTTPRequest}
+var next_request_id: int = 0 # 下一个请求ID
 
-# 音频播放队列
-var audio_queue: Array = [] # 存储待播放的音频数据
+# 音频缓冲（按顺序）
+var audio_buffer: Dictionary = {} # {request_id: audio_data}
+var next_play_id: int = 0 # 下一个要播放的ID
 var current_player: AudioStreamPlayer
 var is_playing: bool = false
+var is_first_audio: bool = true # 标记是否是第一段音频
 
 # 中文标点符号
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
@@ -34,14 +35,10 @@ func _ready():
 	_load_tts_settings()
 	_load_voice_cache()
 	
-	# 创建HTTP请求节点
+	# 创建HTTP请求节点（用于上传参考音频）
 	upload_request = HTTPRequest.new()
 	add_child(upload_request)
 	upload_request.request_completed.connect(_on_upload_completed)
-	
-	tts_request = HTTPRequest.new()
-	add_child(tts_request)
-	tts_request.request_completed.connect(_on_tts_completed)
 	
 	# 创建音频播放器
 	current_player = AudioStreamPlayer.new()
@@ -254,7 +251,7 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 		tts_error.emit("响应中没有URI字段")
 
 func synthesize_speech(text: String):
-	"""合成语音（加入队列）"""
+	"""合成语音（并发请求）"""
 	if not is_enabled:
 		print("TTS未启用，跳过合成")
 		return
@@ -270,32 +267,28 @@ func synthesize_speech(text: String):
 	if text.strip_edges().is_empty():
 		return
 	
-	# 将文本加入请求队列
-	tts_request_queue.append(text)
-	print("TTS请求加入队列: ", text, " (队列长度: ", tts_request_queue.size(), ")")
+	# 分配请求ID
+	var request_id = next_request_id
+	next_request_id += 1
 	
-	# 如果当前没有正在处理的请求，开始处理队列
-	if not is_requesting:
-		_process_tts_queue()
-
-func _process_tts_queue():
-	"""处理TTS请求队列"""
-	if tts_request_queue.is_empty():
-		is_requesting = false
-		print("TTS请求队列为空")
-		return
+	print("=== 创建TTS请求 #%d ===" % request_id)
+	print("文本: ", text)
 	
-	if is_requesting:
-		print("正在处理TTS请求，等待完成")
-		return
+	# 创建独立的HTTPRequest节点
+	var http_request = HTTPRequest.new()
+	add_child(http_request)
 	
-	is_requesting = true
-	var text = tts_request_queue.pop_front()
+	# 保存请求ID到节点
+	http_request.set_meta("request_id", request_id)
+	http_request.set_meta("text", text)
 	
-	print("=== 处理TTS请求队列 ===")
-	print("剩余队列长度: ", tts_request_queue.size())
-	print("当前文本: ", text)
+	# 连接完成信号
+	http_request.request_completed.connect(_on_tts_completed.bind(request_id, http_request))
 	
+	# 保存到字典
+	tts_requests[request_id] = http_request
+	
+	# 发送请求
 	var url = config.get("tts_model", {}).get("base_url", "https://api.siliconflow.cn") + "/v1/audio/speech"
 	var headers = [
 		"Authorization: Bearer " + api_key,
@@ -309,79 +302,77 @@ func _process_tts_queue():
 	}
 	
 	var json_body = JSON.stringify(request_body)
-	print("URL: ", url)
-	print("模型: ", request_body.model)
-	print("Voice URI: ", voice_uri)
 	
-	var error = tts_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
-		push_error("TTS请求发送失败: " + str(error))
-		is_requesting = false
-		# 继续处理下一个
-		_process_tts_queue()
+		push_error("TTS请求 #%d 发送失败: %s" % [request_id, str(error)])
+		# 清理失败的请求
+		tts_requests.erase(request_id)
+		http_request.queue_free()
 	else:
-		print("TTS请求已发送")
+		print("TTS请求 #%d 已发送（并发）" % request_id)
 
-func _on_tts_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
-	"""TTS请求完成回调"""
-	print("TTS请求完成 - result: %d, response_code: %d, body_size: %d" % [result, response_code, body.size()])
+func _on_tts_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request_id: int, http_request: HTTPRequest):
+	"""TTS请求完成回调（并发）"""
+	var text = http_request.get_meta("text", "")
+	print("=== TTS请求 #%d 完成 ===" % request_id)
+	print("文本: ", text)
+	print("result: %d, response_code: %d, body_size: %d" % [result, response_code, body.size()])
 	
-	# 标记请求完成
-	is_requesting = false
+	# 清理请求节点
+	tts_requests.erase(request_id)
+	http_request.queue_free()
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
-		var error_msg = "TTS请求失败: " + str(result)
+		var error_msg = "TTS请求 #%d 失败: %s" % [request_id, str(result)]
 		print(error_msg)
 		tts_error.emit(error_msg)
-		# 继续处理队列中的下一个请求
-		_process_tts_queue()
 		return
 	
 	if response_code != 200:
 		var error_text = body.get_string_from_utf8()
-		var error_msg = "TTS错误 (%d): %s" % [response_code, error_text]
+		var error_msg = "TTS请求 #%d 错误 (%d): %s" % [request_id, response_code, error_text]
 		print(error_msg)
 		tts_error.emit(error_msg)
-		# 继续处理队列中的下一个请求
-		_process_tts_queue()
 		return
 	
 	# 检查音频数据大小
 	if body.size() == 0:
-		print("错误: 接收到的音频数据为空")
-		# 继续处理队列中的下一个请求
-		_process_tts_queue()
+		print("错误: TTS请求 #%d 接收到的音频数据为空" % request_id)
 		return
 	
-	print("接收到音频数据: %d 字节" % body.size())
+	print("TTS请求 #%d 接收到音频数据: %d 字节" % [request_id, body.size()])
 	
-	# 音频数据已接收，添加到播放队列
-	audio_queue.append(body)
+	# 将音频数据存入缓冲（按ID顺序）
+	audio_buffer[request_id] = body
 	audio_chunk_ready.emit(body)
 	
-	print("音频已加入播放队列，队列长度: %d" % audio_queue.size())
+	print("音频 #%d 已加入缓冲，缓冲区大小: %d" % [request_id, audio_buffer.size()])
 	
-	# 如果当前没有播放，开始播放
-	if not is_playing:
-		print("开始播放队列中的音频")
-		_play_next_audio()
-	else:
-		print("当前正在播放，音频已排队")
-	
-	# 继续处理TTS请求队列中的下一个请求
-	_process_tts_queue()
+	# 尝试播放（如果是下一个要播放的）
+	_try_play_next()
 
-func _play_next_audio():
-	"""播放队列中的下一个音频"""
-	if audio_queue.is_empty():
-		is_playing = false
-		print("播放队列为空，停止播放")
+func _try_play_next():
+	"""尝试播放下一个音频（如果已准备好）"""
+	# 如果正在播放，不做任何事
+	if is_playing:
+		print("当前正在播放，等待播放完成")
 		return
 	
-	is_playing = true
-	var audio_data = audio_queue.pop_front()
+	# 检查下一个要播放的音频是否已准备好
+	if not audio_buffer.has(next_play_id):
+		print("音频 #%d 还未准备好，等待..." % next_play_id)
+		return
 	
-	print("准备播放音频，数据大小: %d 字节" % audio_data.size())
+	# 获取音频数据
+	var audio_data = audio_buffer[next_play_id]
+	audio_buffer.erase(next_play_id)
+	
+	print("=== 播放音频 #%d ===" % next_play_id)
+	print("数据大小: %d 字节，是否第一段: %s" % [audio_data.size(), is_first_audio])
+	
+	is_playing = true
+	next_play_id += 1
 	
 	# 将音频数据转换为AudioStream
 	var stream = _create_audio_stream(audio_data)
@@ -389,12 +380,26 @@ func _play_next_audio():
 		current_player.stream = stream
 		current_player.volume_db = linear_to_db(volume)
 		print("设置音量: %.2f (%.2f dB)" % [volume, linear_to_db(volume)])
-		current_player.play()
-		print("开始播放语音，音频流长度: %.2f 秒" % stream.get_length())
+		
+		# 如果是第一段音频，跳过开头的静音
+		if is_first_audio:
+			var skip_time = _detect_silence_duration(stream)
+			if skip_time > 0:
+				print("检测到开头静音 %.2f 秒，跳过" % skip_time)
+				current_player.play(skip_time)
+			else:
+				current_player.play()
+			is_first_audio = false
+		else:
+			# 后续音频保留空白作为断句
+			current_player.play()
+		
+		print("开始播放语音 #%d，音频流长度: %.2f 秒" % [next_play_id - 1, stream.get_length()])
 	else:
 		print("音频流创建失败，跳过")
-		# 如果转换失败，继续播放下一个
-		_play_next_audio()
+		is_playing = false
+		# 如果转换失败，尝试播放下一个
+		_try_play_next()
 
 func _create_audio_stream(audio_data: PackedByteArray) -> AudioStream:
 	"""将音频数据转换为AudioStream"""
@@ -422,11 +427,33 @@ func _create_audio_stream(audio_data: PackedByteArray) -> AudioStream:
 	print("音频流创建成功，长度: %.2f 秒" % length)
 	return stream
 
+func _detect_silence_duration(stream: AudioStream) -> float:
+	"""检测音频开头的静音时长"""
+	# 对于MP3流，我们使用一个简单的启发式方法
+	# 通常TTS生成的音频开头有0.1-0.3秒的静音
+	# 我们可以通过检查音频长度来估算
+	
+	var total_length = stream.get_length()
+	
+	# 如果音频很短（<1秒），不跳过
+	if total_length < 1.0:
+		return 0.0
+	
+	# 对于正常长度的音频，跳过开头的0.15秒
+	# 这是一个经验值，可以根据实际情况调整
+	var skip_duration = 0.15
+	
+	# 确保不跳过太多（最多跳过总长度的20%）
+	skip_duration = min(skip_duration, total_length * 0.2)
+	
+	return skip_duration
+
 func _on_audio_finished():
 	"""音频播放完成"""
 	print("语音播放完成")
-	# 播放下一个
-	_play_next_audio()
+	is_playing = false
+	# 尝试播放下一个
+	_try_play_next()
 
 func process_text_chunk(text: String):
 	"""处理文本块，检测中文标点并合成语音"""
@@ -450,18 +477,29 @@ func process_text_chunk(text: String):
 	# 如果没有标点，暂时不合成（等待更多文本）
 
 func clear_queue():
-	"""清空所有队列"""
-	# 清空TTS请求队列
-	tts_request_queue.clear()
-	is_requesting = false
+	"""清空所有队列和缓冲"""
+	# 取消所有进行中的TTS请求
+	for request_id in tts_requests.keys():
+		var http_request = tts_requests[request_id]
+		if http_request:
+			http_request.cancel_request()
+			http_request.queue_free()
+	tts_requests.clear()
 	
-	# 清空音频播放队列
-	audio_queue.clear()
+	# 清空音频缓冲
+	audio_buffer.clear()
+	
+	# 停止播放
 	if current_player.playing:
 		current_player.stop()
 	is_playing = false
 	
-	print("所有队列已清空（TTS请求队列 + 音频播放队列）")
+	# 重置计数器和标记
+	next_request_id = 0
+	next_play_id = 0
+	is_first_audio = true
+	
+	print("所有队列和缓冲已清空（TTS请求 + 音频缓冲）")
 
 func set_enabled(enabled: bool):
 	"""设置是否启用TTS"""

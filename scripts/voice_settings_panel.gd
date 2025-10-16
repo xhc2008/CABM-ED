@@ -34,13 +34,13 @@ func _load_settings():
 		status_label.text = "⚠ 请在AI配置中设置TTS密钥"
 		status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
 	elif tts.voice_uri.is_empty():
-		status_label.text = "⏳ 正在准备声音..."
+		status_label.text = "⏳ 正在准备TTS..."
 		status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
 		# 连接voice_ready信号
 		if not tts.voice_ready.is_connected(_on_voice_ready):
 			tts.voice_ready.connect(_on_voice_ready)
 	else:
-		status_label.text = "✓ 声音已准备好"
+		status_label.text = "✓ TTS已准备好"
 		status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 
 func _on_close_pressed():
@@ -77,5 +77,5 @@ func _update_volume_label(value: float):
 
 func _on_voice_ready(_voice_uri: String):
 	"""声音准备完成"""
-	status_label.text = "✓ 声音已准备好"
+	status_label.text = "✓ TTS已准备好"
 	status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
