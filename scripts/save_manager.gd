@@ -199,7 +199,10 @@ func load_game(slot: int = 1) -> bool:
 		load_failed.emit(slot, error)
 		return false
 	
-	save_data = json.data
+	# 深度合并存档数据和模板数据，确保存档中的值优先
+	# 这样可以防止重新安装时重置已有数据
+	var loaded_data = json.data
+	save_data = _deep_merge(save_data, loaded_data)
 	current_slot = slot
 	
 	# 先检查离线时间变化（使用存档中的旧时间）
@@ -341,3 +344,24 @@ func _auto_save():
 	# 只有在初始设置完成后才允许自动保存
 	if enable_instant_save and is_initial_setup_completed:
 		save_game(current_slot)
+
+func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:
+	"""深度合并两个字典，overlay的值会覆盖base的值
+	
+	参数:
+		base: 基础字典（模板数据）
+		overlay: 覆盖字典（存档数据）
+	返回:
+		合并后的字典
+	"""
+	var result = base.duplicate(true)
+	
+	for key in overlay:
+		if overlay[key] is Dictionary and result.has(key) and result[key] is Dictionary:
+			# 递归合并嵌套字典
+			result[key] = _deep_merge(result[key], overlay[key])
+		else:
+			# 直接覆盖值（存档数据优先）
+			result[key] = overlay[key]
+	
+	return result
