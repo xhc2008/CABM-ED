@@ -34,6 +34,10 @@ var display_buffer: String = ""  # 待显示的内容缓冲
 var displayed_text: String = ""  # 已显示的内容
 var is_receiving_stream: bool = false  # 是否正在接收流式数据
 
+# TTS相关
+var tts_buffer: String = ""  # TTS文本缓冲
+const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
+
 const INPUT_HEIGHT = 120.0
 const REPLY_HEIGHT = 200.0
 const HISTORY_HEIGHT = 400.0
@@ -292,6 +296,12 @@ func hide_dialog():
 	if typing_timer and typing_timer.time_left > 0:
 		typing_timer.stop()
 	
+	# 清空TTS队列和缓冲
+	tts_buffer = ""
+	if has_node("/root/TTSService"):
+		var tts = get_node("/root/TTSService")
+		tts.clear_queue()
+	
 	# 隐藏继续指示器
 	if continue_indicator:
 		continue_indicator.visible = false
@@ -341,15 +351,25 @@ func _on_ai_response(response: String):
 		is_receiving_stream = true
 		display_buffer = ""
 		displayed_text = ""
+		tts_buffer = ""
 		message_label.text = ""
 		typing_timer.start(TYPING_SPEED)
 	
 	# 将新内容添加到buffer
 	display_buffer += response
+	
+	# 处理TTS：将新内容添加到TTS缓冲并检测标点
+	_process_tts_chunk(response)
 
 func _on_ai_response_completed():
 	"""AI 流式响应完成回调"""
 	is_receiving_stream = false
+	
+	# 处理剩余的TTS缓冲（如果有未发送的文本）
+	if not tts_buffer.is_empty():
+		_send_tts(tts_buffer)
+		tts_buffer = ""
+	
 	# 如果buffer已全部显示，立即显示继续指示器
 	if displayed_text.length() >= display_buffer.length():
 		typing_timer.stop()
@@ -748,6 +768,60 @@ func _hide_history():
 	
 	await fade_in_tween.finished
 	is_animating = false
+
+func _process_tts_chunk(text: String):
+	"""处理TTS文本块，检测中文标点并发送语音合成"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	if not tts.is_enabled:
+		return
+	
+	# 将新文本添加到TTS缓冲
+	tts_buffer += text
+	
+	# 循环处理所有完整的句子
+	while true:
+		var found_punct = false
+		var earliest_pos = -1
+		
+		# 找到最早出现的标点
+		for punct in CHINESE_PUNCTUATION:
+			var pos = tts_buffer.find(punct)
+			if pos != -1:
+				if earliest_pos == -1 or pos < earliest_pos:
+					earliest_pos = pos
+					found_punct = true
+		
+		# 如果没有找到标点，退出循环
+		if not found_punct:
+			break
+		
+		# 提取到标点为止的句子（包含标点）
+		var sentence = tts_buffer.substr(0, earliest_pos + 1).strip_edges()
+		
+		if not sentence.is_empty():
+			_send_tts(sentence)
+			print("TTS: 提取句子 - ", sentence)
+		
+		# 移除已处理的部分
+		tts_buffer = tts_buffer.substr(earliest_pos + 1)
+	
+	# 如果缓冲中还有内容但没有标点，保留等待更多文本
+	if not tts_buffer.is_empty():
+		print("TTS: 缓冲中剩余文本（等待标点）- ", tts_buffer)
+
+func _send_tts(text: String):
+	"""发送文本到TTS服务进行语音合成"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	if tts.is_enabled and not text.is_empty():
+		tts.synthesize_speech(text)
+		print("ChatDialog: 发送TTS - ", text)
+		print("发送TTS: ", text)
 
 func _update_history_content():
 	"""更新历史记录内容"""

@@ -25,5 +25,9 @@
     "memory": {
         "max_memory_items": 10,
         "max_conversation_history": 20
+    },
+    "tts_model": {
+        "model": "FunAudioLLM/CosyVoice2-0.5B",
+        "base_url": "https://api.siliconflow.cn"
     }
 }

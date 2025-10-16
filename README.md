@@ -53,6 +53,7 @@ CABM-ED是一款AI驱动的养成类游戏，核心理念与[CABM（Code Afflatu
 
 - 支持上下文记忆（最近 N 条对话）
 - 自动总结对话内容并保存到长期记忆
+- **🎙️ TTS语音合成**：实时将角色回复转换为语音播放（可选）
 
 ### 交互系统
 
@@ -115,6 +116,8 @@ CABM-ED/
 - [离线时间系统](docs/offline_time_system.md)
 - [存档系统指南](docs/save_system_guide.md)
 - [事件系统指南](docs/event_system_guide.md)
+- **[TTS语音合成快速开始](docs/TTS_QUICK_START.md)** ⭐ 新功能
+- [TTS语音合成完整指南](docs/TTS_GUIDE.md)
 
 ## 扩展开发
 

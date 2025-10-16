@@ -177,6 +177,39 @@ secret = true
 [node name="HSeparator3" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 
+[node name="TTSModelLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "TTS模型配置"
+horizontal_alignment = 1
+
+[node name="TTSModelName" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "模型名称:"
+
+[node name="TTSModelInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "FunAudioLLM/CosyVoice2-0.5B"
+
+[node name="TTSBaseURLLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "Base URL:"
+
+[node name="TTSBaseURLInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "https://api.siliconflow.cn"
+
+[node name="TTSKeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "API 密钥:"
+
+[node name="TTSKeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "sk-..."
+secret = true
+
+[node name="HSeparator4" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
 [node name="DetailSaveButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 text = "保存详细配置"

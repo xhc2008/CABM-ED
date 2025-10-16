@@ -495,6 +495,12 @@ func _setup_ai_settings(container: VBoxContainer):
 	# 加载并显示配置状态
 	_load_api_key_display()
 	
+	# 声音设置按钮
+	var voice_settings_button = Button.new()
+	voice_settings_button.text = "声音设置"
+	voice_settings_button.pressed.connect(_on_voice_settings_pressed)
+	container.add_child(voice_settings_button)
+	
 	# 分隔线
 	var separator3 = HSeparator.new()
 	container.add_child(separator3)
@@ -588,3 +594,10 @@ func _on_debug_save_pressed():
 	if debug_panel_scene:
 		var debug_panel = debug_panel_scene.instantiate()
 		get_tree().root.add_child(debug_panel)
+
+func _on_voice_settings_pressed():
+	"""打开声音设置面板"""
+	var voice_panel_scene = load("res://scenes/voice_settings_panel.tscn")
+	if voice_panel_scene:
+		var voice_panel = voice_panel_scene.instantiate()
+		get_tree().root.add_child(voice_panel)

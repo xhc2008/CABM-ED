@@ -25,6 +25,7 @@ SaveManager="*res://scripts/save_manager.gd"
 OfflineTimeManager="*res://scripts/offline_time_manager.gd"
 PromptBuilder="*res://scripts/prompt_builder.gd"
 AIService="*res://scripts/ai_service.gd"
+TTSService="*res://scripts/tts_service.gd"
 EventHelpers="*res://scripts/event_helpers.gd"
 EventManager="*res://scripts/event_manager.gd"
 

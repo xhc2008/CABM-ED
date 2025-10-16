@@ -17,6 +17,9 @@ extends Panel
 @onready var summary_model_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / SummaryModelInput
 @onready var summary_base_url_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / SummaryBaseURLInput
 @onready var summary_key_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / SummaryKeyInput
+@onready var tts_model_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSModelInput
+@onready var tts_base_url_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSBaseURLInput
+@onready var tts_key_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSKeyInput
 @onready var detail_save_button = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailSaveButton
 @onready var detail_status_label = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailStatusLabel
 
@@ -68,6 +71,12 @@ func _load_existing_config():
 		summary_model_input.text = summary.get("model", "")
 		summary_base_url_input.text = summary.get("base_url", "")
 		summary_key_input.text = summary.get("api_key", "")
+	
+	if config.has("tts_model"):
+		var tts = config.tts_model
+		tts_model_input.text = tts.get("model", "")
+		tts_base_url_input.text = tts.get("base_url", "")
+		tts_key_input.text = tts.get("api_key", "")
 
 func _migrate_old_config():
 	"""从旧的api_keys.json迁移配置"""
@@ -123,6 +132,9 @@ func _on_detail_save_pressed():
 	var summary_model = summary_model_input.text.strip_edges()
 	var summary_base_url = summary_base_url_input.text.strip_edges()
 	var summary_key = summary_key_input.text.strip_edges()
+	var tts_model = tts_model_input.text.strip_edges()
+	var tts_base_url = tts_base_url_input.text.strip_edges()
+	var tts_key = tts_key_input.text.strip_edges()
 	
 	# 验证必填字段
 	if chat_model.is_empty() or chat_base_url.is_empty() or chat_key.is_empty():
@@ -148,9 +160,18 @@ func _on_detail_save_pressed():
 		}
 	}
 	
+	# TTS配置是可选的
+	if not tts_model.is_empty() and not tts_base_url.is_empty() and not tts_key.is_empty():
+		config["tts_model"] = {
+			"model": tts_model,
+			"base_url": tts_base_url,
+			"api_key": tts_key
+		}
+	
 	if _save_config(config):
 		_update_detail_status(true, "配置已保存")
 		_reload_ai_service()
+		_reload_tts_service()
 	else:
 		_update_detail_status(false, "保存失败")
 
@@ -174,6 +195,13 @@ func _reload_ai_service():
 		var ai_service = get_node("/root/AIService")
 		ai_service._load_api_key()
 		print("AI服务已重新加载配置")
+
+func _reload_tts_service():
+	"""重新加载TTS服务"""
+	if has_node("/root/TTSService"):
+		var tts_service = get_node("/root/TTSService")
+		tts_service._load_tts_settings()
+		print("TTS服务已重新加载配置")
 
 func _mask_key(key: String) -> String:
 	"""遮蔽密钥显示"""
