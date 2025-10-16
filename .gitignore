@@ -95,6 +95,7 @@ view_ai_log.bat
 *.pck
 *.sh
 *.x86_64
+*.ttf
 # 环境变量
 .env
 .env.local

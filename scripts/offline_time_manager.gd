@@ -85,9 +85,9 @@ func _apply_short_offline(_minutes: float):
 	# 心情变化
 	_change_mood_randomly()
 	
-	# 回复意愿随机增加-30~30
+	# 回复意愿随机增加-10~30
 	var current_willingness = SaveManager.get_reply_willingness()
-	var change = randi_range(-30, 30)
+	var change = randi_range(-10, 30)
 	var new_willingness = clamp(current_willingness + change, 0, 100)
 	SaveManager.set_reply_willingness(new_willingness)
 	

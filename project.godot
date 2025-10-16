@@ -41,6 +41,8 @@ window/ios/suppress_ui_gesture=false
 [gui]
 
 common/snap_controls_to_pixels=false
+theme/custom="res://default_theme.tres"
+theme/custom_font="res://zh-cn.ttf"
 
 [input_devices]
 
