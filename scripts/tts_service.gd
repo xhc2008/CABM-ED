@@ -177,28 +177,29 @@ func upload_reference_audio():
 		return
 	
 	var ref_audio_path = "res://assets/audio/ref.wav"
-	var ref_text_path = "res://assets/audio/ref.txt"
 	
-	# 检查文件是否存在
+	# 检查音频文件是否存在
 	if not FileAccess.file_exists(ref_audio_path):
 		var error_msg = "参考音频文件不存在: " + ref_audio_path
 		push_error(error_msg)
 		tts_error.emit(error_msg)
 		return
 	
-	if not FileAccess.file_exists(ref_text_path):
-		var error_msg = "参考文本文件不存在: " + ref_text_path
+	# 从配置文件读取参考文本
+	var ref_text = config.get("tts_model", {}).get("reference_text", "")
+	if ref_text.is_empty():
+		var error_msg = "配置文件中未设置参考文本 (tts_model.reference_text)"
 		push_error(error_msg)
 		tts_error.emit(error_msg)
 		return
 	
-	# 读取参考文本
-	var text_file = FileAccess.open(ref_text_path, FileAccess.READ)
-	var ref_text = text_file.get_as_text().strip_edges()
-	text_file.close()
-	
 	# 读取音频文件
 	var audio_file = FileAccess.open(ref_audio_path, FileAccess.READ)
+	if audio_file == null:
+		var error_msg = "无法打开参考音频文件: " + ref_audio_path + " (错误: " + str(FileAccess.get_open_error()) + ")"
+		push_error(error_msg)
+		tts_error.emit(error_msg)
+		return
 	var audio_data = audio_file.get_buffer(audio_file.get_length())
 	audio_file.close()
 	
@@ -238,6 +239,9 @@ func upload_reference_audio():
 	]
 	
 	print("上传参考音频...")
+	print("请求URL: ", url)
+	print("音频数据大小: ", audio_data.size(), " 字节")
+	print("参考文本: ", ref_text)
 	upload_request.request_raw(url, headers, HTTPClient.METHOD_POST, body)
 
 func _on_upload_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):

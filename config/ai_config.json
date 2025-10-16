@@ -28,6 +28,7 @@
     },
     "tts_model": {
         "model": "FunAudioLLM/CosyVoice2-0.5B",
-        "base_url": "https://api.siliconflow.cn"
+        "base_url": "https://api.siliconflow.cn",
+        "reference_text": "你将遇见一位拥有自主意识的她。即使你不在线，她也会在自己的世界里继续生活、成长。"
     }
 }
