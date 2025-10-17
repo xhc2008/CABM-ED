@@ -582,11 +582,20 @@ func _apply_extracted_fields():
 	# 应用mood字段
 	if extracted_fields.has("mood"):
 		var mood_id = extracted_fields.mood
+		# 确保mood_id是整数类型
+		if typeof(mood_id) == TYPE_STRING:
+			mood_id = int(mood_id)
+		elif typeof(mood_id) != TYPE_INT:
+			print("警告: mood字段类型不正确: ", typeof(mood_id), ", 值: ", mood_id)
+			mood_id = 0  # 默认为平静
+		
 		var prompt_builder = get_node("/root/PromptBuilder")
 		var mood_name_en = prompt_builder.get_mood_name_en(mood_id)
 		if not mood_name_en.is_empty():
 			save_mgr.set_mood(mood_name_en)
-			print("更新心情: ", mood_name_en)
+			print("更新心情: ", mood_name_en, " (ID: ", mood_id, ")")
+		else:
+			print("警告: 无法找到mood ID对应的英文名称: ", mood_id)
 	
 	# 使用统一的边界控制
 	if has_node("/root/EventHelpers"):
@@ -595,28 +604,28 @@ func _apply_extracted_fields():
 		# 应用will字段（互动意愿增量）
 		if extracted_fields.has("will"):
 			var will_delta = extracted_fields.will
+			# 确保will_delta是整数类型
+			if typeof(will_delta) == TYPE_STRING:
+				will_delta = int(will_delta)
+			elif typeof(will_delta) == TYPE_FLOAT:
+				will_delta = int(will_delta)
+			elif typeof(will_delta) != TYPE_INT:
+				print("警告: will字段类型不正确: ", typeof(will_delta), ", 值: ", will_delta)
+				will_delta = 0
 			helpers.modify_willingness(will_delta)
 		
 		# 应用like字段（好感度增量）
 		if extracted_fields.has("like"):
 			var like_delta = extracted_fields.like
+			# 确保like_delta是整数类型
+			if typeof(like_delta) == TYPE_STRING:
+				like_delta = int(like_delta)
+			elif typeof(like_delta) == TYPE_FLOAT:
+				like_delta = int(like_delta)
+			elif typeof(like_delta) != TYPE_INT:
+				print("警告: like字段类型不正确: ", typeof(like_delta), ", 值: ", like_delta)
+				like_delta = 0
 			helpers.modify_affection(like_delta)
-	else:
-		# 降级方案：直接使用 SaveManager（保留原有逻辑）
-		if extracted_fields.has("will"):
-			var will_delta = extracted_fields.will
-			var current_will = save_mgr.get_reply_willingness()
-			var new_will = clamp(current_will + will_delta, 0, 150)
-			save_mgr.set_reply_willingness(new_will)
-			print("更新互动意愿: %d -> %d (增量: %d)" % [current_will, new_will, will_delta])
-		
-		if extracted_fields.has("like"):
-			var like_delta = extracted_fields.like
-			var current_affection = save_mgr.get_affection()
-			var new_affection = clamp(current_affection + like_delta, 0, 100)
-			save_mgr.set_affection(new_affection)
-			print("更新好感度: %d -> %d (增量: %d)" % [current_affection, new_affection, like_delta])
-	
 	# 发送字段提取完成信号（不包括goto）
 	var fields_without_goto = extracted_fields.duplicate()
 	fields_without_goto.erase("goto")
