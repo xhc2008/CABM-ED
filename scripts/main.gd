@@ -413,10 +413,48 @@ func _on_action_selected(action: String):
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _on_chat_ended():
+	# 检查是否有goto场景变化
+	var goto_scene = _check_character_goto()
+	
 	# 聊天结束，角色返回场景
 	character.end_chat()
+	
+	# 如果有goto场景变化，显示提示消息
+	if goto_scene != "":
+		_show_character_move_message(goto_scene)
+	
 	# 重新启用右侧点击区域
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+
+func _check_character_goto() -> String:
+	"""检查角色是否有goto场景变化"""
+	if not has_node("/root/AIService"):
+		return ""
+	
+	var ai_service = get_node("/root/AIService")
+	var goto_index = ai_service.get_goto_field()
+	
+	if goto_index < 0:
+		return ""
+	
+	# 获取目标场景
+	if not has_node("/root/PromptBuilder"):
+		return ""
+	
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var target_scene = prompt_builder.get_scene_id_by_index(goto_index)
+	
+	if target_scene == "":
+		return ""
+	
+	# 检查是否与当前场景相同
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		var character_scene = save_mgr.get_character_scene()
+		if target_scene == character_scene:
+			return ""
+	
+	return target_scene
 
 func _on_character_scene_changed(new_scene: String):
 	"""角色场景变化时的处理"""
@@ -426,6 +464,27 @@ func _on_character_scene_changed(new_scene: String):
 	# 如果用户在角色的新场景，角色会显示
 	# 如果用户不在角色的新场景，角色会被隐藏
 	character.load_character_for_scene(current_scene)
+
+func _show_character_move_message(new_scene: String):
+	"""显示角色移动的提示消息"""
+	# 获取角色名称
+	var character_name = "角色"
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		character_name = helpers.get_character_name()
+	
+	# 获取场景名称
+	var scene_name = _get_scene_name(new_scene)
+	
+	# 显示信息消息
+	var message = "%s去%s了" % [character_name, scene_name]
+	_show_info_message(message)
+
+func _get_scene_name(scene_id: String) -> String:
+	"""获取场景名称"""
+	if scenes_config.has(scene_id):
+		return scenes_config[scene_id].get("name", scene_id)
+	return scene_id
 
 func _on_right_area_input(event: InputEvent):
 	if event is InputEventMouseButton:
@@ -536,7 +595,15 @@ func _force_end_chat():
 		# 这里不做任何操作，让调用者决定后续流程
 
 func _show_failure_message(message: String):
-	"""显示失败消息"""
+	"""显示失败消息（红色）"""
+	_show_message(message, Color(1, 0.3, 0.3))
+
+func _show_info_message(message: String):
+	"""显示信息消息（蓝色）"""
+	_show_message(message, Color(0.5, 0.8, 1.0))
+
+func _show_message(message: String, color: Color):
+	"""显示消息（通用函数）"""
 	if failure_message_label == null:
 		return
 	
@@ -544,8 +611,9 @@ func _show_failure_message(message: String):
 	if failure_message_tween != null and failure_message_tween.is_valid():
 		failure_message_tween.kill()
 	
-	# 设置消息文本
+	# 设置消息文本和颜色
 	failure_message_label.text = message
+	failure_message_label.add_theme_color_override("font_color", color)
 	
 	# 计算位置（场景中央偏上）
 	var label_pos = Vector2(
