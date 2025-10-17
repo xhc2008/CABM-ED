@@ -23,6 +23,7 @@ signal affection_changed(new_value: int)
 signal willingness_changed(new_value: int)
 signal mood_changed(new_value: String)
 signal energy_changed(new_value: int)
+signal character_scene_changed(new_scene: String)
 
 func _ready():
 	# 确保保存目录存在
@@ -222,6 +223,7 @@ func get_character_scene() -> String:
 func set_character_scene(scene_id: String):
 	"""设置角色当前所在场景"""
 	save_data.character_data.current_scene = scene_id
+	character_scene_changed.emit(scene_id)
 	_auto_save()
 
 func get_current_weather() -> String:

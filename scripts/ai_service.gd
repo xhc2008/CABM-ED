@@ -21,7 +21,7 @@ var http_client: HTTPClient
 var sse_buffer: String = "" # SSE行缓冲
 var json_response_buffer: String = "" # 完整JSON响应缓冲
 var msg_buffer: String = "" # 提取的msg内容缓冲
-var extracted_fields: Dictionary = {} # 提取的其他字段（mood, will, like）
+var extracted_fields: Dictionary = {} # 提取的其他字段（mood, will, like, goto）
 var is_streaming: bool = false
 var stream_host: String = ""
 var stream_port: int = 443
@@ -552,9 +552,11 @@ func _finalize_stream_response():
 			extracted_fields["will"] = full_response.will
 		if full_response.has("like"):
 			extracted_fields["like"] = full_response.like
+		if full_response.has("goto"):
+			extracted_fields["goto"] = full_response.goto
 		print("提取的字段: ", extracted_fields)
 		
-		# 应用字段到游戏状态
+		# 应用字段到游戏状态（不包括goto，goto在对话结束时处理）
 		_apply_extracted_fields()
 	else:
 		print("JSON解析失败: ", json.get_error_message())
@@ -615,8 +617,10 @@ func _apply_extracted_fields():
 			save_mgr.set_affection(new_affection)
 			print("更新好感度: %d -> %d (增量: %d)" % [current_affection, new_affection, like_delta])
 	
-	# 发送字段提取完成信号
-	chat_fields_extracted.emit(extracted_fields)
+	# 发送字段提取完成信号（不包括goto）
+	var fields_without_goto = extracted_fields.duplicate()
+	fields_without_goto.erase("goto")
+	chat_fields_extracted.emit(fields_without_goto)
 
 # _get_mood_name_en 已移至 PromptBuilder 单例
 
@@ -658,6 +662,16 @@ func end_chat():
 	
 	# 重置首次消息标记
 	is_first_message = true
+
+func get_goto_field() -> int:
+	"""获取goto字段值，如果没有返回-1"""
+	if extracted_fields.has("goto"):
+		return extracted_fields.goto
+	return -1
+
+func clear_goto_field():
+	"""清除goto字段"""
+	extracted_fields.erase("goto")
 
 func _flatten_conversation() -> String:
 	"""扁平化对话历史，只提取msg字段内容"""

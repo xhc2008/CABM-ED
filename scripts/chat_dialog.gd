@@ -691,8 +691,54 @@ func _on_continue_clicked():
 		# 正在接收流式数据，等待更多句子
 		is_showing_sentence = false
 	else:
-		# 所有句子已显示完毕，切换回输入模式
-		await _transition_to_input_mode()
+		# 所有句子已显示完毕，检查是否有goto字段
+		if _check_and_handle_goto():
+			# 有有效的goto，先切换到输入模式，等动画结束后再结束聊天
+			await _transition_to_input_mode()
+			# 等待一帧确保UI完全更新
+			await get_tree().process_frame
+			# 结束聊天（触发角色移动）
+			_on_end_button_pressed()
+		else:
+			# 没有goto，切换回输入模式
+			await _transition_to_input_mode()
+
+func _check_and_handle_goto() -> bool:
+	"""检查并处理goto字段，返回是否有有效的goto"""
+	if not has_node("/root/AIService"):
+		return false
+	
+	var ai_service = get_node("/root/AIService")
+	var goto_index = ai_service.get_goto_field()
+	
+	if goto_index < 0:
+		return false
+	
+	# 验证goto是否有效（不是当前场景）
+	if not has_node("/root/PromptBuilder") or not has_node("/root/SaveManager"):
+		return false
+	
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var target_scene = prompt_builder.get_scene_id_by_index(goto_index)
+	
+	if target_scene == "":
+		print("ChatDialog: 无效的goto索引: ", goto_index)
+		# 清除无效的goto
+		ai_service.clear_goto_field()
+		return false
+	
+	# 检查是否是角色当前所在的场景
+	var save_mgr = get_node("/root/SaveManager")
+	var character_scene = save_mgr.get_character_scene()
+	
+	if target_scene == character_scene:
+		print("ChatDialog: goto场景与角色当前场景相同，忽略: ", target_scene)
+		# 清除无效的goto
+		ai_service.clear_goto_field()
+		return false
+	
+	# 有有效的goto字段，返回true（不清除，让character.end_chat处理）
+	return true
 
 
 # 处理角色拒绝回复的情况

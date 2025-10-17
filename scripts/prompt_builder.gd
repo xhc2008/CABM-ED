@@ -65,6 +65,9 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	# 格式化当前时间
 	var current_time = _format_current_time()
 	
+	# 生成场景列表
+	var scenes_list = _generate_scenes_list()
+	
 	# 替换占位符
 	var prompt = prompt_template.replace("{character_name}", character_name)
 	prompt = prompt.replace("{user_name}", user_name)
@@ -77,6 +80,7 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	prompt = prompt.replace("{interaction_level}", interaction_level)
 	prompt = prompt.replace("{current_mood}", current_mood)
 	prompt = prompt.replace("{current_time}", current_time)
+	prompt = prompt.replace("{scenes}", scenes_list)
 	
 	return prompt
 
@@ -104,6 +108,33 @@ func _generate_moods_list() -> String:
 		moods_array.append("%d=%s" % [mood.id, mood.name])
 	
 	return ", ".join(moods_array)
+
+func _generate_scenes_list() -> String:
+	"""从scenes.json生成场景列表字符串"""
+	var scenes_config = _load_scenes_config()
+	if not scenes_config.has("scenes"):
+		return "0=客厅, 1=卧室, 2=浴室, 3=书房"
+	
+	var scenes_array = []
+	var index = 0
+	for scene_id in scenes_config.scenes:
+		var scene_name = scenes_config.scenes[scene_id].get("name", scene_id)
+		scenes_array.append("%d=%s" % [index, scene_name])
+		index += 1
+	
+	return ", ".join(scenes_array)
+
+func get_scene_id_by_index(index: int) -> String:
+	"""根据索引获取场景ID"""
+	var scenes_config = _load_scenes_config()
+	if not scenes_config.has("scenes"):
+		return ""
+	
+	var scene_ids = scenes_config.scenes.keys()
+	if index >= 0 and index < scene_ids.size():
+		return scene_ids[index]
+	
+	return ""
 
 func _load_app_config() -> Dictionary:
 	"""加载应用配置"""

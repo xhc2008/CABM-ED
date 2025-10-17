@@ -85,6 +85,23 @@ func _update_position_and_scale_from_preset():
 	print("实际背景大小: ", actual_bg_size, " 偏移: ", bg_offset, " 缩放: ", bg_scale, " 角色position: ", position)
 
 func load_character_for_scene(scene_id: String):
+	# 检查角色是否应该在这个场景显示
+	var character_scene = _get_character_scene()
+	
+	# 如果角色场景为空（首次启动），初始化为当前场景
+	if character_scene == "":
+		print("首次启动，初始化角色场景为: ", scene_id)
+		if has_node("/root/SaveManager"):
+			var save_mgr = get_node("/root/SaveManager")
+			save_mgr.set_character_scene(scene_id)
+		character_scene = scene_id
+	
+	if character_scene != scene_id:
+		# 角色不在这个场景，隐藏
+		visible = false
+		print("角色不在场景 %s，当前在 %s" % [scene_id, character_scene])
+		return
+	
 	current_scene = scene_id
 	
 	# 加载预设配置
@@ -182,12 +199,13 @@ func _try_load_preset_from_save(scene_id: String, available_presets: Array) -> D
 	return {}
 
 func _save_character_state():
-	"""保存角色当前状态到存档"""
+	"""保存角色当前状态到存档（只保存预设，场景在其他地方保存）"""
 	if not has_node("/root/SaveManager"):
 		return
 	
 	var save_mgr = get_node("/root/SaveManager")
-	save_mgr.set_character_scene(current_scene)
+	# 注意：不在这里保存场景，避免循环触发
+	# 场景应该在需要改变时立即保存（end_chat, _reload_with_probability等）
 	save_mgr.set_character_preset(original_preset)
 
 func start_chat():
@@ -273,9 +291,192 @@ func end_chat():
 	visible = false
 	await get_tree().create_timer(0.3).timeout
 	
-	# 重新加载场景中的随机位置
-	modulate.a = 1.0
-	load_character_for_scene(current_scene)
+	# 检查是否有AI决定的场景变化
+	var goto_scene = _check_goto_scene()
+	
+	if goto_scene != "":
+		# AI决定了场景变化，移动到新场景
+		print("AI决定移动到场景: ", goto_scene)
+		
+		# 先更新SaveManager中的角色场景
+		if has_node("/root/SaveManager"):
+			var save_mgr = get_node("/root/SaveManager")
+			save_mgr.set_character_scene(goto_scene)
+			print("已更新角色场景到存档: ", goto_scene)
+		
+		# 注意：不需要在这里调用load_character_for_scene
+		# SaveManager.set_character_scene会触发character_scene_changed信号
+		# main.gd会监听这个信号并调用load_character_for_scene(用户当前场景)
+		# 这样角色会根据用户当前场景自动显示或隐藏
+	else:
+		# 没有场景变化，使用概率决定位置
+		_reload_with_probability()
+
+func _check_goto_scene() -> String:
+	"""检查AI是否决定了场景变化"""
+	if not has_node("/root/AIService"):
+		return ""
+	
+	var ai_service = get_node("/root/AIService")
+	var goto_index = ai_service.get_goto_field()
+	
+	if goto_index < 0:
+		return ""
+	
+	# 清除goto字段
+	ai_service.clear_goto_field()
+	
+	# 获取场景ID
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var target_scene = prompt_builder.get_scene_id_by_index(goto_index)
+	
+	if target_scene == "":
+		print("无效的goto索引: ", goto_index)
+		return ""
+	
+	# 检查是否是角色当前所在的场景（从SaveManager获取）
+	var character_scene = _get_character_scene()
+	if target_scene == character_scene:
+		print("goto场景与角色当前场景相同，忽略: ", target_scene)
+		return ""
+	
+	return target_scene
+
+func _reload_with_probability():
+	"""根据概率决定角色位置"""
+	var rand_value = randf()
+	
+	if rand_value < 0.7:
+		# 70%概率：回到原位置
+		print("角色回到原位置")
+		modulate.a = 1.0
+		_reload_same_preset()
+	elif rand_value < 0.95:
+		# 25%概率：当前场景的随机位置
+		print("角色移动到当前场景的随机位置")
+		modulate.a = 1.0
+		load_character_for_scene(current_scene)
+	else:
+		# 5%概率：其他场景的随机位置
+		print("角色移动到其他场景")
+		var new_scene = _get_random_other_scene()
+		if new_scene != "":
+			# 更新SaveManager中的角色场景
+			if has_node("/root/SaveManager"):
+				var save_mgr = get_node("/root/SaveManager")
+				save_mgr.set_character_scene(new_scene)
+				print("已更新角色场景到存档: ", new_scene)
+			
+			# 注意：不需要在这里调用load_character_for_scene
+			# SaveManager.set_character_scene会触发character_scene_changed信号
+			# main.gd会监听这个信号并调用load_character_for_scene(用户当前场景)
+			# 由于角色移动到了其他场景，角色会被隐藏
+		else:
+			# 如果没有其他场景，回到原位置
+			modulate.a = 1.0
+			_reload_same_preset()
+
+func _reload_same_preset():
+	"""重新加载相同的预设位置"""
+	if original_preset.size() == 0:
+		load_character_for_scene(current_scene)
+		return
+	
+	# 加载角色图片
+	var image_path = "res://assets/images/character/%s/%s" % [current_scene, original_preset.image]
+	if ResourceLoader.exists(image_path):
+		texture_normal = load(image_path)
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+		
+		modulate.a = 0.0
+		visible = true
+		
+		await get_tree().process_frame
+		await get_tree().process_frame
+		
+		_update_position_and_scale_from_preset()
+		_save_character_state()
+		
+		var fade_in_tween = create_tween()
+		fade_in_tween.tween_property(self, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		
+		print("角色已回到原位置")
+	else:
+		load_character_for_scene(current_scene)
+
+func _get_random_other_scene() -> String:
+	"""获取一个随机的其他场景"""
+	var config_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(config_path):
+		return ""
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return ""
+	
+	var config = json.data
+	var available_scenes = []
+	
+	for scene_id in config:
+		if scene_id != current_scene and config[scene_id].size() > 0:
+			available_scenes.append(scene_id)
+	
+	if available_scenes.is_empty():
+		return ""
+	
+	return available_scenes[randi() % available_scenes.size()]
+
+func _get_character_scene() -> String:
+	"""获取角色当前所在场景"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_character_scene()
+	return current_scene
+
+func apply_enter_scene_probability():
+	"""用户进入场景时，应用概率系统决定角色位置"""
+	var rand_value = randf()
+	
+	if rand_value < 0.7:
+		# 70%概率：保持原位置（不做任何操作）
+		print("角色保持原位置")
+	elif rand_value < 0.95:
+		# 25%概率：当前场景的随机位置
+		print("角色移动到当前场景的随机位置")
+		# 重新加载角色（会选择随机位置）
+		var character_scene = _get_character_scene()
+		if character_scene == current_scene:
+			# 淡出
+			var fade_out = create_tween()
+			fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+			await fade_out.finished
+			
+			# 重新加载
+			load_character_for_scene(current_scene)
+	else:
+		# 5%概率：移动到其他场景
+		print("角色移动到其他场景")
+		var new_scene = _get_random_other_scene()
+		if new_scene != "":
+			# 淡出
+			var fade_out = create_tween()
+			fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+			await fade_out.finished
+			
+			# 更新角色场景
+			current_scene = new_scene
+			if has_node("/root/SaveManager"):
+				var save_mgr = get_node("/root/SaveManager")
+				save_mgr.set_character_scene(new_scene)
+			
+			# 如果新场景不是当前用户所在场景，角色会被隐藏
+			# 如果是当前场景，会重新加载
+			load_character_for_scene(new_scene)
 
 func _on_pressed():
 	if not is_chatting:

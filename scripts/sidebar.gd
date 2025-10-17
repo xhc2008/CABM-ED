@@ -40,6 +40,7 @@ var weather_buttons = {}
 var affection_label: Label
 var willingness_label: Label
 var mood_label: Label
+var character_location_label: Label
 
 # 用户名输入框
 var user_name_input: LineEdit
@@ -92,6 +93,9 @@ func _ready():
 		save_mgr.willingness_changed.connect(_update_character_stats)
 		save_mgr.mood_changed.connect(_update_character_stats)
 		save_mgr.energy_changed.connect(_update_character_stats)
+		# 监听角色场景变化
+		if save_mgr.has_signal("character_scene_changed"):
+			save_mgr.character_scene_changed.connect(_update_character_stats)
 	
 	# 监听AI服务的字段提取信号以实时更新
 	if has_node("/root/AIService"):
@@ -151,6 +155,12 @@ func _setup_clock_and_auto():
 	stats_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stats_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	header_container.add_child(stats_label)
+	
+	# 角色位置
+	character_location_label = Label.new()
+	character_location_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	character_location_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.8))
+	header_container.add_child(character_location_label)
 	
 	# 好感度
 	affection_label = Label.new()
@@ -382,6 +392,12 @@ func _update_character_stats(_new_value = null):
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
+	# 角色位置
+	var character_scene = save_mgr.get_character_scene()
+	var scene_name = _get_scene_name(character_scene)
+	var character_name = _get_character_name()
+	character_location_label.text = "%s位于: %s" % [character_name, scene_name]
+	
 	# 好感度
 	var affection = save_mgr.get_affection()
 	affection_label.text = "好感度: %d" % affection
@@ -601,3 +617,26 @@ func _on_about_pressed():
 	if about_dialog_scene:
 		var about_dialog = about_dialog_scene.instantiate()
 		get_tree().root.add_child(about_dialog)
+
+func _get_scene_name(scene_id: String) -> String:
+	"""获取场景名称"""
+	if scenes.has(scene_id):
+		return scenes[scene_id].get("name", scene_id)
+	return scene_id
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	var app_config_path = "res://config/app_config.json"
+	if not FileAccess.file_exists(app_config_path):
+		return "角色"
+	
+	var file = FileAccess.open(app_config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "角色"
+	
+	var config = json.data
+	return config.get("character_name", "角色")

@@ -98,6 +98,11 @@ func _setup_managers():
 	else:
 		print("警告: EventManager 未找到，请检查自动加载配置")
 	
+	# 连接SaveManager的角色场景变化信号
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.character_scene_changed.connect(_on_character_scene_changed)
+	
 	# 创建失败消息标签
 	failure_message_label = Label.new()
 	failure_message_label.visible = false
@@ -381,6 +386,15 @@ func _on_chat_ended():
 	# 重新启用右侧点击区域
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
 
+func _on_character_scene_changed(new_scene: String):
+	"""角色场景变化时的处理"""
+	print("角色场景变化: ", new_scene)
+	
+	# 重新加载角色，这会根据当前用户所在场景决定角色是否可见
+	# 如果用户在角色的新场景，角色会显示
+	# 如果用户不在角色的新场景，角色会被隐藏
+	character.load_character_for_scene(current_scene)
+
 func _on_right_area_input(event: InputEvent):
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -549,6 +563,9 @@ func _try_scene_interaction(action_id: String):
 	
 	if action_id == "enter_scene":
 		result = event_mgr.on_enter_scene()
+		# 进入场景时，应用概率系统决定角色位置
+		if result.success:
+			character.apply_enter_scene_probability()
 	elif action_id == "leave_scene":
 		result = event_mgr.on_leave_scene()
 	else:
