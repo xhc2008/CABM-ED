@@ -306,19 +306,21 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 		_cancel_pending_chat()
 		_lock_scene_switch()
 	
-	# 检查是否离开有角色的场景
-	if scene_actually_changed and _has_character_in_scene(old_scene):
-		_try_scene_interaction("leave_scene")
-	
 	# 加载新场景（或更新天气/时间）
 	load_scene(scene_id, weather_id, time_id)
 	
 	# 等待场景加载完成
 	await get_tree().process_frame
 	
-	# 只有在场景真正改变时，才检查是否进入有角色的场景
-	if scene_actually_changed and _has_character_in_scene(scene_id):
-		_try_scene_interaction("enter_scene")
+	# 只有在场景真正改变时，才尝试触发场景交互
+	if scene_actually_changed:
+		# 优先级：进入 > 离开
+		# 如果进入有角色的场景，触发进入事件
+		if _has_character_in_scene(scene_id):
+			_try_scene_interaction("enter_scene")
+		# 否则，如果离开了有角色的场景，触发离开事件
+		elif _has_character_in_scene(old_scene):
+			_try_scene_interaction("leave_scene")
 
 func _on_scene_menu_selected(scene_id: String):
 	# 记录旧场景
@@ -329,10 +331,6 @@ func _on_scene_menu_selected(scene_id: String):
 		_cancel_pending_chat()
 		_lock_scene_switch()
 	
-	# 检查是否离开有角色的场景
-	if _has_character_in_scene(old_scene) and old_scene != scene_id:
-		_try_scene_interaction("leave_scene")
-	
 	# 切换到选中的场景，保持当前天气和时间
 	load_scene(scene_id, current_weather, current_time)
 	# 更新侧边栏显示的场景
@@ -341,9 +339,13 @@ func _on_scene_menu_selected(scene_id: String):
 	# 等待场景加载完成
 	await get_tree().process_frame
 	
-	# 检查是否进入有角色的场景
+	# 优先级：进入 > 离开
+	# 如果进入有角色的场景，触发进入事件
 	if _has_character_in_scene(scene_id):
 		_try_scene_interaction("enter_scene")
+	# 否则，如果离开了有角色的场景，触发离开事件
+	elif _has_character_in_scene(old_scene):
+		_try_scene_interaction("leave_scene")
 
 func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	# 尝试交互
@@ -572,21 +574,14 @@ func _show_failure_message(message: String):
 	failure_message_tween = null
 
 func _has_character_in_scene(scene_id: String) -> bool:
-	"""检查场景是否有角色配置"""
-	var config_path = "res://config/character_presets.json"
-	if not FileAccess.file_exists(config_path):
+	"""检查角色是否真的在指定场景（不是配置，而是实际位置）"""
+	if not has_node("/root/SaveManager"):
 		return false
 	
-	var file = FileAccess.open(config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
+	var save_mgr = get_node("/root/SaveManager")
+	var character_scene = save_mgr.get_character_scene()
 	
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		return false
-	
-	var config = json.data
-	return config.has(scene_id) and config[scene_id].size() > 0
+	return character_scene == scene_id
 
 func _try_scene_interaction(action_id: String):
 	"""尝试场景交互（进入/离开）"""
@@ -627,21 +622,22 @@ func _try_scene_interaction(action_id: String):
 
 func _on_pending_chat_timeout(chat_mode: String):
 	"""延迟聊天触发"""
+	# 再次检查角色是否还在当前场景（防止概率移动或其他原因导致的问题）
+	if not _has_character_in_scene(current_scene):
+		print("角色已不在当前场景，取消对话触发")
+		return
+	
 	# 确保角色可见且不在聊天状态
-	if character.visible and not character.is_chatting:
-		# 再次检查角色是否还在当前场景（防止概率移动导致的问题）
-		if not _has_character_in_scene(current_scene):
-			print("角色已不在当前场景，取消对话触发")
-			return
-		
-		var mode = chat_mode if chat_mode != "" else "passive"
-		character.start_chat()
-		chat_dialog.show_dialog(mode)
-		# 禁用右侧点击区域
-		right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		print("延迟聊天已触发")
-	else:
+	if not character.visible or character.is_chatting:
 		print("角色不可见或正在聊天，取消对话触发")
+		return
+	
+	var mode = chat_mode if chat_mode != "" else "passive"
+	character.start_chat()
+	chat_dialog.show_dialog(mode)
+	# 禁用右侧点击区域
+	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	print("延迟聊天已触发")
 func _cancel_pending_chat():
 	"""取消待触发的聊天"""
 	if pending_chat_timer and not pending_chat_timer.is_stopped():
