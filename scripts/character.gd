@@ -344,8 +344,7 @@ func _check_goto_scene() -> String:
 
 func _reload_with_probability():
 	"""聊天结束后根据概率决定角色位置（复用统一的概率系统）"""
-	modulate.a = 1.0
-	await apply_position_probability()
+	apply_position_probability()
 
 func _reload_same_preset():
 	"""重新加载相同的预设位置"""
@@ -419,8 +418,9 @@ func apply_position_probability() -> bool:
 	var rand_value = randf()
 	
 	if rand_value < 0.7:
-		# 70%概率：保持原位置（不做任何操作）
+		# 70%概率：保持原位置
 		print("角色保持原位置")
+		_reload_same_preset()
 		return true
 	elif rand_value < 0.95:
 		# 25%概率：当前场景的随机位置
@@ -428,12 +428,6 @@ func apply_position_probability() -> bool:
 		# 重新加载角色（会选择随机位置）
 		var character_scene = _get_character_scene()
 		if character_scene == current_scene:
-			# 淡出
-			var fade_out = create_tween()
-			fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
-			await fade_out.finished
-			
-			# 重新加载
 			load_character_for_scene(current_scene)
 		return true
 	else:
@@ -441,11 +435,6 @@ func apply_position_probability() -> bool:
 		print("角色移动到其他场景")
 		var new_scene = _get_random_other_scene()
 		if new_scene != "":
-			# 淡出
-			var fade_out = create_tween()
-			fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
-			await fade_out.finished
-			
 			# 更新角色场景
 			if has_node("/root/SaveManager"):
 				var save_mgr = get_node("/root/SaveManager")
@@ -457,6 +446,7 @@ func apply_position_probability() -> bool:
 		else:
 			# 如果没有其他场景，保持原位置
 			print("没有其他场景可移动，保持原位置")
+			_reload_same_preset()
 			return true
 
 func _on_pressed():
