@@ -6,7 +6,7 @@ var current_scene: String = ""
 var original_preset: Dictionary
 var is_chatting: bool = false
 var background_node: TextureRect
-var is_first_load: bool = true  # 标记是否是首次加载
+var is_first_load: bool = true # 标记是否是首次加载
 
 # 聊天状态的配置
 const CHAT_POSITION_RATIO = Vector2(0.5, 0.55) # 向下调整到0.5
@@ -120,7 +120,7 @@ func load_character_for_scene(scene_id: String):
 		if loaded_preset.size() > 0:
 			original_preset = loaded_preset
 			print("从存档加载角色预设")
-			is_first_load = false  # 标记已完成首次加载
+			is_first_load = false # 标记已完成首次加载
 		else:
 			# 随机选择一个预设
 			original_preset = presets[randi() % presets.size()]
@@ -140,6 +140,10 @@ func load_character_for_scene(scene_id: String):
 		custom_minimum_size = texture_normal.get_size()
 		size = texture_normal.get_size()
 		
+		# 先设置为完全透明，避免在(0,0)位置闪现
+		modulate.a = 0.0
+		visible = true
+		
 		# 等待背景和场景完全准备好
 		await get_tree().process_frame
 		await get_tree().process_frame
@@ -151,8 +155,6 @@ func load_character_for_scene(scene_id: String):
 		_save_character_state()
 		
 		# 渐入动画
-		modulate.a = 0.0
-		visible = true
 		var fade_in_tween = create_tween()
 		fade_in_tween.tween_property(self, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		
