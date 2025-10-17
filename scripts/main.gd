@@ -23,9 +23,16 @@ var scene_scale: Vector2 = Vector2.ONE
 var failure_message_label: Label = null
 var failure_message_tween: Tween = null
 
+# 场景切换控制
+var scene_switch_timer: Timer = null
+var pending_chat_timer: Timer = null
+
 func _ready():
 	# 初始化管理器
 	_setup_managers()
+	
+	# 初始化场景切换控制
+	_setup_scene_switch_control()
 	
 	# 加载场景配置
 	_load_scenes_config()
@@ -112,6 +119,19 @@ func _setup_managers():
 	failure_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	failure_message_label.z_index = 100
 	add_child(failure_message_label)
+
+func _setup_scene_switch_control():
+	"""初始化场景切换控制计时器"""
+	# 场景切换锁定计时器（禁用右侧点击区域）
+	scene_switch_timer = Timer.new()
+	scene_switch_timer.one_shot = true
+	scene_switch_timer.timeout.connect(_on_scene_switch_timeout)
+	add_child(scene_switch_timer)
+	
+	# 待触发聊天计时器
+	pending_chat_timer = Timer.new()
+	pending_chat_timer.one_shot = true
+	add_child(pending_chat_timer)
 
 func _load_scenes_config():
 	var config_path = "res://config/scenes.json"
@@ -281,6 +301,11 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	# 检查场景是否真的改变了
 	var scene_actually_changed = (old_scene != scene_id)
 	
+	# 场景切换时取消待触发的聊天
+	if scene_actually_changed:
+		_cancel_pending_chat()
+		_lock_scene_switch()
+	
 	# 检查是否离开有角色的场景
 	if scene_actually_changed and _has_character_in_scene(old_scene):
 		_try_scene_interaction("leave_scene")
@@ -298,6 +323,11 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 func _on_scene_menu_selected(scene_id: String):
 	# 记录旧场景
 	var old_scene = current_scene
+	
+	# 场景切换时取消待触发的聊天
+	if old_scene != scene_id:
+		_cancel_pending_chat()
+		_lock_scene_switch()
 	
 	# 检查是否离开有角色的场景
 	if _has_character_in_scene(old_scene) and old_scene != scene_id:
@@ -398,6 +428,11 @@ func _on_character_scene_changed(new_scene: String):
 func _on_right_area_input(event: InputEvent):
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			# 检查是否在场景切换锁定期间
+			if scene_switch_timer and not scene_switch_timer.is_stopped():
+				print("场景切换锁定中，忽略点击")
+				return
+			
 			var click_pos = event.position
 			
 			# 检查是否点击在场景右侧区域（右侧1/4）
@@ -565,28 +600,66 @@ func _try_scene_interaction(action_id: String):
 		result = event_mgr.on_enter_scene()
 		# 进入场景时，应用概率系统决定角色位置
 		if result.success:
-			character.apply_enter_scene_probability()
+			var still_in_scene = await character.apply_position_probability()
+			# 如果角色移动到其他场景了，不触发对话
+			if not still_in_scene:
+				print("角色移动到其他场景，取消对话触发")
+				return
 	elif action_id == "leave_scene":
 		result = event_mgr.on_leave_scene()
 	else:
 		return
 	
 	if result.success:
-		# 成功触发，开始聊天
-		print("场景交互成功，触发聊天: ", action_id)
-		# 等待一小段时间让场景加载完成
-		await get_tree().create_timer(0.5).timeout
+		# 成功触发，延迟触发聊天
+		print("场景交互成功，延迟触发聊天: ", action_id)
 		
-		# 确保角色可见且不在聊天状态
-		if character.visible and not character.is_chatting:
-			# 获取聊天模式（从 result.message 中）
-			var chat_mode = result.message if result.message != "" else "passive"
-			character.start_chat()
-			chat_dialog.show_dialog(chat_mode)
-			# 禁用右侧点击区域
-			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# 隐藏场景菜单（如果可见）
+		if scene_menu.visible:
+			scene_menu.hide_menu()
+		
+		# 使用计时器延迟触发，这样可以被取消
+		pending_chat_timer.wait_time = 0.5
+		pending_chat_timer.timeout.connect(_on_pending_chat_timeout.bind(result.message), CONNECT_ONE_SHOT)
+		pending_chat_timer.start()
 	else:
 		print("场景交互失败或在冷却中: ", action_id)
+
+func _on_pending_chat_timeout(chat_mode: String):
+	"""延迟聊天触发"""
+	# 确保角色可见且不在聊天状态
+	if character.visible and not character.is_chatting:
+		# 再次检查角色是否还在当前场景（防止概率移动导致的问题）
+		if not _has_character_in_scene(current_scene):
+			print("角色已不在当前场景，取消对话触发")
+			return
+		
+		var mode = chat_mode if chat_mode != "" else "passive"
+		character.start_chat()
+		chat_dialog.show_dialog(mode)
+		# 禁用右侧点击区域
+		right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		print("延迟聊天已触发")
+	else:
+		print("角色不可见或正在聊天，取消对话触发")
+func _cancel_pending_chat():
+	"""取消待触发的聊天"""
+	if pending_chat_timer and not pending_chat_timer.is_stopped():
+		pending_chat_timer.stop()
+		# 断开所有连接
+		for connection in pending_chat_timer.timeout.get_connections():
+			pending_chat_timer.timeout.disconnect(connection["callable"])
+		print("已取消待触发的聊天")
+
+func _lock_scene_switch():
+	"""锁定场景切换（禁用右侧点击区域1秒）"""
+	if scene_switch_timer:
+		scene_switch_timer.start(1.0)
+		print("场景切换已锁定1秒")
+
+func _on_scene_switch_timeout():
+	"""场景切换锁定超时"""
+	print("场景切换锁定解除")
 
 func _show_save_debug_panel():
 	"""显示存档调试面板"""

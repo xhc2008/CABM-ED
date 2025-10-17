@@ -343,38 +343,9 @@ func _check_goto_scene() -> String:
 	return target_scene
 
 func _reload_with_probability():
-	"""根据概率决定角色位置"""
-	var rand_value = randf()
-	
-	if rand_value < 0.7:
-		# 70%概率：回到原位置
-		print("角色回到原位置")
-		modulate.a = 1.0
-		_reload_same_preset()
-	elif rand_value < 0.95:
-		# 25%概率：当前场景的随机位置
-		print("角色移动到当前场景的随机位置")
-		modulate.a = 1.0
-		load_character_for_scene(current_scene)
-	else:
-		# 5%概率：其他场景的随机位置
-		print("角色移动到其他场景")
-		var new_scene = _get_random_other_scene()
-		if new_scene != "":
-			# 更新SaveManager中的角色场景
-			if has_node("/root/SaveManager"):
-				var save_mgr = get_node("/root/SaveManager")
-				save_mgr.set_character_scene(new_scene)
-				print("已更新角色场景到存档: ", new_scene)
-			
-			# 注意：不需要在这里调用load_character_for_scene
-			# SaveManager.set_character_scene会触发character_scene_changed信号
-			# main.gd会监听这个信号并调用load_character_for_scene(用户当前场景)
-			# 由于角色移动到了其他场景，角色会被隐藏
-		else:
-			# 如果没有其他场景，回到原位置
-			modulate.a = 1.0
-			_reload_same_preset()
+	"""聊天结束后根据概率决定角色位置（复用统一的概率系统）"""
+	modulate.a = 1.0
+	await apply_position_probability()
 
 func _reload_same_preset():
 	"""重新加载相同的预设位置"""
@@ -438,13 +409,19 @@ func _get_character_scene() -> String:
 		return save_mgr.get_character_scene()
 	return current_scene
 
-func apply_enter_scene_probability():
-	"""用户进入场景时，应用概率系统决定角色位置"""
+func apply_position_probability() -> bool:
+	"""应用概率系统决定角色位置
+	
+	返回值：
+	- true: 角色仍在当前场景（保持原位或移动到当前场景随机位置）
+	- false: 角色移动到其他场景
+	"""
 	var rand_value = randf()
 	
 	if rand_value < 0.7:
 		# 70%概率：保持原位置（不做任何操作）
 		print("角色保持原位置")
+		return true
 	elif rand_value < 0.95:
 		# 25%概率：当前场景的随机位置
 		print("角色移动到当前场景的随机位置")
@@ -458,6 +435,7 @@ func apply_enter_scene_probability():
 			
 			# 重新加载
 			load_character_for_scene(current_scene)
+		return true
 	else:
 		# 5%概率：移动到其他场景
 		print("角色移动到其他场景")
@@ -469,14 +447,17 @@ func apply_enter_scene_probability():
 			await fade_out.finished
 			
 			# 更新角色场景
-			current_scene = new_scene
 			if has_node("/root/SaveManager"):
 				var save_mgr = get_node("/root/SaveManager")
 				save_mgr.set_character_scene(new_scene)
 			
-			# 如果新场景不是当前用户所在场景，角色会被隐藏
-			# 如果是当前场景，会重新加载
-			load_character_for_scene(new_scene)
+			# 角色移动到其他场景，会被隐藏
+			# SaveManager会触发信号，main.gd会调用load_character_for_scene
+			return false
+		else:
+			# 如果没有其他场景，保持原位置
+			print("没有其他场景可移动，保持原位置")
+			return true
 
 func _on_pressed():
 	if not is_chatting:
