@@ -34,6 +34,12 @@ var display_buffer: String = ""  # 待显示的内容缓冲
 var displayed_text: String = ""  # 已显示的内容
 var is_receiving_stream: bool = false  # 是否正在接收流式数据
 
+# 分段输出相关
+var sentence_buffer: String = ""  # 完整句子缓冲
+var sentence_queue: Array = []  # 待显示的句子队列
+var current_sentence_index: int = 0  # 当前显示的句子索引
+var is_showing_sentence: bool = false  # 是否正在显示句子
+
 # TTS相关
 var tts_buffer: String = ""  # TTS文本缓冲
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
@@ -166,6 +172,7 @@ func _ready():
 		history_button.pressed.connect(_on_history_button_pressed)
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
+		input_field.text_changed.connect(_on_input_text_changed)
 	
 	# 创建打字机效果的计时器
 	typing_timer = Timer.new()
@@ -182,6 +189,11 @@ func _ready():
 		ai_service.chat_response_received.connect(_on_ai_response)
 		ai_service.chat_response_completed.connect(_on_ai_response_completed)
 		ai_service.chat_error.connect(_on_ai_error)
+	
+	# 连接事件管理器信号
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.event_completed.connect(_on_event_completed)
 	
 	# 初始化为输入模式
 	_setup_input_mode()
@@ -349,31 +361,30 @@ func _on_ai_response(response: String):
 	if not is_receiving_stream:
 		# 第一次接收，开始流式显示
 		is_receiving_stream = true
-		display_buffer = ""
-		displayed_text = ""
-		tts_buffer = ""
+		sentence_buffer = ""
+		sentence_queue = []
+		current_sentence_index = 0
+		is_showing_sentence = false
 		message_label.text = ""
-		typing_timer.start(TYPING_SPEED)
 	
-	# 将新内容添加到buffer
-	display_buffer += response
+	# 将新内容添加到句子缓冲
+	sentence_buffer += response
 	
-	# 处理TTS：将新内容添加到TTS缓冲并检测标点
-	_process_tts_chunk(response)
+	# 检测并提取完整的句子
+	_extract_sentences_from_buffer()
 
 func _on_ai_response_completed():
 	"""AI 流式响应完成回调"""
 	is_receiving_stream = false
 	
-	# 处理剩余的TTS缓冲（如果有未发送的文本）
-	if not tts_buffer.is_empty():
-		_send_tts(tts_buffer)
-		tts_buffer = ""
+	# 处理剩余的句子缓冲（如果有未完成的句子）
+	if not sentence_buffer.strip_edges().is_empty():
+		sentence_queue.append(sentence_buffer.strip_edges())
+		sentence_buffer = ""
 	
-	# 如果buffer已全部显示，立即显示继续指示器
-	if displayed_text.length() >= display_buffer.length():
-		typing_timer.stop()
-		_show_continue_indicator()
+	# 如果还没有开始显示句子，开始显示第一句
+	if not is_showing_sentence and sentence_queue.size() > 0:
+		_show_next_sentence()
 
 func _on_ai_error(error_message: String):
 	"""AI 错误回调"""
@@ -381,6 +392,29 @@ func _on_ai_error(error_message: String):
 	is_receiving_stream = false
 	# 显示错误消息
 	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息："+error_message)
+
+func _on_input_text_changed(_new_text: String):
+	"""输入框文本变化时重置空闲计时器"""
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.reset_idle_timer()
+
+func _on_event_completed(event_name: String, result):
+	"""处理事件完成信号"""
+	if event_name == "idle_timeout":
+		if result.message == "timeout_to_input":
+			# 超时切换到输入模式
+			if is_history_visible:
+				# 如果在历史模式，先关闭历史
+				_hide_history()
+			elif waiting_for_continue:
+				# 如果在回复模式，切换到输入模式
+				waiting_for_continue = false
+				continue_indicator.visible = false
+				_transition_to_input_mode()
+		elif result.message == "chat_idle_timeout":
+			# 输入模式超时，结束聊天
+			_on_end_button_pressed()
 
 func _on_send_button_pressed():
 	_on_input_submitted(input_field.text)
@@ -499,29 +533,107 @@ func _start_typing_effect(text: String):
 	displayed_text = ""
 	typing_timer.start(TYPING_SPEED)
 
+func _extract_sentences_from_buffer():
+	"""从缓冲中提取完整的句子"""
+	while true:
+		var found_punct = false
+		var earliest_pos = -1
+		var found_punct_char = ""
+		
+		# 找到最早出现的标点
+		for punct in CHINESE_PUNCTUATION:
+			var pos = sentence_buffer.find(punct)
+			if pos != -1:
+				if earliest_pos == -1 or pos < earliest_pos:
+					earliest_pos = pos
+					found_punct_char = punct
+					found_punct = true
+		
+		# 如果没有找到标点，退出循环
+		if not found_punct:
+			break
+		
+		# 提取到标点为止的句子（包含标点）
+		var sentence = sentence_buffer.substr(0, earliest_pos + 1).strip_edges()
+		
+		if not sentence.is_empty():
+			sentence_queue.append(sentence)
+			print("提取句子: ", sentence)
+		
+		# 移除已处理的部分
+		sentence_buffer = sentence_buffer.substr(earliest_pos + 1)
+	
+	# 如果还没有开始显示句子，且队列中有句子，开始显示
+	if not is_showing_sentence and sentence_queue.size() > 0:
+		_show_next_sentence()
+
+func _show_next_sentence():
+	"""显示下一句话"""
+	if current_sentence_index >= sentence_queue.size():
+		# 所有句子已显示完毕
+		if not is_receiving_stream:
+			# 流式接收已完成，结束显示
+			is_showing_sentence = false
+			_show_continue_indicator()
+		return
+	
+	is_showing_sentence = true
+	var sentence = sentence_queue[current_sentence_index]
+	current_sentence_index += 1
+	
+	print("开始显示句子 #%d: %s" % [current_sentence_index, sentence])
+	
+	# 清空消息标签，准备显示新句子
+	message_label.text = ""
+	displayed_text = ""
+	display_buffer = sentence
+	
+	# 立即发送TTS（每句话开始输出时播放语音）
+	_send_tts(sentence)
+	
+	# 开始打字机效果
+	typing_timer.start(TYPING_SPEED)
+
 func _on_typing_timer_timeout():
-	"""打字机效果定时器 - 支持流式buffer"""
+	"""打字机效果定时器 - 显示当前句子"""
 	if displayed_text.length() < display_buffer.length():
-		# buffer中还有未显示的内容，继续显示
+		# 当前句子还有未显示的内容，继续显示
 		var next_char = display_buffer[displayed_text.length()]
 		displayed_text += next_char
 		message_label.text = displayed_text
-	elif is_receiving_stream:
-		# 正在接收流式数据，但buffer已显示完，等待更多数据
-		pass
 	else:
-		# 所有内容已显示完毕
+		# 当前句子显示完毕
 		typing_timer.stop()
-		is_receiving_stream = false
-		# 打字完成后，显示继续指示器并等待用户点击
-		_show_continue_indicator()
+		
+		# 显示继续指示器，等待用户点击
+		_show_sentence_continue_indicator()
 
-func _show_continue_indicator():
+func _show_sentence_continue_indicator():
+	"""显示句子继续指示器（等待点击继续下一句）"""
 	waiting_for_continue = true
 	continue_indicator.visible = true
 	continue_indicator.modulate.a = 0.0
 	
-	# 角色回复完成，重置空闲计时器
+	# 句子显示完成，重置空闲计时器（语音播放完毕后会再次重置）
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.reset_idle_timer()
+	
+	# 淡入动画
+	var fade_tween = create_tween()
+	fade_tween.tween_property(continue_indicator, "modulate:a", 1.0, 0.3)
+	
+	# 循环闪烁动画
+	await fade_tween.finished
+	_start_indicator_blink()
+
+func _show_continue_indicator():
+	"""显示最终继续指示器（所有句子显示完毕）"""
+	waiting_for_continue = true
+	continue_indicator.visible = true
+	continue_indicator.modulate.a = 0.0
+	
+	# 所有句子显示完成，重置空闲计时器
 	if has_node("/root/EventManager"):
 		var event_mgr = get_node("/root/EventManager")
 		event_mgr.reset_idle_timer()
@@ -549,8 +661,16 @@ func _on_continue_clicked():
 	# 隐藏指示器
 	continue_indicator.visible = false
 	
-	# 切换回输入模式
-	await _transition_to_input_mode()
+	# 检查是否还有更多句子要显示
+	if current_sentence_index < sentence_queue.size():
+		# 还有更多句子，显示下一句
+		_show_next_sentence()
+	elif is_receiving_stream:
+		# 正在接收流式数据，等待更多句子
+		is_showing_sentence = false
+	else:
+		# 所有句子已显示完毕，切换回输入模式
+		await _transition_to_input_mode()
 
 
 # 处理角色拒绝回复的情况
@@ -768,49 +888,6 @@ func _hide_history():
 	
 	await fade_in_tween.finished
 	is_animating = false
-
-func _process_tts_chunk(text: String):
-	"""处理TTS文本块，检测中文标点并发送语音合成"""
-	if not has_node("/root/TTSService"):
-		return
-	
-	var tts = get_node("/root/TTSService")
-	if not tts.is_enabled:
-		return
-	
-	# 将新文本添加到TTS缓冲
-	tts_buffer += text
-	
-	# 循环处理所有完整的句子
-	while true:
-		var found_punct = false
-		var earliest_pos = -1
-		
-		# 找到最早出现的标点
-		for punct in CHINESE_PUNCTUATION:
-			var pos = tts_buffer.find(punct)
-			if pos != -1:
-				if earliest_pos == -1 or pos < earliest_pos:
-					earliest_pos = pos
-					found_punct = true
-		
-		# 如果没有找到标点，退出循环
-		if not found_punct:
-			break
-		
-		# 提取到标点为止的句子（包含标点）
-		var sentence = tts_buffer.substr(0, earliest_pos + 1).strip_edges()
-		
-		if not sentence.is_empty():
-			_send_tts(sentence)
-			print("TTS: 提取句子 - ", sentence)
-		
-		# 移除已处理的部分
-		tts_buffer = tts_buffer.substr(earliest_pos + 1)
-	
-	# 如果缓冲中还有内容但没有标点，保留等待更多文本
-	if not tts_buffer.is_empty():
-		print("TTS: 缓冲中剩余文本（等待标点）- ", tts_buffer)
 
 func _send_tts(text: String):
 	"""发送文本到TTS服务进行语音合成"""

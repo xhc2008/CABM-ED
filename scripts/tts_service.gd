@@ -25,7 +25,6 @@ var audio_buffer: Dictionary = {} # {request_id: audio_data}
 var next_play_id: int = 0 # 下一个要播放的ID
 var current_player: AudioStreamPlayer
 var is_playing: bool = false
-var is_first_audio: bool = true # 标记是否是第一段音频
 
 # 中文标点符号
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
@@ -403,7 +402,7 @@ func _try_play_next():
 	audio_buffer.erase(next_play_id)
 	
 	print("=== 播放音频 #%d ===" % next_play_id)
-	print("数据大小: %d 字节，是否第一段: %s" % [audio_data.size(), is_first_audio])
+	print("数据大小: %d 字节" % audio_data.size())
 	
 	is_playing = true
 	next_play_id += 1
@@ -415,17 +414,12 @@ func _try_play_next():
 		current_player.volume_db = linear_to_db(volume)
 		print("设置音量: %.2f (%.2f dB)" % [volume, linear_to_db(volume)])
 		
-		# 如果是第一段音频，跳过开头的静音
-		if is_first_audio:
-			var skip_time = _detect_silence_duration(stream)
-			if skip_time > 0:
-				print("检测到开头静音 %.2f 秒，跳过" % skip_time)
-				current_player.play(skip_time)
-			else:
-				current_player.play()
-			is_first_audio = false
+		# 所有音频都跳过开头的静音
+		var skip_time = _detect_silence_duration(stream)
+		if skip_time > 0:
+			print("检测到开头静音 %.2f 秒，跳过" % skip_time)
+			current_player.play(skip_time)
 		else:
-			# 后续音频保留空白作为断句
 			current_player.play()
 		
 		print("开始播放语音 #%d，音频流长度: %.2f 秒" % [next_play_id - 1, stream.get_length()])
@@ -486,8 +480,30 @@ func _on_audio_finished():
 	"""音频播放完成"""
 	print("语音播放完成")
 	is_playing = false
+	
+	# 通知聊天对话框语音播放完毕（用于重置计时器）
+	_notify_voice_finished()
+	
 	# 尝试播放下一个
 	_try_play_next()
+
+func _notify_voice_finished():
+	"""通知聊天对话框语音播放完毕"""
+	# 获取主场景中的聊天对话框
+	var main_scene = get_tree().root.get_node_or_null("Main")
+	if main_scene == null:
+		return
+	
+	var chat_dialog = main_scene.get_node_or_null("ChatDialog")
+	if chat_dialog == null:
+		return
+	
+	# 如果聊天框可见且在等待继续状态，重置空闲计时器
+	if chat_dialog.visible and chat_dialog.waiting_for_continue:
+		if has_node("/root/EventManager"):
+			var event_mgr = get_node("/root/EventManager")
+			event_mgr.reset_idle_timer()
+			print("语音播放完毕，重置空闲计时器")
 
 func process_text_chunk(text: String):
 	"""处理文本块，检测中文标点并合成语音"""
@@ -528,10 +544,9 @@ func clear_queue():
 		current_player.stop()
 	is_playing = false
 	
-	# 重置计数器和标记
+	# 重置计数器
 	next_request_id = 0
 	next_play_id = 0
-	is_first_audio = true
 	
 	print("所有队列和缓冲已清空（TTS请求 + 音频缓冲）")
 

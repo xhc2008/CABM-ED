@@ -47,7 +47,7 @@ func _setup_idle_timer():
 
 func _get_random_idle_timeout() -> float:
 	"""获取随机的空闲超时时间（120-180秒）"""
-	return randf_range(120.0, 180.0)
+	return randf_range(10.0, 10.0)
 
 func reset_idle_timer():
 	"""重置空闲计时器"""
@@ -224,11 +224,11 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 func on_idle_timeout() -> EventResult:
 	"""事件：空闲超时（长时间无操作）
 	
-	分四种情况处理：
-	1. 等待点击继续：自动继续，进入输入状态
-	2. 等待用户输入：长时间无操作视为结束聊天，降低好感
-	3. 聊天中但不需要用户操作（AI正在回复等）：不做任何操作
-	4. 非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
+	改进的超时检测机制：
+	1. 回复模式（等待点击继续）：语音播放完毕后开始计时，超时变回输入模式
+	2. 查看历史模式：超时先变回输入模式
+	3. 输入模式：超时按原流程（降低好感，结束聊天）
+	4. 非聊天状态：提高回复意愿，尝试触发主动聊天
 	"""
 	# 这个事件不重置空闲计时器，但会设置新的随机超时时间
 	if idle_timer:
@@ -239,16 +239,20 @@ func on_idle_timeout() -> EventResult:
 	
 	var result = EventResult.new(true)
 	
-	if chat_state == "waiting_continue":
-		# 等待点击继续：自动继续
-		result.message = "auto_continue"
-		print("等待继续时空闲超时：自动继续")
-	elif chat_state == "waiting_input":
-		# 等待用户输入期间：长时间无操作视为结束聊天，降低好感
+	if chat_state == "reply_mode":
+		# 回复模式（等待点击继续）：超时变回输入模式
+		result.message = "timeout_to_input"
+		print("回复模式空闲超时：切换到输入模式")
+	elif chat_state == "history_mode":
+		# 查看历史模式：超时先变回输入模式
+		result.message = "timeout_to_input"
+		print("历史模式空闲超时：切换到输入模式")
+	elif chat_state == "input_mode":
+		# 输入模式：长时间无操作视为结束聊天，降低好感
 		result.message = "chat_idle_timeout"
 		result.affection_change = randi_range(-5, -2)
 		result.willingness_change = randi_range(-10, -5)
-		print("等待用户输入时空闲超时：降低好感和回复意愿")
+		print("输入模式空闲超时：降低好感和回复意愿，结束聊天")
 	elif chat_state == "chatting":
 		# 聊天中但不需要用户操作（AI正在回复等）：不做任何操作
 		result.message = "no_action"
@@ -274,8 +278,9 @@ func _get_chat_state() -> String:
 	"""获取聊天状态
 	
 	返回值：
-	- "waiting_continue": 等待用户点击继续（角色回复完成）
-	- "waiting_input": 等待用户输入消息
+	- "reply_mode": 回复模式（等待用户点击继续）
+	- "history_mode": 查看历史模式
+	- "input_mode": 输入模式（等待用户输入消息）
 	- "chatting": 聊天中但不需要用户操作（AI正在回复、打字动画等）
 	- "idle": 非聊天状态（聊天框不可见）
 	"""
@@ -292,12 +297,15 @@ func _get_chat_state() -> String:
 		return "idle"
 	
 	# 聊天框可见，检查具体状态
-	if chat_dialog.waiting_for_continue:
-		# 等待点击继续（优先级最高）
-		return "waiting_continue"
+	if chat_dialog.is_history_visible:
+		# 查看历史模式
+		return "history_mode"
+	elif chat_dialog.waiting_for_continue:
+		# 回复模式（等待点击继续）
+		return "reply_mode"
 	elif chat_dialog.is_input_mode:
-		# 等待用户输入消息
-		return "waiting_input"
+		# 输入模式（等待用户输入消息）
+		return "input_mode"
 	else:
 		# AI正在回复或打字动画进行中
 		return "chatting"

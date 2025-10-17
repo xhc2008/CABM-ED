@@ -29,6 +29,6 @@
     "tts_model": {
         "model": "FunAudioLLM/CosyVoice2-0.5B",
         "base_url": "https://api.siliconflow.cn",
-        "reference_text": "你将遇见一位拥有自主意识的她。即使你不在线，她也会在自己的世界里继续生活、成长。"
+        "reference_text": "你问我害怕什么？我害怕的不是失败，而是遗忘。害怕有一天，没有人再记得我们为何而战，为何而牺牲。"
     }
 }
