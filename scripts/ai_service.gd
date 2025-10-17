@@ -582,12 +582,14 @@ func _apply_extracted_fields():
 	# 应用mood字段
 	if extracted_fields.has("mood"):
 		var mood_id = extracted_fields.mood
-		# 确保mood_id是整数类型
+		# 确保mood_id是整数类型（JSON解析可能返回float）
 		if typeof(mood_id) == TYPE_STRING:
+			mood_id = int(mood_id)
+		elif typeof(mood_id) == TYPE_FLOAT:
 			mood_id = int(mood_id)
 		elif typeof(mood_id) != TYPE_INT:
 			print("警告: mood字段类型不正确: ", typeof(mood_id), ", 值: ", mood_id)
-			mood_id = 0  # 默认为平静
+			mood_id = 0 # 默认为平静
 		
 		var prompt_builder = get_node("/root/PromptBuilder")
 		var mood_name_en = prompt_builder.get_mood_name_en(mood_id)
