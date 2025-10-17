@@ -27,7 +27,7 @@ var current_player: AudioStreamPlayer
 var is_playing: bool = false
 
 # 中文标点符号
-const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
+const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
 
 func _ready():
 	_load_config()

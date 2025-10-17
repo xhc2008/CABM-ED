@@ -30,19 +30,19 @@ var waiting_for_continue: bool = false
 var is_animating: bool = false # 标记是否正在进行高度动画
 
 # 流式输出相关
-var display_buffer: String = ""  # 待显示的内容缓冲
-var displayed_text: String = ""  # 已显示的内容
-var is_receiving_stream: bool = false  # 是否正在接收流式数据
+var display_buffer: String = "" # 待显示的内容缓冲
+var displayed_text: String = "" # 已显示的内容
+var is_receiving_stream: bool = false # 是否正在接收流式数据
 
 # 分段输出相关
-var sentence_buffer: String = ""  # 完整句子缓冲
-var sentence_queue: Array = []  # 待显示的句子队列
-var current_sentence_index: int = 0  # 当前显示的句子索引
-var is_showing_sentence: bool = false  # 是否正在显示句子
+var sentence_buffer: String = "" # 完整句子缓冲
+var sentence_queue: Array = [] # 待显示的句子队列
+var current_sentence_index: int = 0 # 当前显示的句子索引
+var is_showing_sentence: bool = false # 是否正在显示句子
 
 # TTS相关
-var tts_buffer: String = ""  # TTS文本缓冲
-const CHINESE_PUNCTUATION = ["。", "！", "？", "；", "…"]
+var tts_buffer: String = "" # TTS文本缓冲
+const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
 
 const INPUT_HEIGHT = 120.0
 const REPLY_HEIGHT = 200.0
@@ -272,7 +272,7 @@ func show_dialog(mode: String = "passive"):
 	if mode == "active":
 		# 角色主动说话，直接进入回复模式
 		_setup_reply_mode()
-		message_label.text = ""  # 清空消息
+		message_label.text = "" # 清空消息
 	else:
 		# 用户先说话，进入输入模式
 		_setup_input_mode()
@@ -391,7 +391,7 @@ func _on_ai_error(error_message: String):
 	print("AI 错误: ", error_message)
 	is_receiving_stream = false
 	# 显示错误消息
-	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息："+error_message)
+	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息：" + error_message)
 
 func _on_input_text_changed(_new_text: String):
 	"""输入框文本变化时重置空闲计时器"""
@@ -403,15 +403,19 @@ func _on_event_completed(event_name: String, result):
 	"""处理事件完成信号"""
 	if event_name == "idle_timeout":
 		if result.message == "timeout_to_input":
-			# 超时切换到输入模式
+			# 超时切换到输入模式，然后自动退出
 			if is_history_visible:
 				# 如果在历史模式，先关闭历史
-				_hide_history()
+				await _hide_history()
 			elif waiting_for_continue:
 				# 如果在回复模式，切换到输入模式
 				waiting_for_continue = false
 				continue_indicator.visible = false
-				_transition_to_input_mode()
+				await _transition_to_input_mode()
+			
+			# 切换到输入模式后，自动退出聊天
+			await get_tree().create_timer(0.5).timeout
+			_on_end_button_pressed()
 		elif result.message == "chat_idle_timeout":
 			# 输入模式超时，结束聊天
 			_on_end_button_pressed()
@@ -538,7 +542,6 @@ func _extract_sentences_from_buffer():
 	while true:
 		var found_punct = false
 		var earliest_pos = -1
-		var found_punct_char = ""
 		
 		# 找到最早出现的标点
 		for punct in CHINESE_PUNCTUATION:
@@ -546,7 +549,6 @@ func _extract_sentences_from_buffer():
 			if pos != -1:
 				if earliest_pos == -1 or pos < earliest_pos:
 					earliest_pos = pos
-					found_punct_char = punct
 					found_punct = true
 		
 		# 如果没有找到标点，退出循环
@@ -614,10 +616,20 @@ func _show_sentence_continue_indicator():
 	continue_indicator.visible = true
 	continue_indicator.modulate.a = 0.0
 	
-	# 句子显示完成，重置空闲计时器（语音播放完毕后会再次重置）
-	if has_node("/root/EventManager"):
-		var event_mgr = get_node("/root/EventManager")
-		event_mgr.reset_idle_timer()
+	# 句子显示完成，检查TTS是否启用
+	# 如果TTS未启用，以文本输出完毕作为计时器开始
+	# 如果TTS启用，语音播放完毕后会再次重置计时器
+	var tts_enabled = false
+	if has_node("/root/TTSService"):
+		var tts = get_node("/root/TTSService")
+		tts_enabled = tts.is_enabled
+	
+	if not tts_enabled:
+		# TTS未启用，立即重置计时器
+		if has_node("/root/EventManager"):
+			var event_mgr = get_node("/root/EventManager")
+			event_mgr.reset_idle_timer()
+			print("TTS未启用，文本输出完毕，重置空闲计时器")
 	
 	# 淡入动画
 	var fade_tween = create_tween()
@@ -633,10 +645,20 @@ func _show_continue_indicator():
 	continue_indicator.visible = true
 	continue_indicator.modulate.a = 0.0
 	
-	# 所有句子显示完成，重置空闲计时器
-	if has_node("/root/EventManager"):
-		var event_mgr = get_node("/root/EventManager")
-		event_mgr.reset_idle_timer()
+	# 所有句子显示完成，检查TTS是否启用
+	# 如果TTS未启用，以文本输出完毕作为计时器开始
+	# 如果TTS启用，语音播放完毕后会再次重置计时器
+	var tts_enabled = false
+	if has_node("/root/TTSService"):
+		var tts = get_node("/root/TTSService")
+		tts_enabled = tts.is_enabled
+	
+	if not tts_enabled:
+		# TTS未启用，立即重置计时器
+		if has_node("/root/EventManager"):
+			var event_mgr = get_node("/root/EventManager")
+			event_mgr.reset_idle_timer()
+			print("TTS未启用，所有文本输出完毕，重置空闲计时器")
 	
 	# 淡入动画
 	var fade_tween = create_tween()
@@ -703,7 +725,7 @@ func _show_refusal_message(message: String = ""):
 	var refusal_label = Label.new()
 	refusal_label.name = "RefusalLabel"
 	refusal_label.text = refusal_text
-	refusal_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))  # 红色
+	refusal_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3)) # 红色
 	refusal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	refusal_label.modulate.a = 0.0
 	
@@ -965,7 +987,7 @@ func _update_history_content():
 				if data.has("msg"):
 					content = data.msg
 		else:
-			continue  # 跳过system消息
+			continue # 跳过system消息
 		
 		history_item.text = "%s：%s" % [speaker_name, content]
 		history_vbox.add_child(history_item)

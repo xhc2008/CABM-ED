@@ -66,15 +66,18 @@ func _try_play_next():
 
 ### 改进内容
 - **分状态处理**：区分回复模式、历史模式、输入模式、非聊天状态
-- **精确计时**：回复模式下，从语音播放完毕开始计时
+- **精确计时**：
+  - 如果TTS启用：从语音播放完毕开始计时
+  - 如果TTS未启用：从文本输出完毕开始计时
 - **输入重置**：用户正在输入时自动重置计时器
+- **自动退出**：回复模式和历史模式超时后，先切换到输入模式，然后自动退出聊天
 
 ### 状态定义
 
 | 状态 | 说明 | 超时行为 |
 |------|------|----------|
-| `reply_mode` | 等待用户点击继续（角色回复完成） | 切换到输入模式 |
-| `history_mode` | 查看历史记录 | 切换到输入模式 |
+| `reply_mode` | 等待用户点击继续（角色回复完成） | 切换到输入模式 → 自动退出聊天 |
+| `history_mode` | 查看历史记录 | 切换到输入模式 → 自动退出聊天 |
 | `input_mode` | 等待用户输入消息 | 降低好感，结束聊天 |
 | `chatting` | AI正在回复或打字动画进行中 | 不做任何操作 |
 | `idle` | 非聊天状态（聊天框不可见） | 提高回复意愿，尝试触发主动聊天 |
@@ -97,8 +100,10 @@ func _get_chat_state() -> String:
 
 #### 计时器重置时机
 1. **用户输入时**：`input_field.text_changed` 信号触发
-2. **句子显示完成时**：显示继续指示器时
-3. **语音播放完毕时**：TTS服务通知聊天对话框
+2. **句子显示完成时**：
+   - 如果TTS启用：等待语音播放完毕后重置
+   - 如果TTS未启用：文本输出完毕立即重置
+3. **语音播放完毕时**：TTS服务通知聊天对话框（仅当TTS启用时）
 
 #### 超时处理
 ```gdscript
@@ -106,11 +111,15 @@ func _get_chat_state() -> String:
 func _on_event_completed(event_name: String, result):
     if event_name == "idle_timeout":
         if result.message == "timeout_to_input":
-            # 切换到输入模式
+            # 切换到输入模式，然后自动退出
             if is_history_visible:
-                _hide_history()
+                await _hide_history()
             elif waiting_for_continue:
-                _transition_to_input_mode()
+                await _transition_to_input_mode()
+            
+            # 切换到输入模式后，自动退出聊天
+            await get_tree().create_timer(0.5).timeout
+            _on_end_button_pressed()
         elif result.message == "chat_idle_timeout":
             # 结束聊天
             _on_end_button_pressed()
@@ -142,6 +151,8 @@ func _on_event_completed(event_name: String, result):
 1. 如果AI响应中没有标点符号，句子会在流式响应完成后一次性显示
 2. 语音播放是异步的，可能会比文字显示慢一些
 3. 超时时间是随机的（120-180秒），避免过于机械
+4. 回复模式和历史模式超时后会先切换到输入模式（0.5秒），然后自动退出聊天
+5. TTS未启用时，以文本输出完毕作为计时器开始；TTS启用时，以语音播放完毕作为计时器开始
 
 ## 6. 测试建议
 

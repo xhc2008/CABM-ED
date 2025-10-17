@@ -429,9 +429,15 @@ func _on_event_completed(event_name: String, result):
 			elif result.message == "auto_continue":
 				# 等待继续时超时，自动继续
 				_auto_continue_chat()
-			elif result.message == "chat_idle_timeout":
-				# 等待输入时超时，强制结束聊天
+			elif result.message == "timeout_to_input":
+				# 回复模式或历史模式超时，显示提示
+				# chat_dialog._on_event_completed 会处理切换到输入模式和退出的逻辑
 				_force_end_chat()
+			elif result.message == "chat_idle_timeout":
+				# 输入模式超时，显示提示并结束聊天
+				_force_end_chat()
+				# 调用chat_dialog的正常结束流程（包括总结模型等）
+				chat_dialog._on_end_button_pressed()
 	else:
 		print("事件失败: ", event_name)
 		# 失败消息已在各个事件调用处处理
@@ -460,7 +466,7 @@ func _auto_continue_chat():
 		chat_dialog._on_continue_clicked()
 
 func _force_end_chat():
-	"""强制结束聊天（由于空闲超时）"""
+	"""强制结束聊天（由于空闲超时）并显示提示"""
 	if chat_dialog.visible:
 		print("聊天空闲超时，强制结束聊天")
 		
@@ -473,8 +479,10 @@ func _force_end_chat():
 		# 显示提示消息
 		_show_failure_message(character_name + "默默离开了")
 		
-		# 调用chat_dialog的正常结束流程（包括总结模型等）
-		chat_dialog._on_end_button_pressed()
+		# 注意：对于不同的超时情况：
+		# - timeout_to_input: chat_dialog._on_event_completed 会处理切换到输入模式和退出
+		# - chat_idle_timeout: 需要直接调用结束流程
+		# 这里不做任何操作，让调用者决定后续流程
 
 func _show_failure_message(message: String):
 	"""显示失败消息"""
