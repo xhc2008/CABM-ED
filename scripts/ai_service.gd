@@ -798,9 +798,12 @@ func _save_memory(summary: String):
 	
 	var timestamp = Time.get_datetime_string_from_system()
 	
+	# 清除开头的换行符（AI可能会在响应开头添加多个\n）
+	var cleaned_summary = summary.strip_edges()
+	
 	var memory_item = {
 		"timestamp": timestamp,
-		"content": summary
+		"content": cleaned_summary
 	}
 	
 	# 添加到短期记忆（存档中）
