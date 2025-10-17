@@ -38,7 +38,7 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer/TitleContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "声音设置"
+text = "语音设置"
 horizontal_alignment = 1
 
 [node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/TitleContainer"]

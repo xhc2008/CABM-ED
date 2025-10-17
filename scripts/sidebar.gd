@@ -505,6 +505,12 @@ func _setup_ai_settings(container: VBoxContainer):
 	debug_button.pressed.connect(_on_debug_save_pressed)
 	debug_button.visible = false # 隐藏调试元素
 	container.add_child(debug_button)
+	
+	# 关于按钮
+	var about_button = Button.new()
+	about_button.text = "关于"
+	about_button.pressed.connect(_on_about_pressed)
+	container.add_child(about_button)
 
 func _load_api_key_display():
 	"""加载并显示 API 配置状态"""
@@ -588,3 +594,10 @@ func _on_debug_save_pressed():
 	if debug_panel_scene:
 		var debug_panel = debug_panel_scene.instantiate()
 		get_tree().root.add_child(debug_panel)
+
+func _on_about_pressed():
+	"""打开关于对话框"""
+	var about_dialog_scene = load("res://scenes/about_dialog.tscn")
+	if about_dialog_scene:
+		var about_dialog = about_dialog_scene.instantiate()
+		get_tree().root.add_child(about_dialog)

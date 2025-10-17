@@ -218,7 +218,7 @@ text = "保存详细配置"
 layout_mode = 2
 horizontal_alignment = 1
 
-[node name="声音设置" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+[node name="语音设置" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
 visible = false
 layout_mode = 2
 theme_override_constants/margin_left = 10
@@ -226,51 +226,51 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/声音设置"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置"]
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="EnableContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer"]
+[node name="EnableContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 
-[node name="EnableLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer/EnableContainer"]
+[node name="EnableLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/EnableContainer"]
 layout_mode = 2
 text = "启用语音合成"
 
-[node name="EnableCheckBox" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer/EnableContainer"]
+[node name="EnableCheckBox" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/EnableContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 alignment = 2
 
-[node name="VolumeContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer"]
+[node name="VolumeContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="VolumeLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer/VolumeContainer"]
+[node name="VolumeLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/VolumeContainer"]
 layout_mode = 2
 text = "音量"
 
-[node name="VolumeSlider" type="HSlider" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer/VolumeContainer"]
+[node name="VolumeSlider" type="HSlider" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/VolumeContainer"]
 layout_mode = 2
 min_value = 0.0
 max_value = 1.0
 step = 0.01
 value = 0.8
 
-[node name="VolumeValueLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer/VolumeContainer"]
+[node name="VolumeValueLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/VolumeContainer"]
 layout_mode = 2
 text = "80%"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 
-[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 text = ""
 horizontal_alignment = 1
 
-[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/声音设置/VBoxContainer"]
+[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 text = "提示：TTS比较贵，不用的话建议关闭"
 horizontal_alignment = 1

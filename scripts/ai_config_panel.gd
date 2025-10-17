@@ -23,11 +23,11 @@ extends Panel
 @onready var detail_save_button = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailSaveButton
 @onready var detail_status_label = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailStatusLabel
 
-# 声音设置
-@onready var voice_enable_checkbox = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / EnableContainer / EnableCheckBox
-@onready var voice_volume_slider = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / VolumeContainer / VolumeSlider
-@onready var voice_volume_label = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / VolumeContainer / VolumeValueLabel
-@onready var voice_status_label = $MarginContainer/VBoxContainer/TabContainer / 声音设置 / VBoxContainer / StatusLabel
+# 语音设置
+@onready var voice_enable_checkbox = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / EnableContainer / EnableCheckBox
+@onready var voice_volume_slider = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / VolumeContainer / VolumeSlider
+@onready var voice_volume_label = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / VolumeContainer / VolumeValueLabel
+@onready var voice_status_label = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / StatusLabel
 
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
@@ -131,7 +131,7 @@ func _on_quick_save_pressed():
 		_update_quick_status(true, "已保存: " + _mask_key(api_key))
 		_reload_ai_service()
 		_reload_tts_service() # 重新加载TTS服务
-		_load_voice_settings() # 刷新声音设置显示
+		_load_voice_settings() # 刷新语音设置显示
 	else:
 		_update_quick_status(false, "保存失败")
 
@@ -214,10 +214,10 @@ func _reload_tts_service():
 		tts_service._load_tts_settings()
 		print("TTS服务已重新加载配置")
 
-# === 声音设置相关 ===
+# === 语音设置相关 ===
 
 func _load_voice_settings():
-	"""加载声音设置"""
+	"""加载语音设置"""
 	if not has_node("/root/TTSService"):
 		voice_status_label.text = "TTS服务未加载"
 		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))

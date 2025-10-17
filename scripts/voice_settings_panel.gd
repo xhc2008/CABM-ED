@@ -1,6 +1,6 @@
 extends Panel
 
-# 声音设置面板
+# 语音设置面板
 
 @onready var close_button = $MarginContainer/VBoxContainer/TitleContainer/CloseButton
 @onready var enable_checkbox = $MarginContainer/VBoxContainer/EnableContainer/EnableCheckBox
