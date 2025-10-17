@@ -36,5 +36,27 @@
         "y": 0.54
       }
     }
+  ],
+  "bedroom": [
+    {
+      "des":"趴在床上看手机",
+      "image": "1.png",
+      "scale": 0.6,
+      "position": {
+        "x": 0.64,
+        "y": 0.73
+      }
+    }
+  ],
+  "bathroom": [
+    {
+      "des":"照镜子",
+      "image": "1.png",
+      "scale": 1.0,
+      "position": {
+        "x": 0.45,
+        "y": 0.78
+      }
+    }
   ]
 }
