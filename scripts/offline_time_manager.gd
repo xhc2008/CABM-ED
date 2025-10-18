@@ -28,6 +28,11 @@ func _load_mood_config():
 
 func check_and_apply_offline_changes():
 	"""检查并应用离线时间变化"""
+	# 检查初始设置是否完成，如果未完成则跳过离线时间检查
+	if not SaveManager.is_initial_setup_completed:
+		print("初始设置未完成，跳过离线时间检查")
+		return
+	
 	# 尝试获取Unix时间戳格式的时间（新格式）
 	var last_played_unix = SaveManager.save_data.timestamp.get("last_played_at_unix", 0.0)
 	
@@ -205,11 +210,11 @@ func _parse_datetime(datetime_str: String) -> float:
 		"year": int(date_parts[0]),
 		"month": int(date_parts[1]),
 		"day": int(date_parts[2]),
-		"weekday": 0,  # 不重要，但需要提供
+		"weekday": 0, # 不重要，但需要提供
 		"hour": int(time_parts[0]),
 		"minute": int(time_parts[1]),
 		"second": int(time_parts[2]),
-		"dst": false  # 夏令时
+		"dst": false # 夏令时
 	}
 	
 	# Time.get_unix_time_from_datetime_dict 使用的是UTC时间

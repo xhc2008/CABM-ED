@@ -73,8 +73,8 @@ text = "QQ群:"
 
 [node name="QQLink" type="LinkButton" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "979030803"
-uri = "https://qm.qq.com/q/Mo3WdH9XCo"
+text = "548468910"
+uri = "https://qm.qq.com/q/n5NATeHmKs"
 
 [node name="HSeparator4" type="HSeparator" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
