@@ -377,6 +377,15 @@ func _on_ai_response_completed():
 	"""AI 流式响应完成回调"""
 	is_receiving_stream = false
 	
+	# 检查是否收到过任何内容（通过sentence_queue和sentence_buffer判断）
+	var has_content = (sentence_queue.size() > 0 or not sentence_buffer.strip_edges().is_empty())
+	
+	if not has_content:
+		# msg为空或不存在，显示"欲言又止"
+		var character_name = app_config.get("character_name", "角色")
+		_handle_empty_msg_response(character_name + "欲言又止")
+		return
+	
 	# 处理剩余的句子缓冲（如果有未完成的句子）
 	if not sentence_buffer.strip_edges().is_empty():
 		sentence_queue.append(sentence_buffer.strip_edges())
@@ -785,6 +794,24 @@ func _handle_reply_refusal(user_message: String, refusal_message: String):
 		ai_service.add_to_history("assistant", "……")
 	
 	# 注意：数值变化已经由 EventManager.on_chat_turn_end() 处理，这里不需要再修改
+
+# 处理msg为空的情况
+func _handle_empty_msg_response(message: String):
+	"""处理AI响应msg字段为空的情况"""
+	# 显示"……"作为角色的回复
+	_start_typing_effect("……")
+	
+	# 等待打字效果完成
+	while typing_timer.time_left > 0 or displayed_text.length() < display_buffer.length():
+		await get_tree().process_frame
+	
+	# 在对话框下方显示红色提示文字
+	await _show_refusal_message(message)
+	
+	# 将"……"作为历史记录添加到AI服务
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.add_to_history("assistant", "……")
 
 # 显示拒绝回复的提示消息
 func _show_refusal_message(message: String = ""):
