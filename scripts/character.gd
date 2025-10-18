@@ -392,12 +392,12 @@ func _reload_same_preset():
 		load_character_for_scene(current_scene)
 
 func _get_random_other_scene() -> String:
-	"""获取一个随机的其他场景"""
-	var config_path = "res://config/character_presets.json"
-	if not FileAccess.file_exists(config_path):
+	"""根据权重获取一个随机的其他场景"""
+	var presets_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(presets_path):
 		return ""
 	
-	var file = FileAccess.open(config_path, FileAccess.READ)
+	var file = FileAccess.open(presets_path, FileAccess.READ)
 	var json_string = file.get_as_text()
 	file.close()
 	
@@ -405,17 +405,59 @@ func _get_random_other_scene() -> String:
 	if json.parse(json_string) != OK:
 		return ""
 	
-	var config = json.data
-	var available_scenes = []
+	var presets_config = json.data
 	
-	for scene_id in config:
-		if scene_id != current_scene and config[scene_id].size() > 0:
-			available_scenes.append(scene_id)
+	# 加载场景权重配置
+	var scenes_path = "res://config/scenes.json"
+	if not FileAccess.file_exists(scenes_path):
+		# 如果没有场景配置，使用旧的均匀随机方式
+		var available_scenes = []
+		for scene_id in presets_config:
+			if scene_id != current_scene and presets_config[scene_id].size() > 0:
+				available_scenes.append(scene_id)
+		if available_scenes.is_empty():
+			return ""
+		return available_scenes[randi() % available_scenes.size()]
 	
-	if available_scenes.is_empty():
+	var scenes_file = FileAccess.open(scenes_path, FileAccess.READ)
+	var scenes_json_string = scenes_file.get_as_text()
+	scenes_file.close()
+	
+	var scenes_json = JSON.new()
+	if scenes_json.parse(scenes_json_string) != OK:
 		return ""
 	
-	return available_scenes[randi() % available_scenes.size()]
+	var scenes_config = scenes_json.data
+	if not scenes_config.has("scenes"):
+		return ""
+	
+	# 收集可用场景及其权重
+	var weighted_scenes = []
+	var total_weight = 0
+	
+	for scene_id in presets_config:
+		if scene_id != current_scene and presets_config[scene_id].size() > 0:
+			var weight = 1 # 默认权重
+			if scenes_config.scenes.has(scene_id) and scenes_config.scenes[scene_id].has("weight"):
+				weight = scenes_config.scenes[scene_id].weight
+			
+			weighted_scenes.append({"id": scene_id, "weight": weight})
+			total_weight += weight
+	
+	if weighted_scenes.is_empty() or total_weight <= 0:
+		return ""
+	
+	# 根据权重随机选择
+	var rand_value = randf() * total_weight
+	var accumulated_weight = 0
+	
+	for scene_data in weighted_scenes:
+		accumulated_weight += scene_data.weight
+		if rand_value <= accumulated_weight:
+			return scene_data.id
+	
+	# 兜底返回最后一个
+	return weighted_scenes[-1].id
 
 func _get_character_scene() -> String:
 	"""获取角色当前所在场景"""
