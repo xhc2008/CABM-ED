@@ -350,6 +350,11 @@ func _check_goto_scene() -> String:
 		print("无效的goto索引: ", goto_index)
 		return ""
 	
+	# 验证场景是否合法
+	if not _is_valid_scene(target_scene):
+		print("AI选择的场景 '%s' 不合法，忽略" % target_scene)
+		return ""
+	
 	# 检查是否是角色当前所在的场景（从SaveManager获取）
 	var character_scene = _get_character_scene()
 	if target_scene == character_scene:
@@ -581,6 +586,11 @@ func _move_to_scene(new_scene: String, show_notification: bool = true):
 	if not has_node("/root/SaveManager"):
 		return
 	
+	# 验证目标场景是否合法
+	if not _is_valid_scene(new_scene):
+		print("错误: 尝试移动到不合法的场景 '%s'" % new_scene)
+		return
+	
 	var save_mgr = get_node("/root/SaveManager")
 	
 	# 设置通知标记（main.gd会读取这个标记）
@@ -591,6 +601,23 @@ func _move_to_scene(new_scene: String, show_notification: bool = true):
 	
 	# 为新场景生成随机预设
 	_update_preset_for_scene(new_scene)
+
+func _is_valid_scene(scene_id: String) -> bool:
+	"""验证场景ID是否合法（存在于character_presets.json中且有预设）"""
+	var config_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(config_path):
+		return false
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return false
+	
+	var config = json.data
+	return config.has(scene_id) and config[scene_id].size() > 0
 
 func _update_preset_for_scene(scene_id: String):
 	"""为指定场景更新随机预设"""

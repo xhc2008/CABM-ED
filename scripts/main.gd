@@ -82,16 +82,55 @@ func _input(event):
 		_show_save_debug_panel()
 
 func _load_initial_scene() -> String:
-	"""从存档加载初始场景，如果没有则返回默认场景"""
+	"""从存档加载初始场景，如果没有或不合法则返回默认场景"""
 	if has_node("/root/SaveManager"):
 		var save_mgr = get_node("/root/SaveManager")
 		var saved_scene = save_mgr.get_character_scene()
-		if saved_scene != "" and scenes_config.has(saved_scene):
+		
+		# 验证场景是否合法
+		if saved_scene != "" and _is_valid_scene(saved_scene):
 			print("从存档加载场景: ", saved_scene)
 			return saved_scene
+		elif saved_scene != "":
+			print("警告: 存档中的场景 '%s' 不合法，使用默认场景" % saved_scene)
+			# 清除不合法的场景
+			save_mgr.set_character_scene("")
 	
 	print("使用默认场景: livingroom")
 	return "livingroom"
+
+func _is_valid_scene(scene_id: String) -> bool:
+	"""验证场景ID是否合法（同时存在于scenes.json和character_presets.json中）"""
+	# 检查scenes.json
+	if not scenes_config.has(scene_id):
+		print("场景验证失败: '%s' 不在 scenes.json 中" % scene_id)
+		return false
+	
+	# 检查character_presets.json
+	var presets_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(presets_path):
+		print("场景验证失败: character_presets.json 不存在")
+		return false
+	
+	var file = FileAccess.open(presets_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		print("场景验证失败: character_presets.json 解析错误")
+		return false
+	
+	var presets_config = json.data
+	if not presets_config.has(scene_id):
+		print("场景验证失败: '%s' 不在 character_presets.json 中" % scene_id)
+		return false
+	
+	if presets_config[scene_id].size() == 0:
+		print("场景验证失败: '%s' 没有角色预设" % scene_id)
+		return false
+	
+	return true
 
 func _setup_managers():
 	"""初始化各种管理器"""

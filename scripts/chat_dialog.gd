@@ -727,6 +727,13 @@ func _check_and_handle_goto() -> bool:
 		ai_service.clear_goto_field()
 		return false
 	
+	# 验证场景是否合法
+	if not _is_valid_scene(target_scene):
+		print("ChatDialog: goto场景 '%s' 不合法，忽略" % target_scene)
+		# 清除无效的goto
+		ai_service.clear_goto_field()
+		return false
+	
 	# 检查是否是角色当前所在的场景
 	var save_mgr = get_node("/root/SaveManager")
 	var character_scene = save_mgr.get_character_scene()
@@ -739,6 +746,23 @@ func _check_and_handle_goto() -> bool:
 	
 	# 有有效的goto字段，返回true（不清除，让character.end_chat处理）
 	return true
+
+func _is_valid_scene(scene_id: String) -> bool:
+	"""验证场景ID是否合法（存在于character_presets.json中且有预设）"""
+	var config_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(config_path):
+		return false
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return false
+	
+	var config = json.data
+	return config.has(scene_id) and config[scene_id].size() > 0
 
 
 # 处理角色拒绝回复的情况

@@ -115,9 +115,13 @@ func _generate_scenes_list() -> String:
 	if not scenes_config.has("scenes"):
 		return "0=客厅, 1=卧室, 2=浴室, 3=书房"
 	
+	# 获取排序后的场景ID列表，确保顺序一致
+	var scene_ids = scenes_config.scenes.keys()
+	scene_ids.sort()
+	
 	var scenes_array = []
 	var index = 0
-	for scene_id in scenes_config.scenes:
+	for scene_id in scene_ids:
 		var scene_name = scenes_config.scenes[scene_id].get("name", scene_id)
 		scenes_array.append("%d=%s" % [index, scene_name])
 		index += 1
@@ -130,7 +134,10 @@ func get_scene_id_by_index(index: int) -> String:
 	if not scenes_config.has("scenes"):
 		return ""
 	
+	# 获取排序后的场景ID列表，确保与_generate_scenes_list()顺序一致
 	var scene_ids = scenes_config.scenes.keys()
+	scene_ids.sort()
+	
 	if index >= 0 and index < scene_ids.size():
 		return scene_ids[index]
 	
