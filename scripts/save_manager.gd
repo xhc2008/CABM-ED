@@ -270,7 +270,7 @@ func set_reply_willingness(value: int):
 	_auto_save()
 
 func get_mood() -> String:
-	return save_data.character_data.get("mood", "normal")
+	return save_data.character_data.get("mood", "平静")
 
 func set_mood(value: String):
 	save_data.character_data.mood = value

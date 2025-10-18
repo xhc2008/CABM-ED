@@ -5,7 +5,7 @@
       "character_data": {
         "affection": 50,
         "reply_willingness": 60,
-        "mood": "normal",
+        "mood": "calm",
         "energy": 100,
         "trust_level": 0,
         "current_scene": "",

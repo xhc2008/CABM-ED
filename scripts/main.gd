@@ -425,6 +425,20 @@ func _on_character_scene_changed(new_scene: String):
 	"""角色场景变化时的处理"""
 	print("角色场景变化: ", new_scene)
 	
+	# 检查是否是首次初始化
+	var is_first_init = false
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		if save_mgr.has_meta("is_first_scene_init"):
+			is_first_init = true
+			save_mgr.remove_meta("is_first_scene_init")
+	
+	# 首次初始化不显示字幕
+	if is_first_init:
+		print("首次初始化场景，不显示字幕")
+		character.load_character_for_scene(current_scene)
+		return
+	
 	# 检查是否需要显示字幕通知
 	var show_notification = true
 	if has_node("/root/SaveManager"):

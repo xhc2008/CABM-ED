@@ -93,6 +93,8 @@ func load_character_for_scene(scene_id: String):
 		print("首次启动，初始化角色场景为: ", scene_id)
 		if has_node("/root/SaveManager"):
 			var save_mgr = get_node("/root/SaveManager")
+			# 设置标记，表示这是首次初始化
+			save_mgr.set_meta("is_first_scene_init", true)
 			save_mgr.set_character_scene(scene_id)
 		character_scene = scene_id
 	
