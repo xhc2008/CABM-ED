@@ -809,7 +809,7 @@ func _save_memory(summary: String):
 		"content": cleaned_summary
 	}
 	
-	# 添加到短期记忆（存档中）
+	# 添加到中期记忆（存档中）
 	save_mgr.save_data.ai_data.memory.append(memory_item)
 	
 	# 检查是否超过最大条目数
