@@ -63,8 +63,8 @@ func _update_position_and_scale_from_preset():
 	var bg_offset = bg_rect.offset
 	var bg_scale = bg_rect.scale
 	
-	# 应用缩放到角色（基础缩放 × 背景缩放比例）
-	var final_scale = original_preset.scale * bg_scale
+	# 直接使用预设的缩放值，不再乘以背景缩放比例
+	var final_scale = original_preset.scale
 	scale = Vector2(final_scale, final_scale)
 	
 	# 计算角色中心点应该在的位置（在实际背景图片上）
@@ -265,8 +265,8 @@ func start_chat():
 		bg_offset = Vector2.ZERO
 		bg_scale = 1.0
 	
-	# 计算背景缩放因子
-	var final_chat_scale = CHAT_SCALE * bg_scale
+	# 直接使用聊天缩放值，不再乘以背景缩放比例
+	var final_chat_scale = CHAT_SCALE
 	
 	# 计算中心点位置（在实际背景图片上）
 	var center_in_bg = Vector2(

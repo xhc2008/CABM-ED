@@ -47,7 +47,7 @@ func _setup_idle_timer():
 
 func _get_random_idle_timeout() -> float:
 	"""获取随机的空闲超时时间（120-180秒）"""
-	return randf_range(12.0, 18.0)
+	return randf_range(120.0, 180.0)
 
 func reset_idle_timer():
 	"""重置空闲计时器"""
