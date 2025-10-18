@@ -236,11 +236,32 @@ func start_chat():
 		print("错误: start_chat 时 background_node 为空")
 		return
 	
+	# 等待背景完全准备好
+	await get_tree().process_frame
+	
 	# 获取实际渲染的背景区域
 	var bg_rect = _get_actual_background_rect()
 	var actual_bg_size = bg_rect.size
 	var bg_offset = bg_rect.offset
 	var bg_scale = bg_rect.scale
+	
+	# 调试信息
+	print("聊天开始 - 背景信息:")
+	if background_node.texture:
+		print("  背景纹理大小: ", background_node.texture.get_size())
+	else:
+		print("  背景纹理大小: 无纹理")
+	print("  背景容器大小: ", background_node.size)
+	print("  实际渲染大小: ", actual_bg_size)
+	print("  偏移: ", bg_offset)
+	print("  缩放: ", bg_scale)
+	
+	# 检查背景区域是否有效
+	if actual_bg_size.x <= 0 or actual_bg_size.y <= 0:
+		print("警告: 背景区域无效，使用默认值")
+		actual_bg_size = background_node.size
+		bg_offset = Vector2.ZERO
+		bg_scale = 1.0
 	
 	# 计算背景缩放因子
 	var final_chat_scale = CHAT_SCALE * bg_scale
@@ -295,22 +316,15 @@ func end_chat():
 	var goto_scene = _check_goto_scene()
 	
 	if goto_scene != "":
-		# AI决定了场景变化，移动到新场景
+		# AI决定了场景变化，移动到新场景（同时更新scene和preset）
 		print("AI决定移动到场景: ", goto_scene)
-		
-		# 先更新SaveManager中的角色场景
-		if has_node("/root/SaveManager"):
-			var save_mgr = get_node("/root/SaveManager")
-			save_mgr.set_character_scene(goto_scene)
-			print("已更新角色场景到存档: ", goto_scene)
-		
-		# 注意：不需要在这里调用load_character_for_scene
-		# SaveManager.set_character_scene会触发character_scene_changed信号
-		# main.gd会监听这个信号并调用load_character_for_scene(用户当前场景)
-		# 这样角色会根据用户当前场景自动显示或隐藏
+		_move_to_scene(goto_scene)
+		# SaveManager会触发character_scene_changed信号
+		# main.gd会监听这个信号并调用load_character_for_scene
+		# 同时main.gd会显示字幕提示
 	else:
-		# 没有场景变化，使用概率决定位置
-		_reload_with_probability()
+		# 没有AI决定的场景变化，使用概率决定位置（有字幕）
+		apply_position_probability(true) # 标记为聊天结束调用
 
 func _check_goto_scene() -> String:
 	"""检查AI是否决定了场景变化"""
@@ -344,7 +358,7 @@ func _check_goto_scene() -> String:
 
 func _reload_with_probability():
 	"""聊天结束后根据概率决定角色位置（复用统一的概率系统）"""
-	apply_position_probability()
+	apply_position_probability(true) # 标记为聊天结束调用
 
 func _reload_same_preset():
 	"""重新加载相同的预设位置"""
@@ -408,8 +422,11 @@ func _get_character_scene() -> String:
 		return save_mgr.get_character_scene()
 	return current_scene
 
-func apply_position_probability() -> bool:
+func apply_position_probability(from_chat_end: bool = false, show_notification: bool = true) -> bool:
 	"""应用概率系统决定角色位置
+	
+	参数：
+	- from_chat_end: 是否从聊天结束调用（影响动画行为）
 	
 	返回值：
 	- true: 角色仍在当前场景（保持原位或移动到当前场景随机位置）
@@ -420,14 +437,23 @@ func apply_position_probability() -> bool:
 	if rand_value < 0.7:
 		# 70%概率：保持原位置
 		print("角色保持原位置")
-		_reload_same_preset()
+		if from_chat_end:
+			# 聊天结束：角色已隐藏，需要重新加载并淡入
+			_reload_same_preset()
+		# 否则：角色已可见，不做任何操作
 		return true
 	elif rand_value < 0.95:
 		# 25%概率：当前场景的随机位置
 		print("角色移动到当前场景的随机位置")
-		# 重新加载角色（会选择随机位置）
 		var character_scene = _get_character_scene()
 		if character_scene == current_scene:
+			if not from_chat_end:
+				# 进入场景/空闲超时：角色已可见，需要先淡出
+				var fade_out = create_tween()
+				fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+				await fade_out.finished
+			# 聊天结束：角色已隐藏，直接重新加载
+			# 重新加载到随机位置（会自动淡入）
 			load_character_for_scene(current_scene)
 		return true
 	else:
@@ -435,10 +461,15 @@ func apply_position_probability() -> bool:
 		print("角色移动到其他场景")
 		var new_scene = _get_random_other_scene()
 		if new_scene != "":
-			# 更新角色场景
-			if has_node("/root/SaveManager"):
-				var save_mgr = get_node("/root/SaveManager")
-				save_mgr.set_character_scene(new_scene)
+			if not from_chat_end:
+				# 进入场景/空闲超时：角色已可见，需要先淡出
+				var fade_out = create_tween()
+				fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+				await fade_out.finished
+			# 聊天结束：角色已隐藏，不需要淡出
+			
+			# 更新角色场景和预设
+			_move_to_scene(new_scene, show_notification)
 			
 			# 角色移动到其他场景，会被隐藏
 			# SaveManager会触发信号，main.gd会调用load_character_for_scene
@@ -446,8 +477,103 @@ func apply_position_probability() -> bool:
 		else:
 			# 如果没有其他场景，保持原位置
 			print("没有其他场景可移动，保持原位置")
-			_reload_same_preset()
+			if from_chat_end:
+				# 聊天结束：角色已隐藏，需要重新加载并淡入
+				_reload_same_preset()
+			# 否则：角色已可见，不做任何操作
 			return true
+
+func apply_position_probability_silent() -> bool:
+	"""静默应用概率系统（角色不在当前场景或在当前场景但需要静默处理）
+	
+	返回值：
+	- true: 角色仍在原场景
+	- false: 角色移动到其他场景
+	"""
+	var rand_value = randf()
+	var character_scene = _get_character_scene()
+	var in_current_scene = (character_scene == current_scene)
+	
+	if rand_value < 0.7:
+		# 70%概率：保持原位置
+		print("角色保持在场景: ", character_scene)
+		return true
+	elif rand_value < 0.95:
+		# 25%概率：当前场景的随机位置
+		print("角色在场景 %s 移动到随机位置" % character_scene)
+		if in_current_scene and visible:
+			# 角色在当前场景且可见：先淡出再重新加载
+			var fade_out = create_tween()
+			fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+			await fade_out.finished
+			load_character_for_scene(character_scene)
+		else:
+			# 角色不在当前场景：只更新预设
+			_update_preset_for_scene(character_scene)
+		return true
+	else:
+		# 5%概率：移动到其他场景
+		var new_scene = _get_random_other_scene()
+		if new_scene != "":
+			print("角色从 %s 移动到 %s" % [character_scene, new_scene])
+			if in_current_scene and visible:
+				# 角色在当前场景且可见：先淡出
+				var fade_out = create_tween()
+				fade_out.tween_property(self, "modulate:a", 0.0, 0.3)
+				await fade_out.finished
+			_move_to_scene(new_scene, false) # 空闲超时不显示通知
+			return false
+		else:
+			print("没有其他场景可移动，保持在场景: ", character_scene)
+			return true
+
+func _move_to_scene(new_scene: String, show_notification: bool = true):
+	"""移动角色到新场景（更新场景和预设）
+	
+	参数：
+	- new_scene: 目标场景ID
+	- show_notification: 是否显示字幕通知
+	"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 设置通知标记（main.gd会读取这个标记）
+	save_mgr.set_meta("show_move_notification", show_notification)
+	
+	# 更新场景
+	save_mgr.set_character_scene(new_scene)
+	
+	# 为新场景生成随机预设
+	_update_preset_for_scene(new_scene)
+
+func _update_preset_for_scene(scene_id: String):
+	"""为指定场景更新随机预设"""
+	var config_path = "res://config/character_presets.json"
+	if not FileAccess.file_exists(config_path):
+		return
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return
+	
+	var config = json.data
+	if not config.has(scene_id) or config[scene_id].size() == 0:
+		return
+	
+	var presets = config[scene_id]
+	var new_preset = presets[randi() % presets.size()]
+	
+	# 保存新预设
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_character_preset(new_preset)
+		print("已更新场景 %s 的预设" % scene_id)
 
 func _on_pressed():
 	if not is_chatting:
@@ -521,8 +647,8 @@ func _on_mood_changed(fields: Dictionary):
 	if not fields.has("mood"):
 		return
 	
-	# 获取新心情的英文名
-	var mood_id = fields.mood
+	# 获取新心情的英文名（确保是整数类型）
+	var mood_id = int(fields.mood)
 	var mood_name_en = _get_mood_name_en_by_id(mood_id)
 	if mood_name_en.is_empty():
 		return

@@ -47,7 +47,7 @@ func _setup_idle_timer():
 
 func _get_random_idle_timeout() -> float:
 	"""获取随机的空闲超时时间（120-180秒）"""
-	return randf_range(120.0, 180.0)
+	return randf_range(12.0, 18.0)
 
 func reset_idle_timer():
 	"""重置空闲计时器"""
@@ -258,17 +258,21 @@ func on_idle_timeout() -> EventResult:
 		result.message = "no_action"
 		print("聊天中但不需要用户操作，空闲超时不做任何操作")
 	else:
-		# 非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天
+		# 非聊天状态：长时间无操作提高回复意愿，并尝试触发主动聊天或位置变动
 		result.message = "idle_increase_willingness"
 		result.willingness_change = randi_range(5, 15)
 		print("非聊天状态空闲超时：提高回复意愿")
 		
-		# 尝试触发主动聊天
-		var base_willingness = 60
+		# 尝试触发主动聊天（50%概率）
+		var base_willingness = 50
 		var success_chance = helpers.calculate_success_chance(base_willingness)
 		if randf() < success_chance:
 			result.message = "active" # 触发主动聊天
 			print("空闲超时触发主动聊天")
+		# 如果没有触发主动聊天，尝试触发位置变动（100%概率）
+		elif randf() < 1.0:
+			result.message = "idle_position_change" # 触发位置变动
+			print("空闲超时触发位置变动")
 	
 	_apply_result(result)
 	event_completed.emit("idle_timeout", result)

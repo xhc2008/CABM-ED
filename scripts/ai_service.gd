@@ -546,14 +546,16 @@ func _finalize_stream_response():
 	var json = JSON.new()
 	if json.parse(clean_json) == OK:
 		var full_response = json.data
-		if full_response.has("mood"):
-			extracted_fields["mood"] = full_response.mood
+		if full_response.has("mood") and full_response.mood != null:
+			# 确保mood是整数类型
+			extracted_fields["mood"] = int(full_response.mood)
 		if full_response.has("will"):
 			extracted_fields["will"] = full_response.will
 		if full_response.has("like"):
 			extracted_fields["like"] = full_response.like
-		if full_response.has("goto"):
-			extracted_fields["goto"] = full_response.goto
+		if full_response.has("goto") and full_response.goto != null:
+			# 确保goto是整数类型（JSON可能解析为浮点数）
+			extracted_fields["goto"] = int(full_response.goto)
 		print("提取的字段: ", extracted_fields)
 		
 		# 应用字段到游戏状态（不包括goto，goto在对话结束时处理）
@@ -676,8 +678,9 @@ func end_chat():
 
 func get_goto_field() -> int:
 	"""获取goto字段值，如果没有返回-1"""
-	if extracted_fields.has("goto"):
-		return extracted_fields.goto
+	if extracted_fields.has("goto") and extracted_fields.goto != null:
+		# 确保返回整数类型
+		return int(extracted_fields.goto)
 	return -1
 
 func clear_goto_field():

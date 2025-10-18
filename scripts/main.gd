@@ -413,52 +413,29 @@ func _on_action_selected(action: String):
 			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _on_chat_ended():
-	# 检查是否有goto场景变化
-	var goto_scene = _check_character_goto()
-	
-	# 聊天结束，角色返回场景
-	character.end_chat()
-	
-	# 如果有goto场景变化，显示提示消息
-	if goto_scene != "":
-		_show_character_move_message(goto_scene)
+	# 聊天结束，角色返回场景（会自动处理位置变动和字幕）
+	await character.end_chat()
 	
 	# 重新启用右侧点击区域
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
 
-func _check_character_goto() -> String:
-	"""检查角色是否有goto场景变化"""
-	if not has_node("/root/AIService"):
-		return ""
-	
-	var ai_service = get_node("/root/AIService")
-	var goto_index = ai_service.get_goto_field()
-	
-	if goto_index < 0:
-		return ""
-	
-	# 获取目标场景
-	if not has_node("/root/PromptBuilder"):
-		return ""
-	
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var target_scene = prompt_builder.get_scene_id_by_index(goto_index)
-	
-	if target_scene == "":
-		return ""
-	
-	# 检查是否与当前场景相同
-	if has_node("/root/SaveManager"):
-		var save_mgr = get_node("/root/SaveManager")
-		var character_scene = save_mgr.get_character_scene()
-		if target_scene == character_scene:
-			return ""
-	
-	return target_scene
+
 
 func _on_character_scene_changed(new_scene: String):
 	"""角色场景变化时的处理"""
 	print("角色场景变化: ", new_scene)
+	
+	# 检查是否需要显示字幕通知
+	var show_notification = true
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		if save_mgr.has_meta("show_move_notification"):
+			show_notification = save_mgr.get_meta("show_move_notification")
+			save_mgr.remove_meta("show_move_notification")
+	
+	# 显示字幕提示（聊天结束时显示，空闲超时不显示）
+	if show_notification:
+		_show_character_move_message(new_scene)
 	
 	# 重新加载角色，这会根据当前用户所在场景决定角色是否可见
 	# 如果用户在角色的新场景，角色会显示
@@ -536,6 +513,9 @@ func _on_event_completed(event_name: String, result):
 			if result.message == "active":
 				# 触发主动聊天
 				_trigger_active_chat()
+			elif result.message == "idle_position_change":
+				# 触发位置变动
+				_trigger_idle_position_change()
 			elif result.message == "auto_continue":
 				# 等待继续时超时，自动继续
 				_auto_continue_chat()
@@ -563,10 +543,27 @@ func _trigger_active_chat():
 		return
 	
 	print("触发角色主动聊天")
+	
+	# 重置空闲计时器
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.reset_idle_timer()
+	
 	character.start_chat()
 	chat_dialog.show_dialog("active")
 	# 禁用右侧点击区域
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _trigger_idle_position_change():
+	"""触发空闲时的位置变动（无字幕播报）"""
+	# 检查角色是否正在聊天
+	if character.is_chatting:
+		return
+	
+	print("触发空闲位置变动（无字幕）")
+	
+	# 静默应用位置变动（不显示字幕）
+	await character.apply_position_probability_silent()
 
 func _auto_continue_chat():
 	"""自动继续聊天（等待继续时超时）"""
@@ -652,7 +649,7 @@ func _has_character_in_scene(scene_id: String) -> bool:
 	return character_scene == scene_id
 
 func _try_scene_interaction(action_id: String):
-	"""尝试场景交互（进入/离开）"""
+	"""尝试场景交互（进入/离开）- 只触发对话，不触发位置变动"""
 	if not has_node("/root/EventManager"):
 		return
 	
@@ -661,13 +658,6 @@ func _try_scene_interaction(action_id: String):
 	
 	if action_id == "enter_scene":
 		result = event_mgr.on_enter_scene()
-		# 进入场景时，应用概率系统决定角色位置
-		if result.success:
-			var still_in_scene = await character.apply_position_probability()
-			# 如果角色移动到其他场景了，不触发对话
-			if not still_in_scene:
-				print("角色移动到其他场景，取消对话触发")
-				return
 	elif action_id == "leave_scene":
 		result = event_mgr.on_leave_scene()
 	else:
@@ -687,6 +677,8 @@ func _try_scene_interaction(action_id: String):
 		pending_chat_timer.start()
 	else:
 		print("场景交互失败或在冷却中: ", action_id)
+
+
 
 func _on_pending_chat_timeout(chat_mode: String):
 	"""延迟聊天触发"""
