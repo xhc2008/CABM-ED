@@ -339,6 +339,22 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 		push_error(error_msg)
 		tts_error.emit(error_msg)
 
+func _remove_parentheses(text: String) -> String:
+	"""移除文本中的括号及其内容（包括中文和英文括号）"""
+	var result = text
+	
+	# 移除英文括号及其内容
+	var regex_en = RegEx.new()
+	regex_en.compile("\\([^)]*\\)")
+	result = regex_en.sub(result, "", true)
+	
+	# 移除中文括号及其内容
+	var regex_cn = RegEx.new()
+	regex_cn.compile("（[^）]*）")
+	result = regex_cn.sub(result, "", true)
+	
+	return result.strip_edges()
+
 func synthesize_speech(text: String):
 	"""合成语音（并发请求）"""
 	if not is_enabled:
@@ -354,6 +370,13 @@ func synthesize_speech(text: String):
 		return
 	
 	if text.strip_edges().is_empty():
+		return
+	
+	# 移除括号及其内容
+	text = _remove_parentheses(text)
+	
+	if text.is_empty():
+		print("移除括号后文本为空，跳过TTS")
 		return
 	
 	# 分配请求ID
