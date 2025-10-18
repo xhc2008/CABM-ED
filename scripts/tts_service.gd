@@ -137,7 +137,7 @@ func save_tts_settings():
 		print("TTS设置已保存")
 
 func _load_voice_cache():
-	"""加载缓存的声音URI"""
+	"""加载缓存的声音URI和音频哈希值"""
 	var cache_path = "user://voice_cache.json"
 	if FileAccess.file_exists(cache_path):
 		var file = FileAccess.open(cache_path, FileAccess.READ)
@@ -147,15 +147,35 @@ func _load_voice_cache():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var cache = json.data
-			voice_uri = cache.get("voice_uri", "")
-			if not voice_uri.is_empty():
-				print("加载缓存的声音URI: ", voice_uri)
-				voice_ready.emit(voice_uri)
+			var cached_uri = cache.get("voice_uri", "")
+			var cached_hash = cache.get("audio_hash", "")
+			
+			if not cached_uri.is_empty():
+				# 计算当前音频文件的哈希值
+				var current_hash = _calculate_audio_hash()
+				
+				if current_hash.is_empty():
+					print("无法计算音频哈希值，需要重新上传")
+					return
+				
+				# 比较哈希值
+				if cached_hash == current_hash:
+					voice_uri = cached_uri
+					print("加载缓存的声音URI: ", voice_uri)
+					print("音频哈希值匹配: ", current_hash)
+					voice_ready.emit(voice_uri)
+				else:
+					print("音频哈希值不匹配，需要重新上传")
+					print("缓存哈希: ", cached_hash)
+					print("当前哈希: ", current_hash)
 
 func _save_voice_cache():
-	"""保存声音URI到缓存"""
+	"""保存声音URI和音频哈希值到缓存"""
+	var audio_hash = _calculate_audio_hash()
+	
 	var cache = {
-		"voice_uri": voice_uri
+		"voice_uri": voice_uri,
+		"audio_hash": audio_hash
 	}
 	
 	var cache_path = "user://voice_cache.json"
@@ -163,16 +183,52 @@ func _save_voice_cache():
 	if file:
 		file.store_string(JSON.stringify(cache, "\t"))
 		file.close()
-		print("声音URI已缓存")
+		print("声音URI和哈希值已缓存")
 
-func upload_reference_audio():
-	"""上传参考音频"""
+func _calculate_audio_hash() -> String:
+	"""计算参考音频文件的SHA256哈希值"""
+	var ref_audio_path = "res://assets/audio/ref.wav"
+	
+	if not FileAccess.file_exists(ref_audio_path):
+		push_error("参考音频文件不存在: " + ref_audio_path)
+		return ""
+	
+	var audio_file = FileAccess.open(ref_audio_path, FileAccess.READ)
+	if audio_file == null:
+		push_error("无法打开参考音频文件")
+		return ""
+	
+	var audio_data = audio_file.get_buffer(audio_file.get_length())
+	audio_file.close()
+	
+	# 使用SHA256计算哈希值
+	var hashing_context = HashingContext.new()
+	hashing_context.start(HashingContext.HASH_SHA256)
+	hashing_context.update(audio_data)
+	var hash_bytes = hashing_context.finish()
+	
+	# 转换为十六进制字符串
+	var hash_string = hash_bytes.hex_encode()
+	
+	return hash_string
+
+func upload_reference_audio(force: bool = false):
+	"""上传参考音频
+	
+	参数:
+	- force: 是否强制重新上传（忽略缓存）
+	"""
 	print("=== 开始上传参考音频 ===")
 	
 	if api_key.is_empty():
 		var error_msg = "TTS API密钥未配置"
 		push_error(error_msg)
 		tts_error.emit(error_msg)
+		return
+	
+	# 如果不是强制上传，且已有voice_uri，则跳过
+	if not force and not voice_uri.is_empty():
+		print("声音URI已存在，跳过上传")
 		return
 	
 	var ref_audio_path = "res://assets/audio/ref.wav"

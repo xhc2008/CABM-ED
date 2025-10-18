@@ -27,6 +27,7 @@ extends Panel
 @onready var voice_enable_checkbox = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / EnableContainer / EnableCheckBox
 @onready var voice_volume_slider = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / VolumeContainer / VolumeSlider
 @onready var voice_volume_label = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / VolumeContainer / VolumeValueLabel
+@onready var voice_reupload_button = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / ReuploadButton
 @onready var voice_status_label = $MarginContainer/VBoxContainer/TabContainer / 语音设置 / VBoxContainer / StatusLabel
 
 func _ready():
@@ -35,6 +36,7 @@ func _ready():
 	detail_save_button.pressed.connect(_on_detail_save_pressed)
 	voice_enable_checkbox.toggled.connect(_on_voice_enable_toggled)
 	voice_volume_slider.value_changed.connect(_on_voice_volume_changed)
+	voice_reupload_button.pressed.connect(_on_voice_reupload_pressed)
 	
 	# 加载现有配置
 	_load_existing_config()
@@ -295,7 +297,41 @@ func _on_tts_error(error_message: String):
 	voice_status_label.text = "✗ " + error_message
 	voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
 	push_error("TTS错误: " + error_message)
-	voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+
+func _on_voice_reupload_pressed():
+	"""手动重新上传参考音频"""
+	if not has_node("/root/TTSService"):
+		voice_status_label.text = "✗ TTS服务未加载"
+		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		return
+	
+	var tts = get_node("/root/TTSService")
+	
+	# 检查是否已启用
+	if not tts.is_enabled:
+		voice_status_label.text = "⚠ 请先启用TTS"
+		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		return
+	
+	# 检查API密钥
+	if tts.api_key.is_empty():
+		voice_status_label.text = "⚠ 请先配置API密钥"
+		voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		return
+	
+	# 禁用按钮，防止重复点击
+	voice_reupload_button.disabled = true
+	
+	# 更新状态
+	voice_status_label.text = "⏳ 正在重新上传参考音频..."
+	voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+	
+	# 强制重新上传
+	tts.upload_reference_audio(true)
+	
+	# 等待一段时间后重新启用按钮
+	await get_tree().create_timer(2.0).timeout
+	voice_reupload_button.disabled = false
 
 func _mask_key(key: String) -> String:
 	"""遮蔽密钥显示"""
