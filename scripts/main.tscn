@@ -248,10 +248,10 @@ offset_bottom = 80.0
 script = ExtResource("9_diary_button")
 
 [node name="DiaryViewer" type="Panel" parent="."]
-custom_minimum_size = Vector2(600, 500)
+custom_minimum_size = Vector2(900, 650)
 layout_mode = 0
-offset_right = 600.0
-offset_bottom = 500.0
+offset_right = 900.0
+offset_bottom = 650.0
 script = ExtResource("10_diary_viewer")
 
 [node name="MarginContainer" type="MarginContainer" parent="DiaryViewer"]

@@ -197,11 +197,9 @@ func _add_summary_card(record: Dictionary):
 	var timestamp = record.get("timestamp", "")
 	var summary = record.get("summary", "无总结")
 	
-	# 创建卡片容器（可点击）
-	var card_button = Button.new()
-	card_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_button.custom_minimum_size.y = 80
-	card_button.flat = false
+	# 创建卡片容器（使用PanelContainer）
+	var card_panel = PanelContainer.new()
+	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	# 设置样式
 	var style_normal = StyleBoxFlat.new()
@@ -219,48 +217,60 @@ func _add_summary_card(record: Dictionary):
 	style_normal.content_margin_top = 15
 	style_normal.content_margin_right = 15
 	style_normal.content_margin_bottom = 15
-	card_button.add_theme_stylebox_override("normal", style_normal)
+	card_panel.add_theme_stylebox_override("panel", style_normal)
 	
-	var style_hover = style_normal.duplicate()
-	style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
-	style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
-	card_button.add_theme_stylebox_override("hover", style_hover)
-	
-	var style_pressed = style_normal.duplicate()
-	style_pressed.bg_color = Color(0.25, 0.25, 0.3, 0.8)
-	card_button.add_theme_stylebox_override("pressed", style_pressed)
+	# 创建可点击的按钮（透明覆盖层）
+	var click_button = Button.new()
+	click_button.flat = true
+	click_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	click_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	
 	# 创建内容容器
 	var card_vbox = VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 5)
+	card_vbox.add_theme_constant_override("separation", 8)
 	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_button.add_child(card_vbox)
 	
 	# 时间标签
 	var time_label = Label.new()
 	time_label.text = "⏰ " + timestamp
 	time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	time_label.custom_minimum_size.x = 700
 	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_vbox.add_child(time_label)
 	
 	# 总结内容（截断显示）
 	var summary_label = Label.new()
 	var display_summary = summary
-	if summary.length() > 100:
-		display_summary = summary.substr(0, 100) + "..."
+	if summary.length() > 150:
+		display_summary = summary.substr(0, 150) + "..."
 	summary_label.text = display_summary
 	summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	summary_label.custom_minimum_size.x = 700
 	summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_vbox.add_child(summary_label)
 	
-	# 点击事件
-	card_button.pressed.connect(_on_summary_card_clicked.bind(record))
+	card_panel.add_child(card_vbox)
+	card_panel.add_child(click_button)
 	
-	content_vbox.add_child(card_button)
+	# 点击事件
+	click_button.pressed.connect(_on_summary_card_clicked.bind(record))
+	
+	# 鼠标悬停效果
+	click_button.mouse_entered.connect(func():
+		var style_hover = style_normal.duplicate()
+		style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
+		style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
+		card_panel.add_theme_stylebox_override("panel", style_hover)
+	)
+	click_button.mouse_exited.connect(func():
+		card_panel.add_theme_stylebox_override("panel", style_normal)
+	)
+	
+	content_vbox.add_child(card_panel)
 
 func _on_summary_card_clicked(record: Dictionary):
 	"""点击总结卡片，显示详细对话"""
