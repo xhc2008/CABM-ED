@@ -132,7 +132,7 @@ func _create_initial_save(user_name: String, character_name: String):
 	# 设置初始关系描述
 	var initial_relationship = {
 		"timestamp": now,
-		"content": "%s刚刚从街边把昏迷、失去记忆的%s捡回了家并收养。%s对%s还不太熟悉，所以有些警惕和害怕，对自己的过去和未来也有些迷茫。" % [user_name, character_name, character_name,user_name]
+		"content": "%s刚刚从街边把昏迷、失去记忆的%s捡回了家并收养。%s对%s还不太熟悉，所以有些警惕和害怕，也只会直呼其名。对自己的过去和未来也有些迷茫。" % [user_name, character_name, character_name, user_name]
 	}
 	save_mgr.save_data.ai_data.relationship_history = [initial_relationship]
 	
