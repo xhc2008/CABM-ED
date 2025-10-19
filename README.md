@@ -129,45 +129,9 @@ CABM-ED/
 - [离线时间系统](docs/offline_time_system.md)
 - [存档系统指南](docs/save_system_guide.md)
 - [事件系统指南](docs/event_system_guide.md)
-- **[TTS语音合成快速开始](docs/TTS_QUICK_START.md)** ⭐ 新功能
+- [TTS语音合成快速开始](docs/TTS_QUICK_START.md)
 - [TTS语音合成完整指南](docs/TTS_GUIDE.md)
 
-## 扩展开发
-
-### 添加新的交互类型
-
-编辑 `config/interaction_config.json`：
-
-```json
-{
-  "actions": {
-    "your_action": {
-      "name": "你的动作",
-      "base_willingness": 100,
-      "on_success": "start_chat",
-      "on_failure": {
-        "type": "message",
-        "text": "失败提示"
-      }
-    }
-  }
-}
-```
-
-### 自定义 AI 提示词
-
-编辑 `config/ai_config.json` 中的 `system_prompt` 字段，支持以下占位符：
-
-- `{character_name}`: 角色名字
-- `{user_name}`: 用户名字
-- `{current_scene}`: 当前场景
-- `{memory_context}`: 记忆上下文
-
-### 添加新场景
-
-1. 在 `config/scenes.json` 中添加场景配置
-2. 在 `assets/images/` 下创建对应的场景图片
-3. 场景会自动加载到游戏中
 
 ## 技术栈
 

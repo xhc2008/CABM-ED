@@ -300,6 +300,7 @@ text = "后一天 ▶"
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
 
 [node name="ContentVBox" type="VBoxContainer" parent="DiaryViewer/MarginContainer/VBoxContainer/ScrollContainer"]
 layout_mode = 2
