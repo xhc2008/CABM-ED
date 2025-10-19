@@ -432,7 +432,7 @@ func _parse_stream_chunk(json_str: String):
 		_extract_msg_from_buffer()
 
 func _extract_msg_from_buffer():
-	"""从流式缓冲中实时提取msg字段内容"""
+	"""从流式缓冲中实时提取msg字段内容和mood字段"""
 	var buffer_to_parse = json_response_buffer
 	
 	# 处理可能的 ```json 包裹
@@ -449,6 +449,9 @@ func _extract_msg_from_buffer():
 		buffer_to_parse = buffer_to_parse.substr(0, json_end)
 	
 	buffer_to_parse = buffer_to_parse.strip_edges()
+	
+	# 优先提取mood字段（mood一定在msg之前）
+	_extract_mood_from_buffer(buffer_to_parse)
 	
 	# 查找 "msg" 字段的开始位置
 	var msg_start = buffer_to_parse.find('"msg"')
@@ -520,6 +523,65 @@ func _extract_msg_from_buffer():
 			print("发送新内容: ", new_content)
 			chat_response_received.emit(new_content)
 
+func _extract_mood_from_buffer(buffer: String):
+	"""从缓冲中提取mood字段，一旦完整就立即更新"""
+	# 如果已经提取过mood，不再重复提取
+	if extracted_fields.has("mood"):
+		return
+	
+	# 查找 "mood" 字段
+	var mood_start = buffer.find('"mood"')
+	if mood_start == -1:
+		return
+	
+	# 查找冒号
+	var colon_pos = buffer.find(':', mood_start)
+	if colon_pos == -1:
+		return
+	
+	# 跳过空格，查找数字或null
+	var value_start = -1
+	for i in range(colon_pos + 1, buffer.length()):
+		var ch = buffer[i]
+		if ch == ' ' or ch == '\t' or ch == '\n':
+			continue
+		value_start = i
+		break
+	
+	if value_start == -1:
+		return
+	
+	# 提取数字值（直到遇到逗号、换行、空格或右花括号）
+	var value_str = ""
+	for i in range(value_start, buffer.length()):
+		var ch = buffer[i]
+		if ch in [',', '\n', ' ', '\t', '}', '\r']:
+			break
+		value_str += ch
+	
+	# 检查是否是完整的数字（至少有一个字符）
+	if value_str.is_empty():
+		return
+	
+	# 检查是否是null
+	if value_str.begins_with("null"):
+		print("mood字段为null，跳过")
+		extracted_fields["mood"] = null
+		return
+	
+	# 验证是否是有效数字
+	if not value_str.is_valid_int():
+		return
+	
+	# 提取成功，立即应用
+	var mood_id = int(value_str)
+	extracted_fields["mood"] = mood_id
+	
+	print("实时提取到mood字段: ", mood_id)
+	
+	# 立即更新心情
+	_apply_mood_immediately(mood_id)
+
 func _finalize_stream_response():
 	"""完成流式响应处理"""
 	is_streaming = false
@@ -574,6 +636,24 @@ func _finalize_stream_response():
 	# 发送完成信号
 	chat_response_completed.emit()
 
+func _apply_mood_immediately(mood_id: int):
+	"""立即应用mood字段（流式响应中实时调用）"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var prompt_builder = get_node("/root/PromptBuilder")
+	
+	var mood_name_en = prompt_builder.get_mood_name_en(mood_id)
+	if not mood_name_en.is_empty():
+		save_mgr.set_mood(mood_name_en)
+		print("实时更新心情: ", mood_name_en, " (ID: ", mood_id, ")")
+		
+		# 发送mood字段提取信号（只包含mood）
+		chat_fields_extracted.emit({"mood": mood_id})
+	else:
+		print("警告: 无法找到mood ID对应的英文名称: ", mood_id)
+
 func _apply_extracted_fields():
 	"""应用提取的字段到游戏状态（使用统一的边界控制）"""
 	if not has_node("/root/SaveManager"):
@@ -581,8 +661,9 @@ func _apply_extracted_fields():
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 应用mood字段
-	if extracted_fields.has("mood"):
+	# mood字段已经在流式响应中实时应用，这里跳过
+	# 但如果流式提取失败，这里作为兜底
+	if extracted_fields.has("mood") and not extracted_fields.mood == null:
 		var mood_id = extracted_fields.mood
 		# 确保mood_id是整数类型（JSON解析可能返回float）
 		if typeof(mood_id) == TYPE_STRING:
@@ -597,7 +678,7 @@ func _apply_extracted_fields():
 		var mood_name_en = prompt_builder.get_mood_name_en(mood_id)
 		if not mood_name_en.is_empty():
 			save_mgr.set_mood(mood_name_en)
-			print("更新心情: ", mood_name_en, " (ID: ", mood_id, ")")
+			print("兜底更新心情: ", mood_name_en, " (ID: ", mood_id, ")")
 		else:
 			print("警告: 无法找到mood ID对应的英文名称: ", mood_id)
 	
@@ -630,10 +711,13 @@ func _apply_extracted_fields():
 				print("警告: like字段类型不正确: ", typeof(like_delta), ", 值: ", like_delta)
 				like_delta = 0
 			helpers.modify_affection(like_delta)
-	# 发送字段提取完成信号（不包括goto）
-	var fields_without_goto = extracted_fields.duplicate()
-	fields_without_goto.erase("goto")
-	chat_fields_extracted.emit(fields_without_goto)
+	
+	# 发送字段提取完成信号（不包括goto和mood，mood已经单独发送）
+	var fields_without_goto_mood = extracted_fields.duplicate()
+	fields_without_goto_mood.erase("goto")
+	fields_without_goto_mood.erase("mood")
+	if not fields_without_goto_mood.is_empty():
+		chat_fields_extracted.emit(fields_without_goto_mood)
 
 # _get_mood_name_en 已移至 PromptBuilder 单例
 
