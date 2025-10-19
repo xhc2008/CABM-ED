@@ -292,6 +292,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 			push_error("总结响应解析失败")
 			return
 		_handle_summary_response(json.data)
+	elif request_type == "relationship":
+		# 关系模型请求不使用流式
+		var json = JSON.new()
+		if json.parse(response_text) != OK:
+			push_error("关系模型响应解析失败")
+			return
+		_handle_relationship_response(json.data)
 
 func _start_stream_request(url: String, headers: Array, json_body: String):
 	"""启动流式HTTP请求"""
@@ -876,6 +883,103 @@ func _handle_summary_response(response: Dictionary):
 	# 发送信号
 	summary_completed.emit(summary)
 
+func _call_relationship_api():
+	"""调用关系模型 API"""
+	var relationship_config = config.relationship_model
+	var url = relationship_config.base_url + "/chat/completions"
+	
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + api_key
+	]
+	
+	var prompt_builder = get_node("/root/PromptBuilder")
+	
+	# 获取当前的关系描述
+	var current_relationship = prompt_builder.get_relationship_context()
+	
+	# 获取最近的总结内容作为输入
+	var memory_context = prompt_builder.get_memory_context()
+	
+	# 构建系统提示词（替换占位符）
+	var system_prompt = relationship_config.system_prompt.replace("{relationship}", current_relationship)
+	
+	var messages = [
+		{"role": "system", "content": system_prompt},
+		{"role": "user", "content": memory_context}
+	]
+	
+	# 构建请求体
+	var body = {
+		"model": relationship_config.model,
+		"messages": messages,
+		"max_tokens": int(relationship_config.max_tokens),
+		"temperature": float(relationship_config.temperature),
+		"top_p": float(relationship_config.top_p)
+	}
+	
+	var json_body = JSON.stringify(body)
+	
+	# 记录完整的请求日志
+	_log_api_request("RELATIONSHIP_REQUEST", body, json_body)
+	
+	http_request.set_meta("request_type", "relationship")
+	http_request.set_meta("request_body", body)
+	http_request.set_meta("messages", messages)
+	
+	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	if error != OK:
+		push_error("关系模型请求失败: " + str(error))
+
+func _handle_relationship_response(response: Dictionary):
+	"""处理关系模型响应"""
+	if not response.has("choices") or response.choices.is_empty():
+		push_error("关系模型响应格式错误")
+		return
+	
+	var message = response.choices[0].message
+	var relationship_summary = message.content
+	
+	# 记录响应日志
+	var messages = http_request.get_meta("messages", [])
+	_log_api_call("RELATIONSHIP_RESPONSE", messages, relationship_summary)
+	
+	# 保存到关系历史
+	_save_relationship(relationship_summary)
+	
+	print("关系模型已更新: ", relationship_summary)
+
+func _save_relationship(relationship_summary: String):
+	"""保存关系信息到存档"""
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 确保字段存在
+	if not save_mgr.save_data.ai_data.has("relationship_history"):
+		save_mgr.save_data.ai_data.relationship_history = []
+	
+	var timestamp = Time.get_datetime_string_from_system()
+	
+	# 清除开头的换行符
+	var cleaned_summary = relationship_summary.strip_edges()
+	
+	var relationship_item = {
+		"timestamp": timestamp,
+		"content": cleaned_summary
+	}
+	
+	# 添加到关系历史
+	save_mgr.save_data.ai_data.relationship_history.append(relationship_item)
+	
+	# 检查是否超过最大条目数
+	var max_relationship_history = config.memory.get("max_relationship_history", 2)
+	if save_mgr.save_data.ai_data.relationship_history.size() > max_relationship_history:
+		save_mgr.save_data.ai_data.relationship_history = save_mgr.save_data.ai_data.relationship_history.slice(-max_relationship_history)
+	
+	# 保存到存档
+	save_mgr.save_game(save_mgr.current_slot)
+	
+	print("关系信息已保存: ", relationship_summary)
+
 func _save_memory(summary: String):
 	"""保存记忆到存档"""
 	var save_mgr = get_node("/root/SaveManager")
@@ -883,8 +987,16 @@ func _save_memory(summary: String):
 	# 确保 ai_data 字段存在
 	if not save_mgr.save_data.has("ai_data"):
 		save_mgr.save_data.ai_data = {
-			"memory": []
+			"memory": [],
+			"accumulated_summary_count": 0,
+			"relationship_history": []
 		}
+	
+	# 确保字段存在
+	if not save_mgr.save_data.ai_data.has("accumulated_summary_count"):
+		save_mgr.save_data.ai_data.accumulated_summary_count = 0
+	if not save_mgr.save_data.ai_data.has("relationship_history"):
+		save_mgr.save_data.ai_data.relationship_history = []
 	
 	var timestamp = Time.get_datetime_string_from_system()
 	
@@ -899,6 +1011,9 @@ func _save_memory(summary: String):
 	# 添加到中期记忆（存档中）
 	save_mgr.save_data.ai_data.memory.append(memory_item)
 	
+	# 累计条目数+1
+	save_mgr.save_data.ai_data.accumulated_summary_count += 1
+	
 	# 检查是否超过最大条目数
 	var max_items = config.memory.max_memory_items
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
@@ -911,6 +1026,14 @@ func _save_memory(summary: String):
 	_append_to_permanent_storage(memory_item)
 	
 	print("记忆已保存: ", summary)
+	
+	# 检查是否需要调用关系模型
+	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_items:
+		print("累计条目数达到上限，调用关系模型...")
+		_call_relationship_api()
+		# 清空累计条目数
+		save_mgr.save_data.ai_data.accumulated_summary_count = 0
+		save_mgr.save_game(save_mgr.current_slot)
 
 func _append_to_permanent_storage(memory_item: Dictionary):
 	"""追加到永久存储文件（独立于存档）"""

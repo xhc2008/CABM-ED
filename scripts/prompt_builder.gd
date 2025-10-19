@@ -45,6 +45,9 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	# 获取记忆上下文
 	var memory_context = get_memory_context()
 	
+	# 获取关系上下文
+	var relationship_context = get_relationship_context()
+	
 	# 从mood_config.json生成moods列表
 	var moods = _generate_moods_list()
 	
@@ -74,6 +77,7 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	prompt = prompt.replace("{current_scene}", _get_scene_description(save_mgr.get_character_scene()))
 	prompt = prompt.replace("{current_weather}", _get_weather_description(save_mgr.get_current_weather()))
 	prompt = prompt.replace("{memory_context}", memory_context)
+	prompt = prompt.replace("{relationship_context}", relationship_context)
 	prompt = prompt.replace("{moods}", moods)
 	prompt = prompt.replace("{trigger_context}", trigger_context)
 	prompt = prompt.replace("{affection_level}", affection_level)
@@ -284,7 +288,9 @@ func get_memory_context() -> String:
 	# 确保 ai_data 字段存在
 	if not save_mgr.save_data.has("ai_data"):
 		save_mgr.save_data.ai_data = {
-			"memory": []
+			"memory": [],
+			"accumulated_summary_count": 0,
+			"relationship_history": []
 		}
 	
 	var memories = save_mgr.save_data.ai_data.memory
@@ -317,6 +323,30 @@ func get_memory_context() -> String:
 			context_lines.append("%s" % memory.content)
 	
 	return "\n".join(context_lines)
+
+func get_relationship_context() -> String:
+	"""获取关系上下文（从关系历史）"""
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 确保字段存在
+	if not save_mgr.save_data.has("ai_data"):
+		save_mgr.save_data.ai_data = {
+			"memory": [],
+			"accumulated_summary_count": 0,
+			"relationship_history": []
+		}
+	
+	if not save_mgr.save_data.ai_data.has("relationship_history"):
+		save_mgr.save_data.ai_data.relationship_history = []
+	
+	var relationship_history = save_mgr.save_data.ai_data.relationship_history
+	
+	if relationship_history.is_empty():
+		return "（暂无关系信息）"
+	
+	# 只返回最新的关系描述
+	var latest = relationship_history[-1]
+	return latest.content
 
 func get_mood_name_en(mood_id: int) -> String:
 	"""根据mood ID获取英文名称"""

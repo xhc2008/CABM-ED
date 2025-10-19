@@ -121,12 +121,28 @@ func _create_initial_save(user_name: String, character_name: String):
 	save_mgr.save_data.timestamp.last_played_at = now
 	save_mgr.save_data.timestamp.last_played_at_unix = now_unix
 	
+	# 确保 ai_data 字段存在
+	if not save_mgr.save_data.has("ai_data"):
+		save_mgr.save_data.ai_data = {
+			"memory": [],
+			"accumulated_summary_count": 0,
+			"relationship_history": []
+		}
+	
+	# 设置初始关系描述
+	var initial_relationship = {
+		"timestamp": now,
+		"content": "%s刚刚从街边把昏迷、失去记忆的%s捡回了家并收养。%s对%s还不太熟悉，所以有些警惕和害怕，对自己的过去和未来也有些迷茫。" % [user_name, character_name,user_name, character_name]
+	}
+	save_mgr.save_data.ai_data.relationship_history = [initial_relationship]
+	
 	# 标记初始设置已完成，允许后续保存
 	save_mgr.is_initial_setup_completed = true
 	
 	# 现在可以保存了
 	save_mgr.save_game(1)
 	print("初始存档已创建，用户名: ", user_name, ", 角色名: ", character_name)
+	print("初始关系已设置: ", initial_relationship.content)
 
 func _show_error(message: String):
 	"""显示错误提示"""

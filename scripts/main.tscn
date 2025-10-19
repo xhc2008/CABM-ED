@@ -67,8 +67,9 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 
 [node name="Title" type="Label" parent="Sidebar/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "场景选择"
+visible = false
+layout_mode = 2s
+text = "边栏"
 horizontal_alignment = 1
 
 [node name="HSeparator" type="HSeparator" parent="Sidebar/MarginContainer/VBoxContainer"]

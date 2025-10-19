@@ -39,7 +39,9 @@
         "last_played_at_unix": 0.0
       },
       "ai_data": {
-        "memory": []
+        "memory": [],
+        "accumulated_summary_count": 0,
+        "relationship_history": []
       }
     }
   },
