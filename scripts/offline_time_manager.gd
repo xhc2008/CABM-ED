@@ -181,7 +181,7 @@ func _apply_long_offline(_hours: float):
 	_trigger_offline_position_change()
 
 func _change_mood_randomly():
-	"""随机改变心情，平静权重最高"""
+	"""随机改变心情，根据配置文件中的权重"""
 	if mood_list.is_empty():
 		print("警告: 心情列表为空，无法改变心情")
 		return
@@ -193,9 +193,7 @@ func _change_mood_randomly():
 	
 	for mood in mood_list:
 		var mood_name = mood.get("name_en", "calm")
-		
-		# 平静权重为5，其他心情权重为1
-		var weight = 5 if mood_name == "calm" else 1
+		var weight = mood.get("weight", 1)  # 从配置文件读取权重，默认为1
 		
 		for i in range(weight):
 			weighted_moods.append(mood_name)

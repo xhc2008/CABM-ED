@@ -5,49 +5,88 @@
 			"name": "平静",
 			"name_en": "calm",
 			"image": "normal.png",
-			"color": "#FFFFFF"
+			"color": "#FFFFFF",
+			"weight": 5
 		},
 		{
 			"id": 1,
 			"name": "开心",
 			"name_en": "happy",
 			"image": "happy.png",
-			"color": "#4DFF4D"
+			"color": "#4DFF4D",
+			"weight": 1
 		},
 		{
 			"id": 2,
 			"name": "难过",
 			"name_en": "sad",
 			"image": "sad.png",
-			"color": "#4D9FFF"
+			"color": "#4D9FFF",
+			"weight": 1
 		},
 		{
 			"id": 3,
 			"name": "生气",
 			"name_en": "angry",
 			"image": "angry.png",
-			"color": "#FF4D4D"
+			"color": "#FF4D4D",
+			"weight": 1
 		},
 		{
 			"id": 4,
 			"name": "惊讶",
 			"name_en": "surprised",
 			"image": "surprised.png",
-			"color": "#FFD74D"
+			"color": "#FFD74D",
+			"weight": 1
 		},
 		{
 			"id": 5,
 			"name": "害怕",
 			"name_en": "scared",
 			"image": "scared.png",
-			"color": "#B84DFF"
+			"color": "#B84DFF",
+			"weight": 1
 		},
 		{
 			"id": 6,
 			"name": "厌恶",
 			"name_en": "disgusted",
 			"image": "disgusted.png",
-			"color": "#7FFF4D"
+			"color": "#7FFF4D",
+			"weight": 1
+		},
+		{
+			"id": 7,
+			"name": "疑惑",
+			"name_en": "doubtful",
+			"image": "doubtful.png",
+			"color": "#FFA500",
+			"weight": 1
+		},
+		{
+			"id": 8,
+			"name": "害羞",
+			"name_en": "shy",
+			"image": "shy.png",
+			"color": "#FF69B4",
+			"weight": 1
+		},
+		{
+			"id": 9,
+			"name": "无语",
+			"name_en": "speechless",
+			"image": "speechless.png",
+			"color": "#A9A9A9",
+			"weight": 1
+		},
+		{
+			"id": 10,
+			"name": "担忧",
+			"name_en": "worried",
+			"image": "worried.png",
+			"color": "#FFB74D",
+			"weight": 1
 		}
 	]
 }
