@@ -664,6 +664,9 @@ func end_chat():
 	if current_conversation.is_empty():
 		return
 	
+	# 先保存完整对话记录到日记（在清空之前）
+	_save_full_conversation_to_diary()
+	
 	# 提取本次对话（扁平化）
 	var conversation_text = _flatten_conversation()
 	
@@ -856,6 +859,92 @@ func _append_to_permanent_storage(memory_item: Dictionary):
 	file.close()
 	
 	print("永久存储已更新")
+
+func _save_full_conversation_to_diary():
+	"""保存完整对话记录到日记（按日期分类）"""
+	if current_conversation.is_empty():
+		return
+	
+	var diary_dir = "user://diary"
+	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("错误: 无法访问 user:// 目录")
+		return
+	
+	if not dir.dir_exists("diary"):
+		var err = dir.make_dir("diary")
+		if err != OK:
+			print("错误: 无法创建 diary 目录，错误码: ", err)
+			return
+	
+	# 获取当前日期（YYYY-MM-DD格式）
+	var datetime = Time.get_datetime_dict_from_system()
+	var date_str = "%04d-%02d-%02d" % [datetime.year, datetime.month, datetime.day]
+	var time_str = "%02d:%02d:%02d" % [datetime.hour, datetime.minute, datetime.second]
+	
+	# 日记文件路径（每天一个文件）
+	var diary_path = diary_dir + "/" + date_str + ".jsonl"
+	
+	# 获取角色和用户名称
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var app_config = prompt_builder._load_app_config()
+	var char_name = app_config.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	var user_name = save_mgr.get_user_name()
+	
+	# 构建对话记录
+	var conversation_record = {
+		"timestamp": time_str,
+		"messages": []
+	}
+	
+	# 提取每句对话
+	for msg in current_conversation:
+		var speaker = user_name if msg.role == "user" else char_name
+		var content = msg.content
+		
+		# 如果是assistant的消息，尝试提取msg字段
+		if msg.role == "assistant":
+			var clean_content = content
+			if clean_content.contains("```json"):
+				var json_start = clean_content.find("```json") + 7
+				clean_content = clean_content.substr(json_start)
+			elif clean_content.contains("```"):
+				var json_start = clean_content.find("```") + 3
+				clean_content = clean_content.substr(json_start)
+			
+			if clean_content.contains("```"):
+				var json_end = clean_content.find("```")
+				clean_content = clean_content.substr(0, json_end)
+			
+			clean_content = clean_content.strip_edges()
+			
+			var json = JSON.new()
+			if json.parse(clean_content) == OK:
+				var data = json.data
+				if data.has("msg"):
+					content = data.msg
+		
+		conversation_record.messages.append({
+			"speaker": speaker,
+			"content": content
+		})
+	
+	# 追加到日记文件
+	var file = FileAccess.open(diary_path, FileAccess.READ_WRITE)
+	if file == null:
+		file = FileAccess.open(diary_path, FileAccess.WRITE)
+		if file == null:
+			var err = FileAccess.get_open_error()
+			print("错误: 无法创建日记文件，错误码: ", err)
+			return
+	else:
+		file.seek_end()
+	
+	file.store_line(JSON.stringify(conversation_record))
+	file.close()
+	
+	print("完整对话已保存到日记: ", date_str)
 
 func _log_api_call(log_type: String, messages: Array, response: String):
 	"""记录 API 调用日志"""

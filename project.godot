@@ -31,6 +31,8 @@ AIService="*res://scripts/ai_service.gd"
 TTSService="*res://scripts/tts_service.gd"
 EventHelpers="*res://scripts/event_helpers.gd"
 EventManager="*res://scripts/event_manager.gd"
+UIManager="*res://scripts/ui_manager.gd"
+InteractiveElementManager="*res://scripts/interactive_element_manager.gd"
 
 [display]
 

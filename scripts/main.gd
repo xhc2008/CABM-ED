@@ -9,6 +9,8 @@ extends Control
 @onready var right_click_area = $Background/RightClickArea
 @onready var debug_helper = $CharacterDebugHelper
 @onready var audio_manager = $AudioManager
+@onready var diary_button = $DiaryButton
+@onready var diary_viewer = $DiaryViewer
 
 var current_scene: String = ""
 var current_weather: String = ""
@@ -55,6 +57,12 @@ func _ready():
 	
 	# 连接右侧点击区域
 	right_click_area.gui_input.connect(_on_right_area_input)
+	
+	# 连接日记按钮和查看器
+	if diary_button:
+		diary_button.diary_selected.connect(_on_diary_selected)
+	if diary_viewer:
+		diary_viewer.diary_closed.connect(_on_diary_closed)
 	
 	# 监听窗口大小变化
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -152,6 +160,15 @@ func _setup_managers():
 		var save_mgr = get_node("/root/SaveManager")
 		save_mgr.character_scene_changed.connect(_on_character_scene_changed)
 	
+	# 注册可交互UI元素到UIManager
+	if has_node("/root/UIManager"):
+		var ui_mgr = get_node("/root/UIManager")
+		ui_mgr.register_element(right_click_area)
+		if diary_button:
+			ui_mgr.register_element(diary_button)
+	else:
+		print("警告: UIManager 未找到，请检查自动加载配置")
+	
 	# 创建失败消息标签
 	failure_message_label = Label.new()
 	failure_message_label.visible = false
@@ -235,6 +252,12 @@ func _update_ui_layout():
 	
 	# 更新聊天对话框 - 固定在场景底部
 	_update_chat_dialog_layout()
+	
+	# 更新日记按钮 - 固定在场景左下角
+	_update_diary_button_layout()
+	
+	# 更新日记查看器 - 居中显示
+	_update_diary_viewer_layout()
 	
 	# 如果动作菜单可见，更新其位置
 	if action_menu.visible:
@@ -332,6 +355,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	# 场景变化后更新UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
+	
+	# 更新日记按钮显示状态
+	_update_diary_button_visibility()
 	
 	# 切换背景音乐
 	audio_manager.play_background_music(scene_id, time_id, weather_id)
@@ -441,8 +467,9 @@ func _on_action_selected(action: String):
 				# 开始聊天
 				character.start_chat()
 				chat_dialog.show_dialog(chat_mode)
-				# 禁用右侧点击区域
-				right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				# 禁用所有UI交互
+				if has_node("/root/UIManager"):
+					get_node("/root/UIManager").disable_all()
 			else:
 				# 显示失败消息
 				if result.message != "":
@@ -451,15 +478,17 @@ func _on_action_selected(action: String):
 			# 如果管理器未加载，直接开始聊天
 			character.start_chat()
 			chat_dialog.show_dialog("passive")
-			# 禁用右侧点击区域
-			right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# 禁用所有UI交互
+			if has_node("/root/UIManager"):
+				get_node("/root/UIManager").disable_all()
 
 func _on_chat_ended():
 	# 聊天结束，角色返回场景（会自动处理位置变动和字幕）
 	await character.end_chat()
 	
-	# 重新启用右侧点击区域
-	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+	# 重新启用所有UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
 
 
 func _on_character_scene_changed(new_scene: String):
@@ -606,8 +635,9 @@ func _trigger_active_chat():
 	
 	character.start_chat()
 	chat_dialog.show_dialog("active")
-	# 禁用右侧点击区域
-	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 禁用所有UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").disable_all()
 
 func _trigger_idle_position_change():
 	"""触发空闲时的位置变动（无字幕播报）"""
@@ -749,8 +779,9 @@ func _on_pending_chat_timeout(chat_mode: String):
 	var mode = chat_mode if chat_mode != "" else "passive"
 	character.start_chat()
 	chat_dialog.show_dialog(mode)
-	# 禁用右侧点击区域
-	right_click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 禁用所有UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").disable_all()
 	print("延迟聊天已触发")
 func _cancel_pending_chat():
 	"""取消待触发的聊天"""
@@ -791,3 +822,58 @@ func _check_pending_offline_position_change():
 		# 静默应用位置变化（不显示字幕）
 		await character.apply_position_probability_silent()
 		print("离线位置变化已应用")
+
+func _update_diary_button_layout():
+	"""更新日记按钮布局"""
+	if diary_button == null:
+		return
+	
+	# 使用配置管理器计算位置
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		var element_size = diary_button.size
+		diary_button.position = mgr.calculate_element_position("diary_button", scene_rect, element_size)
+	else:
+		# 降级方案：使用默认位置
+		var button_x = scene_rect.position.x + 10
+		var button_y = scene_rect.position.y + scene_rect.size.y - diary_button.size.y - 10
+		diary_button.position = Vector2(button_x, button_y)
+
+func _update_diary_viewer_layout():
+	"""更新日记查看器布局（居中显示）"""
+	if diary_viewer == null:
+		return
+	
+	# 日记查看器居中显示在场景区域
+	var viewer_x = scene_rect.position.x + (scene_rect.size.x - diary_viewer.size.x) / 2
+	var viewer_y = scene_rect.position.y + (scene_rect.size.y - diary_viewer.size.y) / 2
+	
+	diary_viewer.position = Vector2(viewer_x, viewer_y)
+
+func _update_diary_button_visibility():
+	"""更新日记按钮的显示状态（根据配置决定在哪些场景显示）"""
+	if diary_button == null:
+		return
+	
+	# 使用配置管理器检查是否应该显示
+	var should_show = false
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		should_show = mgr.should_show_in_scene("diary_button", current_scene) and mgr.is_element_enabled("diary_button")
+	else:
+		# 降级方案：只在bedroom显示
+		should_show = (current_scene == "bedroom")
+	
+	if should_show:
+		diary_button.enable()
+	else:
+		diary_button.disable()
+
+func _on_diary_selected():
+	"""日记选项被选中"""
+	if diary_viewer:
+		diary_viewer.show_diary()
+
+func _on_diary_closed():
+	"""日记查看器关闭事件"""
+	print("日记查看器已关闭")

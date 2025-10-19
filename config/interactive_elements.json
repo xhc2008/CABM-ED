@@ -1,0 +1,35 @@
+{
+  "elements": {
+    "diary_button": {
+      "name": "日记入口",
+      "type": "click_area",
+      "size": {
+        "width": 140,
+        "height": 160
+      },
+      "position": {
+        "anchor": "bottom_left",
+        "offset_x": 120,
+        "offset_y": -130
+      },
+      "scenes": [
+        "bedroom"
+      ],
+      "enabled": true
+    }
+  },
+  "position_anchors": {
+    "top_left": "场景左上角",
+    "top_right": "场景右上角",
+    "bottom_left": "场景左下角",
+    "bottom_right": "场景右下角",
+    "center": "场景中心",
+    "left_center": "场景左侧中心",
+    "right_center": "场景右侧中心"
+  },
+  "notes": {
+    "offset_x": "正值向右，负值向左",
+    "offset_y": "正值向下，负值向上（从锚点开始计算）",
+    "scenes": "留空数组表示在所有场景显示"
+  }
+}
