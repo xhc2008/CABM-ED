@@ -137,3 +137,30 @@
 2. 检查 `user://saves/save_slot_1.json` 中的 `relationship_history` 字段
 3. 查看 `user://ai_logs/log.txt` 确认API调用成功
 4. 在第21次对话时，检查对话模型是否收到关系上下文
+
+## 注意事项
+
+1. **API密钥**: 关系模型使用与总结模型相同的API密钥和base_url
+2. **提示词定制**: 可以修改 `relationship_model.system_prompt` 来调整关系提取的风格
+3. **历史记录限制**: 默认只保留最近2条关系记录，可通过 `max_relationship_history` 调整
+4. **兼容性**: 旧存档会自动添加新字段，不会影响现有数据
+5. **初始关系**: 
+   - 新用户在初始设置时会自动创建初始关系描述
+   - 旧存档在首次调用时会自动生成默认初始关系
+   - 初始关系格式："{用户名}和{角色名}刚刚认识，关系处于初识阶段"
+6. **类型安全**: 
+   - `accumulated_summary_count` 会自动强制转换为整数
+   - 防止JSON解析时产生的浮点数类型问题
+
+## 日志记录
+
+关系模型的调用会记录在 `user://ai_logs/log.txt` 中：
+- `RELATIONSHIP_REQUEST`: 请求内容
+- `RELATIONSHIP_RESPONSE`: 响应内容
+
+## 测试建议
+
+1. 创建新存档，进行20次对话，观察关系模型是否被触发
+2. 检查 `user://saves/save_slot_1.json` 中的 `relationship_history` 字段
+3. 查看 `user://ai_logs/log.txt` 确认API调用成功
+4. 在第21次对话时，检查对话模型是否收到关系上下文

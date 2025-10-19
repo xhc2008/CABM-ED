@@ -992,9 +992,13 @@ func _save_memory(summary: String):
 			"relationship_history": []
 		}
 	
-	# 确保字段存在
+	# 确保字段存在并强制转换为整数（JSON解析可能返回浮点数）
 	if not save_mgr.save_data.ai_data.has("accumulated_summary_count"):
 		save_mgr.save_data.ai_data.accumulated_summary_count = 0
+	else:
+		# 强制转换为整数
+		save_mgr.save_data.ai_data.accumulated_summary_count = int(save_mgr.save_data.ai_data.accumulated_summary_count)
+	
 	if not save_mgr.save_data.ai_data.has("relationship_history"):
 		save_mgr.save_data.ai_data.relationship_history = []
 	

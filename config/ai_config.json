@@ -32,7 +32,7 @@
         "top_p": 0.9,
         "timeout": 30,
         "enable_thinking": false,
-        "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过50字。目前的关系：{relationship}/no_think"
+        "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过100字。目前的关系：{relationship}/no_think"
     },
     "memory": {
         "max_memory_items": 20,
