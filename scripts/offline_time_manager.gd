@@ -83,10 +83,19 @@ func check_and_apply_offline_changes():
 
 func _apply_no_change():
 	"""小于5分钟：无变化"""
+	_trigger_offline_position_change()
 	pass
 
+func _trigger_offline_position_change():
+	"""触发离线位置变化（无字幕播报）"""
+	# 设置标记，让主场景在加载完成后应用位置变化
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_meta("pending_offline_position_change", true)
+		print("已标记离线位置变化待应用")
+
 func _apply_short_offline(_minutes: float):
-	"""5分钟~3小时：心情变化，回复意愿随机增加-10~30"""
+	"""5分钟~3小时：心情变化，回复意愿随机增加-10~30，触发位置变化"""
 	# 心情变化
 	_change_mood_randomly()
 	
@@ -102,9 +111,12 @@ func _apply_short_offline(_minutes: float):
 		var new_willingness = clamp(current_willingness + change, 0, 150)
 		SaveManager.set_reply_willingness(new_willingness)
 		print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, change])
+	
+	# 触发位置变化
+	_trigger_offline_position_change()
 
 func _apply_medium_offline(_hours: float):
-	"""3小时~24小时：心情变化；好感度随机增加-20~10；回复意愿随机增加0~50"""
+	"""3小时~24小时：心情变化；好感度随机增加-20~10；回复意愿随机增加0~50；触发位置变化"""
 	# 心情变化
 	_change_mood_randomly()
 	
@@ -132,9 +144,12 @@ func _apply_medium_offline(_hours: float):
 		var new_willingness = clamp(current_willingness + willingness_change, 0, 150)
 		SaveManager.set_reply_willingness(new_willingness)
 		print("回复意愿变化: %d -> %d (变化: %+d)" % [current_willingness, new_willingness, willingness_change])
+	
+	# 触发位置变化
+	_trigger_offline_position_change()
 
 func _apply_long_offline(_hours: float):
-	"""24小时以上：心情变化；好感度增加-50~0；回复意愿随机置为70~100"""
+	"""24小时以上：心情变化；好感度增加-50~0；回复意愿随机置为70~100；触发位置变化"""
 	# 心情变化
 	_change_mood_randomly()
 	
@@ -161,6 +176,9 @@ func _apply_long_offline(_hours: float):
 		var clamped_willingness = clamp(new_willingness, 0, 150)
 		SaveManager.set_reply_willingness(clamped_willingness)
 		print("回复意愿重置为: %d" % clamped_willingness)
+	
+	# 触发位置变化
+	_trigger_offline_position_change()
 
 func _change_mood_randomly():
 	"""随机改变心情，平静权重最高"""

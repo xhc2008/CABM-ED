@@ -73,6 +73,9 @@ func _ready():
 	await get_tree().process_frame
 	_update_ui_layout()
 	
+	# 检查是否有待应用的离线位置变化
+	_check_pending_offline_position_change()
+	
 	# 播放背景音乐
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
 
@@ -459,7 +462,6 @@ func _on_chat_ended():
 	right_click_area.mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-
 func _on_character_scene_changed(new_scene: String):
 	"""角色场景变化时的处理"""
 	print("角色场景变化: ", new_scene)
@@ -732,7 +734,6 @@ func _try_scene_interaction(action_id: String):
 		print("场景交互失败或在冷却中: ", action_id)
 
 
-
 func _on_pending_chat_timeout(chat_mode: String):
 	"""延迟聊天触发"""
 	# 再次检查角色是否还在当前场景（防止概率移动或其他原因导致的问题）
@@ -776,3 +777,17 @@ func _show_save_debug_panel():
 	if debug_panel_scene:
 		var debug_panel = debug_panel_scene.instantiate()
 		add_child(debug_panel)
+
+func _check_pending_offline_position_change():
+	"""检查并应用待处理的离线位置变化"""
+	if not has_node("/root/SaveManager"):
+		return
+	
+	var save_mgr = get_node("/root/SaveManager")
+	if save_mgr.has_meta("pending_offline_position_change"):
+		print("检测到待应用的离线位置变化")
+		save_mgr.remove_meta("pending_offline_position_change")
+		
+		# 静默应用位置变化（不显示字幕）
+		await character.apply_position_probability_silent()
+		print("离线位置变化已应用")
