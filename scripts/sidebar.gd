@@ -579,6 +579,17 @@ func _mask_api_key(key: String) -> String:
 
 func _on_ai_config_pressed():
 	"""打开AI配置面板"""
+	# 检查是否已经存在配置面板
+	for child in get_tree().root.get_children():
+		if child.get_script() and child.get_script().resource_path == "res://scripts/ai_config_panel.gd":
+			# 如果已存在，切换显示状态
+			if child.visible:
+				child.queue_free()
+			else:
+				child.visible = true
+			return
+	
+	# 如果不存在，创建新面板
 	var config_panel_scene = load("res://scenes/ai_config_panel.tscn")
 	if config_panel_scene:
 		var config_panel = config_panel_scene.instantiate()
@@ -613,6 +624,17 @@ func _on_debug_save_pressed():
 
 func _on_about_pressed():
 	"""打开关于对话框"""
+	# 检查是否已经存在关于对话框
+	for child in get_tree().root.get_children():
+		if child.get_script() and child.get_script().resource_path == "res://scripts/about_dialog.gd":
+			# 如果已存在，切换显示状态
+			if child.visible:
+				child.queue_free()
+			else:
+				child.visible = true
+			return
+	
+	# 如果不存在，创建新对话框
 	var about_dialog_scene = load("res://scenes/about_dialog.tscn")
 	if about_dialog_scene:
 		var about_dialog = about_dialog_scene.instantiate()
