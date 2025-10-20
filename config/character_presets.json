@@ -58,5 +58,36 @@
         "y": 0.78
       }
     }
+  ],
+  "studyroom": [
+    {
+      "des":"坐在地上看书",
+      "image": "1.png",
+      "scale": 0.6,
+      "position": {
+        "x": 0.75,
+        "y": 0.82
+      }
+    },
+    {
+      "des":"坐在沙发上看书",
+      "image": "2.png",
+      "scale": 0.75,
+      "position": {
+        "x": 0.62,
+        "y": 0.70
+      }
+    }
+  ],
+  "kitchen": [
+    {
+      "des":"在灶台边思考",
+      "image": "1.png",
+      "scale": 0.7,
+      "position": {
+        "x": 0.70,
+        "y": 0.75
+      }
+    }
   ]
 }

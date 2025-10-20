@@ -38,6 +38,32 @@
         "sunny": "晴天",
         "rainy": "雨天"
       }
+    },
+    "studyroom": {
+      "name": "书房",
+      "weight": 3,
+      "times": {
+        "day": "白天",
+        "dusk": "黄昏",
+        "night": "夜晚"
+      },
+      "weathers": {
+        "sunny": "晴天",
+        "rainy": "雨天"
+      }
+    },
+    "kitchen": {
+      "name": "厨房",
+      "weight": 3,
+      "times": {
+        "day": "白天",
+        "dusk": "黄昏",
+        "night": "夜晚"
+      },
+      "weathers": {
+        "sunny": "晴天",
+        "rainy": "雨天"
+      }
     }
   }
 }
