@@ -32,7 +32,6 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 		push_error("PromptBuilder: 配置未加载")
 		return ""
 	
-	var prompt_template = config.chat_model.system_prompt
 	var save_mgr = get_node("/root/SaveManager")
 	
 	# 从 app_config.json 读取角色名称
@@ -71,22 +70,79 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	# 生成场景列表
 	var scenes_list = _generate_scenes_list()
 	
-	# 替换占位符
-	var prompt = prompt_template.replace("{character_name}", character_name)
-	prompt = prompt.replace("{user_name}", user_name)
-	prompt = prompt.replace("{current_scene}", _get_scene_description(save_mgr.get_character_scene()))
-	prompt = prompt.replace("{current_weather}", _get_weather_description(save_mgr.get_current_weather()))
-	prompt = prompt.replace("{memory_context}", memory_context)
-	prompt = prompt.replace("{relationship_context}", relationship_context)
-	prompt = prompt.replace("{moods}", moods)
-	prompt = prompt.replace("{trigger_context}", trigger_context)
-	prompt = prompt.replace("{affection_level}", affection_level)
-	prompt = prompt.replace("{interaction_level}", interaction_level)
-	prompt = prompt.replace("{current_mood}", current_mood)
-	prompt = prompt.replace("{current_time}", current_time)
-	prompt = prompt.replace("{scenes}", scenes_list)
+	# 准备所有占位符的替换字典
+	var replacements = {
+		"{character_name}": character_name,
+		"{user_name}": user_name,
+		"{current_scene}": _get_scene_description(save_mgr.get_character_scene()),
+		"{current_weather}": _get_weather_description(save_mgr.get_current_weather()),
+		"{memory_context}": memory_context,
+		"{relationship_context}": relationship_context,
+		"{moods}": moods,
+		"{trigger_context}": trigger_context,
+		"{affection_level}": affection_level,
+		"{interaction_level}": interaction_level,
+		"{current_mood}": current_mood,
+		"{current_time}": current_time,
+		"{scenes}": scenes_list
+	}
+	
+	# 检查使用哪种配置方式
+	var prompt = ""
+	
+	if config.chat_model.has("prompt_frameworks") and config.chat_model.has("prompt_fields"):
+		# 使用新的框架系统
+		var framework_name = config.chat_model.get("prompt_framework", "default")
+		var frameworks = config.chat_model.prompt_frameworks
+		var fields = config.chat_model.prompt_fields
+		
+		if not frameworks.has(framework_name):
+			push_error("PromptBuilder: 未找到框架 '%s'，使用 default" % framework_name)
+			framework_name = "default"
+		
+		var framework = frameworks[framework_name]
+		prompt = _build_prompt_from_framework(framework, fields, replacements)
+	elif config.chat_model.has("system_prompt"):
+		# 兼容旧的单一字符串配置
+		prompt = config.chat_model.system_prompt
+		prompt = _replace_placeholders(prompt, replacements)
+		
+	else:
+		push_error("PromptBuilder: 未找到任何提示词配置")
+		return ""
 	
 	return prompt
+
+func _build_prompt_from_framework(framework: Array, fields: Dictionary, replacements: Dictionary) -> String:
+	"""根据框架和字段构建提示词"""
+	var parts = []
+	
+	for item in framework:
+		var field_name = item.get("field", "")
+		var title = item.get("title", null)
+		
+		if not fields.has(field_name):
+			push_warning("PromptBuilder: 字段 '%s' 不存在，跳过" % field_name)
+			continue
+		
+		var field_content = fields[field_name]
+		# 替换占位符
+		field_content = _replace_placeholders(field_content, replacements)
+		
+		# 如果有标题，添加二级标题
+		if title != null and not title.is_empty():
+			parts.append("## " + title + "\n" + field_content)
+		else:
+			parts.append(field_content)
+	
+	return "\n".join(parts)
+
+func _replace_placeholders(text: String, replacements: Dictionary) -> String:
+	"""替换文本中的占位符"""
+	var result = text
+	for placeholder in replacements:
+		result = result.replace(placeholder, replacements[placeholder])
+	return result
 
 func _generate_moods_list() -> String:
 	"""从mood_config.json生成moods列表字符串"""
