@@ -155,7 +155,7 @@ text = "模型名称:"
 
 [node name="SummaryModelInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Qwen/Qwen3-8B"
+placeholder_text = "Qwen/Qwen2.5-7B-Instruct"
 
 [node name="SummaryBaseURLLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
