@@ -27,6 +27,10 @@ var stream_host: String = ""
 var stream_port: int = 443
 var stream_use_tls: bool = true
 
+# 超时控制
+var request_start_time: float = 0.0
+var request_timeout: float = 30.0
+
 func _ready():
 	_load_config()
 	_load_api_key()
@@ -313,6 +317,10 @@ func _start_stream_request(url: String, headers: Array, json_body: String):
 		chat_error.emit("连接失败: " + str(err))
 		return
 	
+	# 记录请求开始时间和超时设置
+	request_start_time = Time.get_ticks_msec() / 1000.0
+	request_timeout = config.chat_model.get("timeout", 30.0)
+	
 	# 存储请求信息以便在_process中使用
 	set_meta("stream_url", url)
 	set_meta("stream_headers", headers)
@@ -322,6 +330,26 @@ func _start_stream_request(url: String, headers: Array, json_body: String):
 func _process(_delta):
 	"""处理流式HTTP连接"""
 	if not is_streaming:
+		return
+	
+	# 检查超时
+	var elapsed = (Time.get_ticks_msec() / 1000.0) - request_start_time
+	if elapsed > request_timeout:
+		print("请求超时（%.1f秒）" % elapsed)
+		is_chatting = false
+		is_streaming = false
+		http_client.close()
+		
+		# 如果已经收到部分内容，完成处理；否则显示"欲言又止"
+		if not msg_buffer.is_empty():
+			print("超时但已收到部分内容，完成处理")
+			_finalize_stream_response()
+		else:
+			print("超时且未收到内容，触发欲言又止")
+			# 添加"……"到对话历史
+			current_conversation.append({"role": "assistant", "content": "……"})
+			# 发送超时错误信号（chat_dialog会处理为"欲言又止"）
+			chat_error.emit("响应超时")
 		return
 	
 	http_client.poll()

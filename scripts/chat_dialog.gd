@@ -410,8 +410,14 @@ func _on_ai_error(error_message: String):
 	"""AI 错误回调"""
 	print("AI 错误: ", error_message)
 	is_receiving_stream = false
-	# 显示错误消息
-	_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息：" + error_message)
+	
+	# 如果是超时错误，显示"欲言又止"
+	if error_message.contains("超时"):
+		var character_name = app_config.get("character_name", "角色")
+		_handle_empty_msg_response(character_name + "似乎在思考什么，但没有说出来")
+	else:
+		# 其他错误显示错误消息
+		_start_typing_effect("抱歉，我现在有点累了，稍后再聊吧...\n错误信息：" + error_message)
 
 func _on_input_text_changed(_new_text: String):
 	"""输入框文本变化时重置空闲计时器"""
