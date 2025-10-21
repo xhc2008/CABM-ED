@@ -56,6 +56,7 @@ func _ready():
 	
 	# 连接场景菜单信号
 	scene_menu.scene_selected.connect(_on_scene_menu_selected)
+	scene_menu.character_called.connect(_on_character_called)
 	
 	# 连接右侧点击区域
 	right_click_area.gui_input.connect(_on_right_area_input)
@@ -951,3 +952,65 @@ func _on_character_diary_selected():
 func _on_character_diary_closed():
 	"""角色日记查看器关闭事件"""
 	print("角色日记查看器已关闭")
+
+func _on_character_called():
+	"""呼唤角色事件"""
+	print("用户呼唤角色")
+	
+	# 尝试呼唤交互
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		var result = event_mgr.on_character_called()
+		
+		if result.success:
+			# 呼唤成功
+			print("呼唤成功")
+			
+			# 检查角色是否在当前场景
+			var character_scene = ""
+			if has_node("/root/SaveManager"):
+				var save_mgr = get_node("/root/SaveManager")
+				character_scene = save_mgr.get_character_scene()
+			
+			if character_scene == current_scene:
+				# 角色已在当前场景，直接触发对话（不包含场景名）
+				_start_called_chat(true)
+			else:
+				# 角色不在当前场景，移动角色到当前场景（包含场景名）
+				_move_character_to_current_scene()
+		else:
+			# 呼唤失败，显示失败消息
+			if result.message != "":
+				_show_failure_message(result.message)
+	else:
+		print("警告: EventManager 未找到")
+
+func _start_called_chat(already_here: bool = false):
+	"""开始被呼唤后的对话
+	
+	already_here: 角色是否已经在当前场景
+	"""
+	character.start_chat()
+	# 根据角色是否已在场景选择不同的对话模式
+	var chat_mode = "called_here" if already_here else "called"
+	chat_dialog.show_dialog(chat_mode)
+	# 禁用所有UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").disable_all()
+
+func _move_character_to_current_scene():
+	"""将角色移动到当前场景并触发对话"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		
+		# 设置不显示移动通知（因为是被呼唤来的）
+		save_mgr.set_meta("show_move_notification", false)
+		
+		# 移动角色到当前场景
+		save_mgr.set_character_scene(current_scene)
+		
+		# 等待角色加载完成
+		await get_tree().process_frame
+		
+		# 触发对话
+		_start_called_chat()

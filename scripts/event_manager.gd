@@ -221,6 +221,34 @@ func on_chat_session_end(turn_count: int = 0) -> EventResult:
 	event_completed.emit("chat_session_end", result)
 	return result
 
+func on_character_called() -> EventResult:
+	"""事件：呼唤角色"""
+	reset_idle_timer()
+	
+	if is_on_cooldown("character_called"):
+		return EventResult.new(false, helpers.get_character_name() + "没有回应")
+	
+	# 计算成功率
+	var base_willingness = 140
+	var success_chance = helpers.calculate_success_chance(base_willingness)
+	var success = randf() < success_chance
+	
+	var result = EventResult.new(success)
+	
+	if success:
+		# 呼唤成功
+		result.message = "called_success"
+		_set_cooldown("character_called", 5.0)
+	else:
+		# 呼唤失败
+		result.message = helpers.get_character_name() + "没有回应"
+		# result.willingness_change = randi_range(-5, 5)
+		_set_cooldown("character_called", 15.0)
+	
+	_apply_result(result)
+	event_completed.emit("character_called", result)
+	return result
+
 func on_idle_timeout() -> EventResult:
 	"""事件：空闲超时（长时间无操作）
 	

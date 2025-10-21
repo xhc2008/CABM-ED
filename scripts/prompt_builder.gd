@@ -335,7 +335,16 @@ func _get_trigger_context(trigger_mode: String) -> String:
 			return "现在，用户找你聊天。"
 	
 	var trigger_contexts = config.chat_model.trigger_contexts
-	return trigger_contexts.get(trigger_mode, "你在和用户聊天。")
+	var context = trigger_contexts.get(trigger_mode, "你在和用户聊天。")
+	
+	# 如果trigger_context中包含{current_scene}占位符，需要替换
+	if context.contains("{current_scene}"):
+		var save_mgr = get_node("/root/SaveManager")
+		var current_scene = save_mgr.get_character_scene()
+		var scene_name = _get_scene_description(current_scene)
+		context = context.replace("{current_scene}", scene_name)
+	
+	return context
 
 func get_memory_context() -> String:
 	"""获取记忆上下文（仅从短期记忆）"""

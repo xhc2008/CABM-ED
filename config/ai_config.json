@@ -16,7 +16,7 @@
             "relationship": "{relationship_context}",
             "memory": "```\\n{memory_context}\\n```",
             "trigger": "{trigger_context}",
-            "task":"列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。"
+            "task": "列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。"
         },
         "prompt_frameworks": {
             "chat": [
@@ -67,7 +67,9 @@
         "trigger_contexts": {
             "user_initiated": "现在，用户找你聊天。",
             "character_initiated": "现在，你想主动找用户聊天，说点什么吧。",
-            "ongoing": "你在和用户聊天。"
+            "ongoing": "你在和用户聊天。",
+            "called": "现在，用户在{current_scene}呼唤了你，你来到了用户面前，主动说点什么吧。",
+            "called_here": "现在，用户呼唤了你，主动说点什么吧。"
         }
     },
     "summary_model": {

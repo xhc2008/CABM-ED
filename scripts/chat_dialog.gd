@@ -263,13 +263,14 @@ func _setup_reply_mode():
 func show_dialog(mode: String = "passive"):
 	"""
 	显示对话框
-	mode: "passive" = 用户先说（输入模式）, "active" = 角色先说（回复模式）
+	mode: "passive" = 用户先说（输入模式）, "active" = 角色先说（回复模式）, 
+		  "called" = 被呼唤来到场景（角色先说）, "called_here" = 被呼唤但已在场景（角色先说）
 	"""
 	visible = true
 	pivot_offset = size / 2.0
 	
 	# 根据模式设置初始状态
-	if mode == "active":
+	if mode == "active" or mode == "called" or mode == "called_here":
 		# 角色主动说话，直接进入回复模式
 		_setup_reply_mode()
 		message_label.text = "" # 清空消息
@@ -291,6 +292,16 @@ func show_dialog(mode: String = "passive"):
 		if has_node("/root/AIService"):
 			var ai_service = get_node("/root/AIService")
 			ai_service.start_chat("", "character_initiated")
+		else:
+			# 如果 AI 服务不可用，使用预设回复
+			var replies = app_config.get("preset_replies", ["你好！"])
+			var active_reply = replies[randi() % replies.size()]
+			_start_typing_effect(active_reply)
+	elif mode == "called" or mode == "called_here":
+		# 被呼唤模式：调用AI生成第一句话
+		if has_node("/root/AIService"):
+			var ai_service = get_node("/root/AIService")
+			ai_service.start_chat("", mode)
 		else:
 			# 如果 AI 服务不可用，使用预设回复
 			var replies = app_config.get("preset_replies", ["你好！"])

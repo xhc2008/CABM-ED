@@ -1,12 +1,14 @@
 extends Panel
 
 signal scene_selected(scene_id: String)
+signal character_called()
 
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 
 const ANIMATION_DURATION = 0.2
 
 var scene_buttons: Array = []
+var call_button: Button = null
 
 func _ready():
 	visible = false
@@ -18,6 +20,18 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	for button in scene_buttons:
 		button.queue_free()
 	scene_buttons.clear()
+	if call_button:
+		call_button.queue_free()
+		call_button = null
+	
+	# 获取角色名称
+	var character_name = _get_character_name()
+	
+	# 添加"呼唤角色"按钮
+	call_button = Button.new()
+	call_button.text = "💬 呼唤" + character_name
+	call_button.pressed.connect(_on_call_button_pressed)
+	vbox.add_child(call_button)
 	
 	# 为每个场景（除当前场景外）创建按钮
 	for scene_id in scenes_config.keys():
@@ -26,7 +40,7 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 		
 		var scene_data = scenes_config[scene_id]
 		var button = Button.new()
-		button.text = "🏠 " + scene_data.get("name", scene_id)
+		button.text = "🏠 前往" + scene_data.get("name", scene_id)
 		button.pressed.connect(_on_scene_button_pressed.bind(scene_id))
 		
 		vbox.add_child(button)
@@ -74,6 +88,17 @@ func hide_menu():
 func _on_scene_button_pressed(scene_id: String):
 	scene_selected.emit(scene_id)
 	hide_menu()
+
+func _on_call_button_pressed():
+	character_called.emit()
+	hide_menu()
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		return helpers.get_character_name()
+	return "角色"
 
 func _input(event):
 	# 如果菜单可见，且点击了菜单外的区域，则隐藏菜单
