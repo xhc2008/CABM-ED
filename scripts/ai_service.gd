@@ -930,11 +930,11 @@ func _call_address_api(conversation_text: String):
 	var user_name = save_mgr.get_user_name()
 	var current_address = save_mgr.get_user_address()
 	
-	# 构建系统提示词（替换占位符）
-	var system_prompt = summary_config.address_system_prompt.replace("{character_name}", char_name).replace("{user_name}", user_name)
+	# 构建系统提示词（替换占位符，并添加当前称呼信息）
+	var system_prompt = summary_config.address_system_prompt.replace("{character_name}", char_name).replace("{user_name}", user_name).replace("{current_address}", current_address)
 	
-	# 构建用户消息（包含当前称呼和对话内容）
-	var user_message = "当前称呼：%s\n\n对话内容：\n%s" % [current_address, conversation_text]
+	# 构建用户消息（对话内容）
+	var user_message = conversation_text
 	
 	var messages = [
 		{"role": "system", "content": system_prompt},
