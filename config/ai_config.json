@@ -16,7 +16,7 @@
             "relationship": "{relationship_context}",
             "memory": "```\\n{memory_context}\\n```",
             "trigger": "{trigger_context}",
-            "task":"列出你在{start_time}到{end_time}这段时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动、情绪变化、对用户的思念等。"
+            "task":"列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。"
         },
         "prompt_frameworks": {
             "chat": [

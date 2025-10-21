@@ -34,6 +34,9 @@ func _ready():
 
 func show_diary():
 	"""显示日记查看器"""
+	# 更新标题为角色名称
+	_update_title()
+	
 	# 加载可用日期列表
 	_load_available_dates()
 	
@@ -53,6 +56,31 @@ func show_diary():
 	tween.set_parallel(true)
 	tween.tween_property(self, "modulate:a", 1.0, ANIMATION_DURATION)
 	tween.tween_property(self, "scale", Vector2.ONE, ANIMATION_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _update_title():
+	"""更新标题为角色名称"""
+	if not title_label:
+		return
+	
+	var character_name = _get_character_name()
+	title_label.text = "%s的日记" % character_name
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	var config_path = "res://config/app_config.json"
+	if not FileAccess.file_exists(config_path):
+		return "角色"
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) == OK:
+		var config = json.data
+		return config.get("character_name", "角色")
+	
+	return "角色"
 
 func hide_diary():
 	"""隐藏日记查看器"""
@@ -233,20 +261,13 @@ func _on_close_button_pressed():
 func _format_time_display(time_str: String) -> String:
 	"""格式化时间显示
 	输入: "MM-DD HH:MM" 或 "HH:MM"
-	输出: "MM月DD日 HH:MM" 或 "HH:MM"
+	输出: "HH:MM" （只显示时间，不显示日期，因为上面已经有日期选择器了）
 	"""
 	if time_str.length() == 11:
-		# 格式: MM-DD HH:MM
+		# 格式: MM-DD HH:MM，只提取时间部分
 		var parts = time_str.split(" ")
 		if parts.size() == 2:
-			var date_part = parts[0]  # MM-DD
-			var time_part = parts[1]  # HH:MM
-			
-			var date_parts = date_part.split("-")
-			if date_parts.size() == 2:
-				var month = date_parts[0]
-				var day = date_parts[1]
-				return "%s月%s日 %s" % [month, day, time_part]
+			return parts[1]  # 返回 HH:MM
 	
-	# 如果是 HH:MM 格式或解析失败，直接返回
+	# 如果是 HH:MM 格式，直接返回
 	return time_str

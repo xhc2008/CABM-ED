@@ -95,9 +95,6 @@ func check_and_apply_offline_changes():
 func _apply_no_change():
 	"""小于5分钟：无变化"""
 	_trigger_offline_position_change()
-	#临时测试
-	var event_count = randi_range(1, 2)
-	_generate_character_diary(9, event_count)
 	pass
 
 func _trigger_offline_position_change():
@@ -531,6 +528,24 @@ func _validate_time_format(time_str: String) -> bool:
 	
 	return false
 
+func _extract_date_from_time(time_str: String, fallback_datetime: Dictionary) -> String:
+	"""从时间字符串中提取日期
+	输入: "MM-DD HH:MM" 或 "HH:MM"
+	输出: "YYYY-MM-DD"
+	"""
+	if time_str.length() == 11:
+		# 格式: MM-DD HH:MM
+		var date_part = time_str.substr(0, 5)  # MM-DD
+		var date_parts = date_part.split("-")
+		if date_parts.size() == 2:
+			var month = date_parts[0].to_int()
+			var day = date_parts[1].to_int()
+			# 使用 fallback_datetime 的年份
+			return "%04d-%02d-%02d" % [fallback_datetime.year, month, day]
+	
+	# 如果是 HH:MM 格式或解析失败，使用 fallback_datetime
+	return "%04d-%02d-%02d" % [fallback_datetime.year, fallback_datetime.month, fallback_datetime.day]
+
 func _ensure_diary_directory() -> bool:
 	"""确保日记目录存在"""
 	var dir = DirAccess.open("user://")
@@ -553,8 +568,8 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	
 	var diary_dir = "user://character_diary"
 	
-	# 使用开始日期作为文件名
-	var date_str = "%04d-%02d-%02d" % [start_datetime.year, start_datetime.month, start_datetime.day]
+	# 从 time_str 中提取日期，如果没有日期则使用 start_datetime
+	var date_str = _extract_date_from_time(time_str, start_datetime)
 	var diary_path = diary_dir + "/" + date_str + ".jsonl"
 	
 	# 构建日记记录
