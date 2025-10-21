@@ -70,10 +70,14 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 	# 生成场景列表
 	var scenes_list = _generate_scenes_list()
 	
+	# 从存档系统读取用户称呼
+	var user_address = save_mgr.get_user_address()
+	
 	# 准备所有占位符的替换字典
 	var replacements = {
 		"{character_name}": character_name,
 		"{user_name}": user_name,
+		"{user_address}": user_address,
 		"{current_scene}": _get_scene_description(save_mgr.get_character_scene()),
 		"{current_weather}": _get_weather_description(save_mgr.get_current_weather()),
 		"{memory_context}": memory_context,
@@ -450,8 +454,9 @@ func build_offline_diary_prompt(start_time: String, end_time: String, event_coun
 	var app_config = _load_app_config()
 	var character_name = app_config.get("character_name", "角色")
 	
-	# 从存档系统读取用户名
+	# 从存档系统读取用户名和称呼
 	var user_name = save_mgr.get_user_name()
+	var user_address = save_mgr.get_user_address()
 	
 	# 获取记忆上下文
 	var memory_context = get_memory_context()
@@ -460,6 +465,7 @@ func build_offline_diary_prompt(start_time: String, end_time: String, event_coun
 	var replacements = {
 		"{character_name}": character_name,
 		"{user_name}": user_name,
+		"{user_address}": user_address,
 		"{start_time}": start_time,
 		"{end_time}": end_time,
 		"{event_count}": str(event_count),

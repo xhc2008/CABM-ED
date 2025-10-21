@@ -911,6 +911,120 @@ func _handle_summary_response(response: Dictionary):
 	# 发送信号
 	summary_completed.emit(summary)
 
+func _call_address_api(conversation_text: String):
+	"""调用称呼模型 API（并发调用）"""
+	var summary_config = config.summary_model
+	var url = summary_config.base_url + "/chat/completions"
+	
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + api_key
+	]
+	
+	# 获取角色名和用户名
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var app_config = prompt_builder._load_app_config()
+	var char_name = app_config.get("character_name", "角色")
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var user_name = save_mgr.get_user_name()
+	var current_address = save_mgr.get_user_address()
+	
+	# 构建系统提示词（替换占位符）
+	var system_prompt = summary_config.address_system_prompt.replace("{character_name}", char_name).replace("{user_name}", user_name)
+	
+	# 构建用户消息（包含当前称呼和对话内容）
+	var user_message = "当前称呼：%s\n\n对话内容：\n%s" % [current_address, conversation_text]
+	
+	var messages = [
+		{"role": "system", "content": system_prompt},
+		{"role": "user", "content": user_message}
+	]
+	
+	# 构建请求体
+	var body = {
+		"model": summary_config.model,
+		"messages": messages,
+		"max_tokens": int(summary_config.max_tokens),
+		"temperature": float(summary_config.temperature),
+		"top_p": float(summary_config.top_p)
+	}
+	
+	var json_body = JSON.stringify(body)
+	
+	# 记录完整的请求日志
+	_log_api_request("ADDRESS_REQUEST", body, json_body)
+	
+	# 创建新的HTTPRequest节点用于并发请求
+	var address_request = HTTPRequest.new()
+	add_child(address_request)
+	address_request.request_completed.connect(_on_address_request_completed)
+	
+	address_request.set_meta("request_type", "address")
+	address_request.set_meta("request_body", body)
+	address_request.set_meta("messages", messages)
+	
+	var error = address_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	if error != OK:
+		push_error("称呼模型请求失败: " + str(error))
+		address_request.queue_free()
+
+func _on_address_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
+	"""称呼模型请求完成回调"""
+	# 找到发起请求的HTTPRequest节点
+	var address_request = null
+	for child in get_children():
+		if child is HTTPRequest and child.has_meta("request_type") and child.get_meta("request_type") == "address":
+			address_request = child
+			break
+	
+	if result != HTTPRequest.RESULT_SUCCESS:
+		push_error("称呼模型请求失败: " + str(result))
+		if address_request:
+			address_request.queue_free()
+		return
+	
+	if response_code != 200:
+		var error_text = body.get_string_from_utf8()
+		var error_msg = "称呼模型API错误 (%d): %s" % [response_code, error_text]
+		print(error_msg)
+		if address_request:
+			address_request.queue_free()
+		return
+	
+	var response_text = body.get_string_from_utf8()
+	var json = JSON.new()
+	if json.parse(response_text) != OK:
+		push_error("称呼模型响应解析失败")
+		if address_request:
+			address_request.queue_free()
+		return
+	
+	_handle_address_response(json.data, address_request)
+	
+	# 清理HTTPRequest节点
+	if address_request:
+		address_request.queue_free()
+
+func _handle_address_response(response: Dictionary, address_request: HTTPRequest):
+	"""处理称呼模型响应"""
+	if not response.has("choices") or response.choices.is_empty():
+		push_error("称呼模型响应格式错误")
+		return
+	
+	var message = response.choices[0].message
+	var new_address = message.content.strip_edges()
+	
+	# 记录响应日志
+	var messages = address_request.get_meta("messages", [])
+	_log_api_call("ADDRESS_RESPONSE", messages, new_address)
+	
+	# 更新user_address
+	var save_mgr = get_node("/root/SaveManager")
+	save_mgr.set_user_address(new_address)
+	
+	print("称呼已更新: ", new_address)
+
 func _call_relationship_api():
 	"""调用关系模型 API"""
 	var relationship_config = config.relationship_model
@@ -1058,6 +1172,9 @@ func _save_memory_and_diary(summary: String, conversation_text: String):
 	_save_to_diary(cleaned_summary, conversation_text)
 	
 	print("记忆已保存: ", summary)
+	
+	# 并发调用总结模型和称呼模型
+	_call_address_api(conversation_text)
 	
 	# 检查是否需要调用关系模型
 	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_items:
