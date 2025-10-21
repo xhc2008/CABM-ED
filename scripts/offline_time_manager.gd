@@ -208,7 +208,7 @@ func _change_mood_randomly():
 	
 	for mood in mood_list:
 		var mood_name = mood.get("name_en", "calm")
-		var weight = mood.get("weight", 1)  # 从配置文件读取权重，默认为1
+		var weight = mood.get("weight", 1) # 从配置文件读取权重，默认为1
 		
 		for i in range(weight):
 			weighted_moods.append(mood_name)
@@ -219,11 +219,25 @@ func _change_mood_randomly():
 	
 	print("心情变化: %s -> %s" % [current_mood, new_mood])
 
-func _parse_datetime(datetime_str: String) -> float:
-	"""解析日期时间字符串为Unix时间戳"""
-	# Godot的Time.get_datetime_string_from_system()返回格式: "2025-10-14T15:30:45"
-	# 这是本地时间，我们需要转换为Unix时间戳
+func _get_timezone_offset() -> int:
+	"""获取本地时区相对于UTC的偏移（秒）"""
+	var local_time = Time.get_datetime_dict_from_system()
+	var unix_time = Time.get_unix_time_from_system()
+	var utc_time = Time.get_datetime_dict_from_unix_time(int(unix_time))
 	
+	# 计算小时差
+	var hour_diff = local_time.hour - utc_time.hour
+	
+	# 处理跨日情况
+	if hour_diff > 12:
+		hour_diff -= 24
+	elif hour_diff < -12:
+		hour_diff += 24
+	
+	return hour_diff * 3600
+
+func _parse_datetime(datetime_str: String) -> float:
+	"""解析日期时间字符串为Unix时间戳（兼容旧格式）"""
 	var parts = datetime_str.split("T")
 	if parts.size() != 2:
 		print("警告: 日期时间格式错误: ", datetime_str)
@@ -236,36 +250,19 @@ func _parse_datetime(datetime_str: String) -> float:
 		print("警告: 日期时间格式错误: ", datetime_str)
 		return Time.get_unix_time_from_system()
 	
-	# 构建完整的datetime字典
 	var datetime_dict = {
 		"year": int(date_parts[0]),
 		"month": int(date_parts[1]),
 		"day": int(date_parts[2]),
-		"weekday": 0, # 不重要，但需要提供
+		"weekday": 0,
 		"hour": int(time_parts[0]),
 		"minute": int(time_parts[1]),
 		"second": int(time_parts[2]),
-		"dst": false # 夏令时
+		"dst": false
 	}
 	
-	# Time.get_unix_time_from_datetime_dict 使用的是UTC时间
-	# 但 Time.get_datetime_string_from_system() 返回的是本地时间
-	# 所以我们需要使用 Time.get_unix_time_from_datetime_string()
-	# 但这个函数不存在，所以我们用另一种方法
-	
-	# 获取当前的时区偏移
-	var current_dict = Time.get_datetime_dict_from_system()
-	var current_unix = Time.get_unix_time_from_system()
-	var utc_dict = Time.get_datetime_dict_from_unix_time(current_unix)
-	
-	# 计算时区偏移（秒）
-	var timezone_offset = (current_dict.hour - utc_dict.hour) * 3600
-	
-	# 转换为Unix时间戳（UTC）
 	var unix_time = Time.get_unix_time_from_datetime_dict(datetime_dict)
-	
-	# 调整时区偏移
-	unix_time -= timezone_offset
+	unix_time -= _get_timezone_offset()
 	
 	return unix_time
 
@@ -388,22 +385,22 @@ func _on_diary_generation_completed(result: int, response_code: int, _headers: P
 	# 解析日记内容
 	_parse_and_save_diary(content, start_datetime, end_datetime)
 
+func _clean_json_content(content: String) -> String:
+	"""清理JSON内容，移除markdown包裹"""
+	var clean = content
+	if clean.contains("```json"):
+		clean = clean.substr(clean.find("```json") + 7)
+	elif clean.contains("```"):
+		clean = clean.substr(clean.find("```") + 3)
+	
+	if clean.contains("```"):
+		clean = clean.substr(0, clean.find("```"))
+	
+	return clean.strip_edges()
+
 func _parse_and_save_diary(content: String, start_datetime: Dictionary, end_datetime: Dictionary):
 	"""解析并保存日记"""
-	# 清理可能的markdown包裹
-	var clean_content = content
-	if clean_content.contains("```json"):
-		var json_start = clean_content.find("```json") + 7
-		clean_content = clean_content.substr(json_start)
-	elif clean_content.contains("```"):
-		var json_start = clean_content.find("```") + 3
-		clean_content = clean_content.substr(json_start)
-	
-	if clean_content.contains("```"):
-		var json_end = clean_content.find("```")
-		clean_content = clean_content.substr(0, json_end)
-	
-	clean_content = clean_content.strip_edges()
+	var clean_content = _clean_json_content(content)
 	
 	# 解析JSON
 	var json = JSON.new()
@@ -475,23 +472,6 @@ func _parse_and_save_diary(content: String, start_datetime: Dictionary, end_date
 	
 	print("角色日记生成完成")
 
-func _get_timezone_offset() -> int:
-	"""获取本地时区相对于UTC的偏移（秒）"""
-	var local_time = Time.get_datetime_dict_from_system()
-	var unix_time = Time.get_unix_time_from_system()
-	var utc_time = Time.get_datetime_dict_from_unix_time(int(unix_time))
-	
-	# 计算小时差
-	var hour_diff = local_time.hour - utc_time.hour
-	
-	# 处理跨日情况
-	if hour_diff > 12:
-		hour_diff -= 24
-	elif hour_diff < -12:
-		hour_diff += 24
-	
-	return hour_diff * 3600
-
 func _validate_time_format(time_str: String) -> bool:
 	"""验证时间格式 MM-DD HH:MM 或 HH:MM"""
 	# 支持两种格式：
@@ -517,8 +497,8 @@ func _validate_time_format(time_str: String) -> bool:
 		if time_str[2] != "-" or time_str[5] != " " or time_str[8] != ":":
 			return false
 		
-		var date_part = time_str.substr(0, 5)  # MM-DD
-		var time_part = time_str.substr(6, 5)  # HH:MM
+		var date_part = time_str.substr(0, 5) # MM-DD
+		var time_part = time_str.substr(6, 5) # HH:MM
 		
 		var date_parts = date_part.split("-")
 		var time_parts = time_part.split(":")
@@ -535,20 +515,27 @@ func _validate_time_format(time_str: String) -> bool:
 	
 	return false
 
-func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dictionary, _end_datetime: Dictionary):
-	"""保存单条日记到文件和记忆"""
-	# 确保目录存在
-	var diary_dir = "user://character_diary"
+func _ensure_diary_directory() -> bool:
+	"""确保日记目录存在"""
 	var dir = DirAccess.open("user://")
 	if dir == null:
 		print("错误: 无法访问 user:// 目录")
-		return
+		return false
 	
 	if not dir.dir_exists("character_diary"):
 		var err = dir.make_dir("character_diary")
 		if err != OK:
 			print("错误: 无法创建 character_diary 目录")
-			return
+			return false
+	
+	return true
+
+func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dictionary, _end_datetime: Dictionary):
+	"""保存单条日记到文件和记忆"""
+	if not _ensure_diary_directory():
+		return
+	
+	var diary_dir = "user://character_diary"
 	
 	# 使用开始日期作为文件名
 	var date_str = "%04d-%02d-%02d" % [start_datetime.year, start_datetime.month, start_datetime.day]
@@ -579,9 +566,18 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	
 	print("日记已保存: [%s] %s" % [time_str, event_text])
 
+func _build_memory_timestamp(date_str: String, time_str: String) -> String:
+	"""构建记忆系统的时间戳格式"""
+	# 如果time_str包含日期（MM-DD HH:MM），提取时间部分
+	if time_str.length() == 11:
+		time_str = time_str.substr(6, 5) # 提取 HH:MM
+	
+	return "%sT%s:00" % [date_str, time_str]
+
 func _save_diary_to_memory(time_str: String, event_text: String, date_str: String):
 	"""将日记保存到记忆系统"""
 	var save_mgr = get_node("/root/SaveManager")
+	var ai_service = get_node("/root/AIService")
 	
 	# 确保 ai_data 字段存在
 	if not save_mgr.save_data.has("ai_data"):
@@ -591,21 +587,16 @@ func _save_diary_to_memory(time_str: String, event_text: String, date_str: Strin
 			"relationship_history": []
 		}
 	
-	# 构建记忆条目
-	var timestamp = "%sT%s:00" % [date_str, time_str]
+	# 构建并添加记忆条目
 	var memory_item = {
-		"timestamp": timestamp,
+		"timestamp": _build_memory_timestamp(date_str, time_str),
 		"content": event_text
 	}
-	
-	# 添加到记忆
 	save_mgr.save_data.ai_data.memory.append(memory_item)
 	
-	# 检查是否超过最大条目数
-	var ai_service = get_node("/root/AIService")
+	# 限制记忆条目数量
 	var max_items = ai_service.config.memory.max_memory_items
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
 		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
 	
-	# 保存
 	save_mgr.save_game(save_mgr.current_slot, false)
