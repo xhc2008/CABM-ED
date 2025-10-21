@@ -46,9 +46,20 @@ func check_and_apply_offline_changes():
 	
 	var current_time = Time.get_unix_time_from_system()
 	
+	# 获取本地时间用于显示
+	var timezone_offset = _get_timezone_offset()
+	var last_played_local = Time.get_datetime_dict_from_unix_time(int(last_played_unix + timezone_offset))
+	var current_local = Time.get_datetime_dict_from_unix_time(int(current_time + timezone_offset))
+	
 	print("=== 离线时间检查 ===")
-	print("上次游玩时间: ", Time.get_datetime_string_from_unix_time(int(last_played_unix)))
-	print("当前时间: ", Time.get_datetime_string_from_system())
+	print("上次游玩时间（本地）: %04d-%02d-%02d %02d:%02d:%02d" % [
+		last_played_local.year, last_played_local.month, last_played_local.day,
+		last_played_local.hour, last_played_local.minute, last_played_local.second
+	])
+	print("当前时间（本地）: %04d-%02d-%02d %02d:%02d:%02d" % [
+		current_local.year, current_local.month, current_local.day,
+		current_local.hour, current_local.minute, current_local.second
+	])
 	print("上次游玩Unix时间戳: ", last_played_unix)
 	print("当前Unix时间戳: ", current_time)
 	
@@ -271,24 +282,29 @@ func _generate_character_diary(offline_minutes: float, event_count: int):
 	"""生成角色日记"""
 	print("开始生成角色日记，离线时长: %.2f 分钟，事件数: %d" % [offline_minutes, event_count])
 	
-	# 获取离线时间段（使用本地时间）
+	# 获取当前时间和时区偏移
 	var current_unix = Time.get_unix_time_from_system()
+	var timezone_offset = _get_timezone_offset()
 	
-	# 使用系统本地时间而不是 UTC
-	var start_datetime = Time.get_datetime_dict_from_system()
-	var end_datetime = Time.get_datetime_dict_from_system()
+	# 计算开始和结束的 Unix 时间戳
+	var start_unix = current_unix - (offline_minutes * 60)
+	var end_unix = current_unix
 	
-	# 计算开始时间（当前时间 - 离线分钟数）
-	var start_unix_adjusted = current_unix - (offline_minutes * 60)
-	start_datetime = Time.get_datetime_dict_from_unix_time(int(start_unix_adjusted))
+	# 转换为本地时间
+	var start_datetime = Time.get_datetime_dict_from_unix_time(int(start_unix + timezone_offset))
+	var end_datetime = Time.get_datetime_dict_from_unix_time(int(end_unix + timezone_offset))
 	
-	# 调整为本地时区
-	var timezone_offset_seconds = _get_timezone_offset()
-	start_datetime = Time.get_datetime_dict_from_unix_time(int(start_unix_adjusted + timezone_offset_seconds))
-	end_datetime = Time.get_datetime_dict_from_unix_time(int(current_unix + timezone_offset_seconds))
+	# 格式化时间字符串
+	var start_time = "%04d年%02d月%02d日%02d:%02d" % [
+		start_datetime.year, start_datetime.month, start_datetime.day,
+		start_datetime.hour, start_datetime.minute
+	]
+	var end_time = "%04d年%02d月%02d日%02d:%02d" % [
+		end_datetime.year, end_datetime.month, end_datetime.day,
+		end_datetime.hour, end_datetime.minute
+	]
 	
-	var start_time = "%04d年%02d月%02d日%02d:%02d" % [start_datetime.year, start_datetime.month, start_datetime.day, start_datetime.hour, start_datetime.minute]
-	var end_time = "%04d年%02d月%02d日%02d:%02d" % [end_datetime.year, end_datetime.month, end_datetime.day, end_datetime.hour, end_datetime.minute]
+	print("日记时间范围（本地）: %s 到 %s" % [start_time, end_time])
 	
 	# 构建提示词
 	var prompt_builder = get_node("/root/PromptBuilder")

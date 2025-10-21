@@ -81,6 +81,7 @@ logs/
 ai_logs/
 
 # 临时与构建产物
+Trash_Can/
 temp/
 packages/
 plan.txt
