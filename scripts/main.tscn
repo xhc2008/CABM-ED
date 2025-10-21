@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=14 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
@@ -9,8 +9,10 @@
 [ext_resource type="Script" uid="uid://bovp4hs3xx2vc" path="res://scripts/action_menu.gd" id="6_action_menu"]
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
-[ext_resource type="Script" path="res://scripts/diary_button.gd" id="9_diary_button"]
-[ext_resource type="Script" path="res://scripts/diary_viewer.gd" id="10_diary_viewer"]
+[ext_resource type="Script" uid="uid://cy7ah3vo433ej" path="res://scripts/diary_button.gd" id="9_diary_button"]
+[ext_resource type="Script" uid="uid://cs0n2usm2sv3g" path="res://scripts/diary_viewer.gd" id="10_diary_viewer"]
+[ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
+[ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -68,8 +70,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="Sidebar/MarginContainer/VBoxContainer"]
 visible = false
-layout_mode = 2s
-text = "边栏"
+layout_mode = 2
 horizontal_alignment = 1
 
 [node name="HSeparator" type="HSeparator" parent="Sidebar/MarginContainer/VBoxContainer"]
@@ -242,7 +243,7 @@ script = ExtResource("8_audio_manager")
 
 [node name="DiaryButton" type="Control" parent="."]
 custom_minimum_size = Vector2(80, 80)
-layout_mode = 0
+anchors_preset = 0
 offset_right = 80.0
 offset_bottom = 80.0
 script = ExtResource("9_diary_button")
@@ -306,5 +307,10 @@ vertical_scroll_mode = 2
 [node name="ContentVBox" type="VBoxContainer" parent="DiaryViewer/MarginContainer/VBoxContainer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
 theme_override_constants/separation = 15
+
+[node name="CharacterDiaryButton" parent="." instance=ExtResource("12_0d3j1")]
+layout_mode = 0
+
+[node name="CharacterDiaryViewer" parent="." instance=ExtResource("13_m1sh3")]
+layout_mode = 0

@@ -11,11 +11,12 @@
         "prompt_fields": {
             "identity": "你是被收养的少女，没有以前的记忆。你被用户起名叫\"{character_name}\"，你称呼用户为：{user_name}。你是人类，女，白色头发，淡蓝色眼睛。",
             "output_requirements": "你必须以严格的JSON格式，按顺序输出以下字段：\n\"mood\": <int> 当前的心情，且必须是其中之一，**只写序号**：{moods}\n\"msg\": <string> **必填**，用1到6个完整句子回复用户。禁止换行，禁止使用markdown。必须使用中文标点。\n\"will\": <int> 互动意愿的增量，范围-30~30。\n\"like\": <int> 好感度的增量，范围-10~10。\n\"goto\": <int> 可选，前往的地点，只有**明确要离开当前地点**才填写。必须是其中之一，**只写序号**：{scenes}。",
-            "output_requirements_diary": "你必须……",
+            "output_requirements_diary": "你必须以严格的JSON格式输出，格式如下：\n{\n  \"entries\": [\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"},\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"}\n  ]\n}\n\n要求：\n- time: 包含日期和时间，格式为\"MM-DD HH:MM\"（例如\"10-21 09:30\"、\"10-22 14:00\"）\n- 时间必须在{start_time}到{end_time}这个范围内\n- 如果时间跨越多天，确保日期正确递增\n- event: 用1-2个完整句子描述你做了什么，符合你的角色设定。禁止换行，禁止使用markdown。必须使用中文标点。\n- 事件应该按时间顺序排列\n- 事件内容要真实、具体、符合日常生活",
             "current_status": "时间：{current_time}\n你和用户位于：{current_scene}\n天气：{current_weather}\n对用户的好感度：{affection_level}\n互动意愿：{interaction_level}\n目前心情：{current_mood}",
             "relationship": "{relationship_context}",
             "memory": "```\\n{memory_context}\\n```",
-            "trigger": "{trigger_context}"
+            "trigger": "{trigger_context}",
+            "task":"列出你在{start_time}到{end_time}这段时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动、情绪变化、对用户的思念等。"
         },
         "prompt_frameworks": {
             "chat": [
@@ -50,16 +51,16 @@
                     "field": "identity"
                 },
                 {
+                    "title": "任务",
+                    "field": "task"
+                },
+                {
                     "title": "回复格式",
-                    "field": "output_requirements"
+                    "field": "output_requirements_diary"
                 },
                 {
                     "title": "之前发生的事情",
                     "field": "memory"
-                },
-                {
-                    "title": null,
-                    "field": "trigger"
                 }
             ]
         },

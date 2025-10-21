@@ -427,3 +427,47 @@ func get_mood_name_en(mood_id: int) -> String:
 			return mood.name_en
 	
 	return ""
+
+
+func build_offline_diary_prompt(start_time: String, end_time: String, event_count: int) -> String:
+	"""构建离线日记生成提示词"""
+	if config.is_empty():
+		push_error("PromptBuilder: 配置未加载")
+		return ""
+	
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 从 app_config.json 读取角色名称
+	var app_config = _load_app_config()
+	var character_name = app_config.get("character_name", "角色")
+	
+	# 从存档系统读取用户名
+	var user_name = save_mgr.get_user_name()
+	
+	# 获取记忆上下文
+	var memory_context = get_memory_context()
+	
+	# 准备所有占位符的替换字典
+	var replacements = {
+		"{character_name}": character_name,
+		"{user_name}": user_name,
+		"{start_time}": start_time,
+		"{end_time}": end_time,
+		"{event_count}": str(event_count),
+		"{memory_context}": memory_context
+	}
+	
+	# 使用offline框架
+	if config.chat_model.has("prompt_frameworks") and config.chat_model.has("prompt_fields"):
+		var frameworks = config.chat_model.prompt_frameworks
+		var fields = config.chat_model.prompt_fields
+		
+		if not frameworks.has("offline"):
+			push_error("PromptBuilder: 未找到offline框架")
+			return ""
+		
+		var framework = frameworks["offline"]
+		return _build_prompt_from_framework(framework, fields, replacements)
+	
+	push_error("PromptBuilder: 未找到提示词配置")
+	return ""

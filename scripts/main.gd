@@ -9,8 +9,10 @@ extends Control
 @onready var right_click_area = $Background/RightClickArea
 @onready var debug_helper = $CharacterDebugHelper
 @onready var audio_manager = $AudioManager
-@onready var diary_button = $DiaryButton
-@onready var diary_viewer = $DiaryViewer
+@onready var diary_button = $DiaryButton if has_node("DiaryButton") else null
+@onready var diary_viewer = $DiaryViewer if has_node("DiaryViewer") else null
+@onready var character_diary_button = $CharacterDiaryButton if has_node("CharacterDiaryButton") else null
+@onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
 
 var current_scene: String = ""
 var current_weather: String = ""
@@ -63,6 +65,12 @@ func _ready():
 		diary_button.diary_selected.connect(_on_diary_selected)
 	if diary_viewer:
 		diary_viewer.diary_closed.connect(_on_diary_closed)
+	
+	# 连接角色日记按钮和查看器
+	if character_diary_button:
+		character_diary_button.diary_selected.connect(_on_character_diary_selected)
+	if character_diary_viewer:
+		character_diary_viewer.diary_closed.connect(_on_character_diary_closed)
 	
 	# 监听窗口大小变化
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -166,6 +174,8 @@ func _setup_managers():
 		ui_mgr.register_element(right_click_area)
 		if diary_button:
 			ui_mgr.register_element(diary_button)
+		if character_diary_button:
+			ui_mgr.register_element(character_diary_button)
 	else:
 		print("警告: UIManager 未找到，请检查自动加载配置")
 	
@@ -258,6 +268,12 @@ func _update_ui_layout():
 	
 	# 更新日记查看器 - 居中显示
 	_update_diary_viewer_layout()
+	
+	# 更新角色日记按钮 - 固定在场景左下角
+	_update_character_diary_button_layout()
+	
+	# 更新角色日记查看器 - 居中显示
+	_update_character_diary_viewer_layout()
 	
 	# 如果动作菜单可见，更新其位置
 	if action_menu.visible:
@@ -358,6 +374,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	
 	# 更新日记按钮显示状态
 	_update_diary_button_visibility()
+	
+	# 更新角色日记按钮显示状态
+	_update_character_diary_button_visibility()
 	
 	# 切换背景音乐
 	audio_manager.play_background_music(scene_id, time_id, weather_id)
@@ -877,3 +896,58 @@ func _on_diary_selected():
 func _on_diary_closed():
 	"""日记查看器关闭事件"""
 	print("日记查看器已关闭")
+
+func _update_character_diary_button_layout():
+	"""更新角色日记按钮布局"""
+	if character_diary_button == null:
+		return
+	
+	# 使用配置管理器计算位置
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		var element_size = character_diary_button.size
+		character_diary_button.position = mgr.calculate_element_position("character_diary_button", scene_rect, element_size)
+	else:
+		# 降级方案：使用默认位置（在玩家日记按钮旁边）
+		var button_x = scene_rect.position.x + 120
+		var button_y = scene_rect.position.y + scene_rect.size.y - character_diary_button.size.y - 130
+		character_diary_button.position = Vector2(button_x, button_y)
+
+func _update_character_diary_viewer_layout():
+	"""更新角色日记查看器布局（居中显示）"""
+	if character_diary_viewer == null:
+		return
+	
+	# 日记查看器居中显示在场景区域
+	var viewer_x = scene_rect.position.x + (scene_rect.size.x - character_diary_viewer.size.x) / 2
+	var viewer_y = scene_rect.position.y + (scene_rect.size.y - character_diary_viewer.size.y) / 2
+	
+	character_diary_viewer.position = Vector2(viewer_x, viewer_y)
+
+func _update_character_diary_button_visibility():
+	"""更新角色日记按钮的显示状态（根据配置决定在哪些场景显示）"""
+	if character_diary_button == null:
+		return
+	
+	# 使用配置管理器检查是否应该显示
+	var should_show = false
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		should_show = mgr.should_show_in_scene("character_diary_button", current_scene) and mgr.is_element_enabled("character_diary_button")
+	else:
+		# 降级方案：只在bedroom显示
+		should_show = (current_scene == "bedroom")
+	
+	if should_show:
+		character_diary_button.enable()
+	else:
+		character_diary_button.disable()
+
+func _on_character_diary_selected():
+	"""角色日记选项被选中"""
+	if character_diary_viewer:
+		character_diary_viewer.show_diary()
+
+func _on_character_diary_closed():
+	"""角色日记查看器关闭事件"""
+	print("角色日记查看器已关闭")

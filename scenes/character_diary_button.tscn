@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://character_diary_button_001"]
+
+[ext_resource type="Script" path="res://scripts/character_diary_button.gd" id="1"]
+
+[node name="CharacterDiaryButton" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1")

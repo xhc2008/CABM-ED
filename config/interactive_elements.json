@@ -17,8 +17,8 @@
       ],
       "enabled": true
     },
-    "SnowFox_diary_button": {
-      "name": "雪狐的日记入口",
+    "character_diary_button": {
+      "name": "角色的日记入口",
       "type": "click_area",
       "size": {
         "width": 140,
