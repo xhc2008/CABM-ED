@@ -126,8 +126,8 @@ func _apply_short_offline(minutes: float):
 	# 触发位置变化
 	_trigger_offline_position_change()
 	
-	# 生成日记（1-2条）
-	var event_count = randi_range(1, 2)
+	# 生成日记（0-2条）
+	var event_count = randi_range(0, 2)
 	_generate_character_diary(minutes, event_count)
 
 func _apply_medium_offline(hours: float):
@@ -277,6 +277,10 @@ func _parse_datetime(datetime_str: String) -> float:
 
 func _generate_character_diary(offline_minutes: float, event_count: int):
 	"""生成角色日记"""
+	if event_count <= 0:
+		print("事件数为0，跳过日记生成")
+		return
+	
 	print("开始生成角色日记，离线时长: %.2f 分钟，事件数: %d" % [offline_minutes, event_count])
 	
 	# 获取当前时间和时区偏移
@@ -535,7 +539,7 @@ func _extract_date_from_time(time_str: String, fallback_datetime: Dictionary) ->
 	"""
 	if time_str.length() == 11:
 		# 格式: MM-DD HH:MM
-		var date_part = time_str.substr(0, 5)  # MM-DD
+		var date_part = time_str.substr(0, 5) # MM-DD
 		var date_parts = date_part.split("-")
 		if date_parts.size() == 2:
 			var month = date_parts[0].to_int()
