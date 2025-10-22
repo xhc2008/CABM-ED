@@ -33,6 +33,57 @@
         "rainy": "rain.mp3",
         "storm": "rain.mp3"
       }
+    },
+    "bathroom": {
+      "day": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "dusk": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "night": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      }
+    },
+    "studyroom": {
+      "day": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "dusk": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "night": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      }
+    },
+    "kitchen": {
+      "day": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "dusk": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "night": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      }
     }
   },
   "volume": {
