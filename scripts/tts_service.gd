@@ -121,6 +121,11 @@ func _load_tts_settings():
 	print("启用状态: %s" % is_enabled)
 	print("音量: %.2f" % volume)
 
+func reload_settings():
+	"""重新加载TTS设置（公共接口）"""
+	_load_tts_settings()
+	print("TTS设置已重新加载")
+
 func save_tts_settings():
 	"""保存TTS设置"""
 	var settings = {

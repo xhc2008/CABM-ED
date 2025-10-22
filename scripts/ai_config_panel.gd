@@ -206,14 +206,14 @@ func _reload_ai_service():
 	"""重新加载AI服务"""
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
-		ai_service._load_api_key()
+		ai_service.reload_config()
 		print("AI服务已重新加载配置")
 
 func _reload_tts_service():
 	"""重新加载TTS服务"""
 	if has_node("/root/TTSService"):
 		var tts_service = get_node("/root/TTSService")
-		tts_service._load_tts_settings()
+		tts_service.reload_settings()
 		print("TTS服务已重新加载配置")
 
 # === 语音设置相关 ===

@@ -57,6 +57,12 @@ func _ready():
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
 
+func reload_config():
+	"""重新加载配置和 API 密钥（公共接口）"""
+	if config_loader:
+		config_loader.load_all()
+		print("AI 配置已重新加载")
+
 func add_to_history(role: String, content: String):
 	"""手动添加消息到对话历史"""
 	current_conversation.append({"role": role, "content": content})
