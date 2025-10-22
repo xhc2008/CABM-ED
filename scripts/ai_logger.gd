@@ -126,7 +126,7 @@ func save_to_diary(summary: String, conversation_text: String):
 	
 	print("日记已保存: ", date_str, " - ", summary.substr(0, 30), "...")
 
-func _ensure_log_dir(log_dir: String):
+func _ensure_log_dir(_log_dir: String):
 	"""确保日志目录存在"""
 	var dir = DirAccess.open("user://")
 	if dir == null:

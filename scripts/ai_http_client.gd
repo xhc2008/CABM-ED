@@ -3,7 +3,6 @@ extends Node
 # AI HTTP 客户端
 # 负责处理流式和非流式 HTTP 请求
 
-signal request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray)
 signal stream_chunk_received(data: String)
 signal stream_completed()
 signal stream_error(error_message: String)
