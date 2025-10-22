@@ -248,9 +248,57 @@ func get_goto_field() -> int:
 		return int(extracted_fields.goto)
 	return -1
 
+func get_pending_goto() -> int:
+	"""获取暂存的goto字段值"""
+	return response_parser.pending_goto
+
+func set_pending_goto(goto_value: int):
+	"""设置暂存的goto字段"""
+	response_parser.pending_goto = goto_value
+
 func clear_goto_field():
 	"""清除goto字段"""
 	response_parser.extracted_fields.erase("goto")
+
+func clear_pending_goto():
+	"""清除暂存的goto字段"""
+	response_parser.pending_goto = -1
+
+func remove_goto_from_history():
+	"""从对话历史中移除最后一条assistant消息的goto字段"""
+	if current_conversation.is_empty():
+		return
+	
+	var last_msg = current_conversation[-1]
+	if last_msg.role != "assistant":
+		return
+	
+	var content = last_msg.content
+	
+	# 解析JSON并移除goto字段
+	var clean_json = content
+	if clean_json.contains("```json"):
+		var json_start = clean_json.find("```json") + 7
+		clean_json = clean_json.substr(json_start)
+	elif clean_json.contains("```"):
+		var json_start = clean_json.find("```") + 3
+		clean_json = clean_json.substr(json_start)
+	
+	if clean_json.contains("```"):
+		var json_end = clean_json.find("```")
+		clean_json = clean_json.substr(0, json_end)
+	
+	clean_json = clean_json.strip_edges()
+	
+	var json = JSON.new()
+	if json.parse(clean_json) == OK:
+		var data = json.data
+		if data.has("goto"):
+			data.erase("goto")
+			# 重新序列化为JSON
+			var new_content = JSON.stringify(data)
+			current_conversation[-1].content = new_content
+			print("已从历史记录中移除goto字段")
 
 func _flatten_conversation() -> String:
 	"""扁平化对话历史"""

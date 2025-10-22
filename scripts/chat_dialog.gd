@@ -49,6 +49,13 @@ const REPLY_HEIGHT = 200.0
 const HISTORY_HEIGHT = 400.0
 const ANIMATION_DURATION = 0.3
 const TYPING_SPEED = 0.05 # 每个字符的显示间隔（最大输出速度）
+const GOTO_COOLDOWN_DURATION = 300.0 # goto冷却时间（秒），5分钟
+
+# goto冷却时间管理
+var goto_cooldown_end_time: float = 0.0
+
+# goto提示标签
+var goto_notification_label: Label = null
 
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
@@ -346,6 +353,20 @@ func hide_dialog():
 	_setup_input_mode()
 
 func _on_end_button_pressed():
+	# 检查是否有暂存的goto，如果有则恢复到goto字段
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		var pending_goto = ai_service.get_pending_goto()
+		if pending_goto >= 0:
+			print("ChatDialog: 用户主动结束聊天，恢复暂存的goto字段")
+			# 将暂存的goto恢复到extracted_fields中
+			ai_service.response_parser.extracted_fields["goto"] = pending_goto
+			ai_service.clear_pending_goto()
+			# 隐藏goto提示
+			_hide_goto_notification()
+			# 设置goto冷却时间（因为即将触发场景变化）
+			_set_goto_cooldown()
+	
 	# 获取对话轮数
 	var turn_count = 0
 	if has_node("/root/AIService"):
@@ -454,6 +475,16 @@ func _on_input_submitted(text: String):
 		return
 	
 	print("用户输入: ", text)
+	
+	# 检查是否有暂存的goto，如果有则清除
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		var pending_goto = ai_service.get_pending_goto()
+		if pending_goto >= 0:
+			print("ChatDialog: 用户输入消息，放弃暂存的goto字段")
+			ai_service.clear_pending_goto()
+			# 隐藏goto提示
+			_hide_goto_notification()
 	
 	# 切换到回复模式
 	await _transition_to_reply_mode()
@@ -718,47 +749,55 @@ func _on_continue_clicked():
 		is_showing_sentence = false
 	else:
 		# 所有句子已显示完毕，检查是否有goto字段
-		if _check_and_handle_goto():
-			# 有有效的goto，先切换到输入模式，等动画结束后再结束聊天
+		var goto_action = _check_and_handle_goto()
+		
+		if goto_action == "immediate":
+			# 情况3：回复意愿低，立即触发场景变化
 			await _transition_to_input_mode()
-			# 等待一帧确保UI完全更新
 			await get_tree().process_frame
-			# 结束聊天（触发角色移动）
 			_on_end_button_pressed()
+		elif goto_action == "pending":
+			# 情况2：回复意愿高，暂存goto，切换到输入模式等待用户操作
+			await _transition_to_input_mode()
 		else:
-			# 没有goto，切换回输入模式
+			# 情况1或无goto：切换回输入模式
 			await _transition_to_input_mode()
 
-func _check_and_handle_goto() -> bool:
-	"""检查并处理goto字段，返回是否有有效的goto"""
+func _check_and_handle_goto() -> String:
+	"""检查并处理goto字段，根据回复意愿概率选择处理方式
+	
+	返回值：
+	- "immediate": 立即触发场景变化（回复意愿低）
+	- "pending": 暂存goto，等待用户操作（回复意愿高）
+	- "discarded": 抛弃goto（回复意愿高）
+	- "none": 无有效goto
+	"""
 	if not has_node("/root/AIService"):
-		return false
+		return "none"
 	
 	var ai_service = get_node("/root/AIService")
 	var goto_index = ai_service.get_goto_field()
 	
 	if goto_index < 0:
-		return false
+		return "none"
 	
 	# 验证goto是否有效（不是当前场景）
 	if not has_node("/root/PromptBuilder") or not has_node("/root/SaveManager"):
-		return false
+		return "none"
 	
 	var prompt_builder = get_node("/root/PromptBuilder")
 	var target_scene = prompt_builder.get_scene_id_by_index(goto_index)
 	
 	if target_scene == "":
 		print("ChatDialog: 无效的goto索引: ", goto_index)
-		# 清除无效的goto
 		ai_service.clear_goto_field()
-		return false
+		return "none"
 	
 	# 验证场景是否合法
 	if not _is_valid_scene(target_scene):
 		print("ChatDialog: goto场景 '%s' 不合法，忽略" % target_scene)
-		# 清除无效的goto
 		ai_service.clear_goto_field()
-		return false
+		return "none"
 	
 	# 检查是否是角色当前所在的场景
 	var save_mgr = get_node("/root/SaveManager")
@@ -766,12 +805,46 @@ func _check_and_handle_goto() -> bool:
 	
 	if target_scene == character_scene:
 		print("ChatDialog: goto场景与角色当前场景相同，忽略: ", target_scene)
-		# 清除无效的goto
 		ai_service.clear_goto_field()
-		return false
+		return "none"
 	
-	# 有有效的goto字段，返回true（不清除，让character.end_chat处理）
-	return true
+	# 有有效的goto字段，根据回复意愿概率选择处理方式
+	if not has_node("/root/EventHelpers"):
+		# 如果EventHelpers不存在，默认立即触发
+		return "immediate"
+	
+	var helpers = get_node("/root/EventHelpers")
+	var willingness = helpers.get_willingness()
+	
+	# 计算回复意愿概率（使用与on_chat_turn_end相同的基准值170）
+	var base_willingness = 170
+	var success_chance = helpers.calculate_success_chance(base_willingness)
+	
+	print("ChatDialog: goto字段处理 - 回复意愿: %d, 成功率: %.2f" % [willingness, success_chance])
+	
+	# 检查goto冷却时间
+	if _is_goto_on_cooldown():
+		# 在冷却中，直接抛弃goto
+		print("ChatDialog: goto在冷却中，抛弃goto字段")
+		ai_service.clear_goto_field()
+		ai_service.remove_goto_from_history()
+		return "discarded"
+	
+	# 根据回复意愿概率选择处理方式
+	if success_chance >= 0.7:
+		# 回复意愿高（成功率>=70%）：情况2 - 暂存goto，等待用户操作
+		print("ChatDialog: 回复意愿高，暂存goto字段")
+		ai_service.set_pending_goto(goto_index)
+		ai_service.clear_goto_field()
+		# 显示提示信息
+		_show_goto_notification(target_scene)
+		return "pending"
+	else:
+		# 回复意愿低（成功率<70%）：情况3 - 立即触发场景变化
+		print("ChatDialog: 回复意愿低，立即触发场景变化")
+		# 设置goto冷却时间
+		_set_goto_cooldown()
+		return "immediate"
 
 func _is_valid_scene(scene_id: String) -> bool:
 	"""验证场景ID是否合法（存在于character_presets.json中且有预设）"""
@@ -789,6 +862,90 @@ func _is_valid_scene(scene_id: String) -> bool:
 	
 	var config = json.data
 	return config.has(scene_id) and config[scene_id].size() > 0
+
+func _is_goto_on_cooldown() -> bool:
+	"""检查goto是否在冷却中"""
+	var current_time = Time.get_ticks_msec() / 1000.0
+	return current_time < goto_cooldown_end_time
+
+func _set_goto_cooldown():
+	"""设置goto冷却时间"""
+	var current_time = Time.get_ticks_msec() / 1000.0
+	goto_cooldown_end_time = current_time + GOTO_COOLDOWN_DURATION
+	print("ChatDialog: 设置goto冷却时间，将在 %.1f 秒后解除" % GOTO_COOLDOWN_DURATION)
+
+func _get_scene_name(scene_id: String) -> String:
+	"""根据场景ID获取场景名称"""
+	var scenes_path = "res://config/scenes.json"
+	if not FileAccess.file_exists(scenes_path):
+		return scene_id
+	
+	var file = FileAccess.open(scenes_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return scene_id
+	
+	var scenes_config = json.data
+	if not scenes_config.has("scenes"):
+		return scene_id
+	
+	if scenes_config.scenes.has(scene_id) and scenes_config.scenes[scene_id].has("name"):
+		return scenes_config.scenes[scene_id].name
+	
+	return scene_id
+
+func _show_goto_notification(target_scene: String):
+	"""显示goto提示信息"""
+	var character_name = app_config.get("character_name", "角色")
+	var scene_name = _get_scene_name(target_scene)
+	var notification_text = "%s将前往%s" % [character_name, scene_name]
+	
+	# 如果已有提示标签，先移除
+	if goto_notification_label != null:
+		goto_notification_label.queue_free()
+		goto_notification_label = null
+	
+	# 创建提示标签
+	goto_notification_label = Label.new()
+	goto_notification_label.name = "GotoNotificationLabel"
+	goto_notification_label.text = notification_text
+	goto_notification_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3)) # 金黄色
+	goto_notification_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	goto_notification_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	goto_notification_label.modulate.a = 0.0
+	
+	# 设置位置（右下角）
+	goto_notification_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	goto_notification_label.offset_left = -200
+	goto_notification_label.offset_top = -30
+	goto_notification_label.offset_right = -10
+	goto_notification_label.offset_bottom = -10
+	
+	# 添加到对话框
+	add_child(goto_notification_label)
+	
+	# 淡入动画
+	var fade_in = create_tween()
+	fade_in.tween_property(goto_notification_label, "modulate:a", 0.8, 0.5)
+	
+	print("ChatDialog: 显示goto提示 - %s" % notification_text)
+
+func _hide_goto_notification():
+	"""隐藏goto提示信息"""
+	if goto_notification_label == null:
+		return
+	
+	# 淡出动画
+	var fade_out = create_tween()
+	fade_out.tween_property(goto_notification_label, "modulate:a", 0.0, 0.3)
+	await fade_out.finished
+	
+	goto_notification_label.queue_free()
+	goto_notification_label = null
+	print("ChatDialog: 隐藏goto提示")
 
 
 # 处理角色拒绝回复的情况

@@ -10,6 +10,7 @@ var sse_buffer: String = ""
 var json_response_buffer: String = ""
 var msg_buffer: String = ""
 var extracted_fields: Dictionary = {}
+var pending_goto: int = -1  # 暂存的goto字段（-1表示无暂存）
 
 func reset():
 	"""重置所有缓冲区"""
@@ -17,6 +18,7 @@ func reset():
 	json_response_buffer = ""
 	msg_buffer = ""
 	extracted_fields = {}
+	pending_goto = -1
 
 func process_stream_data(data: String):
 	"""处理流式响应数据（SSE格式）"""
