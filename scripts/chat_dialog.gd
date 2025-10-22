@@ -49,7 +49,7 @@ const REPLY_HEIGHT = 200.0
 const HISTORY_HEIGHT = 400.0
 const ANIMATION_DURATION = 0.3
 const TYPING_SPEED = 0.05 # 每个字符的显示间隔（最大输出速度）
-const GOTO_COOLDOWN_DURATION = 300.0 # goto冷却时间（秒），5分钟
+const GOTO_COOLDOWN_DURATION = 60.0 # goto冷却时间（秒），1分钟
 
 # goto冷却时间管理
 var goto_cooldown_end_time: float = 0.0
@@ -817,7 +817,7 @@ func _check_and_handle_goto() -> String:
 	var willingness = helpers.get_willingness()
 	
 	# 计算回复意愿概率（使用与on_chat_turn_end相同的基准值170）
-	var base_willingness = 170
+	var base_willingness = 150
 	var success_chance = helpers.calculate_success_chance(base_willingness)
 	
 	print("ChatDialog: goto字段处理 - 回复意愿: %d, 成功率: %.2f" % [willingness, success_chance])
@@ -830,18 +830,23 @@ func _check_and_handle_goto() -> String:
 		ai_service.remove_goto_from_history()
 		return "discarded"
 	
-	# 根据回复意愿概率选择处理方式
-	if success_chance >= 0.7:
-		# 回复意愿高（成功率>=70%）：情况2 - 暂存goto，等待用户操作
-		print("ChatDialog: 回复意愿高，暂存goto字段")
+	# 根据回复意愿概率随机判断
+	var rand_value = randf()
+	var is_willing = rand_value < success_chance
+	
+	print("ChatDialog: 随机值: %.2f, 判定: %s" % [rand_value, "愿意留下" if is_willing else "想要离开"])
+	
+	if is_willing:
+		# 判定成功（回复意愿高的表现）：情况2 - 暂存goto，等待用户操作
+		print("ChatDialog: 角色愿意暂时留下，暂存goto字段")
 		ai_service.set_pending_goto(goto_index)
 		ai_service.clear_goto_field()
 		# 显示提示信息
 		_show_goto_notification(target_scene)
 		return "pending"
 	else:
-		# 回复意愿低（成功率<70%）：情况3 - 立即触发场景变化
-		print("ChatDialog: 回复意愿低，立即触发场景变化")
+		# 判定失败（回复意愿低的表现）：情况3 - 立即触发场景变化
+		print("ChatDialog: 角色想要离开，立即触发场景变化")
 		# 设置goto冷却时间
 		_set_goto_cooldown()
 		return "immediate"
