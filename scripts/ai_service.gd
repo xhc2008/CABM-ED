@@ -101,8 +101,13 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	
 	var messages = [{"role": "system", "content": system_prompt}]
 	
-	var max_history = config_loader.config.memory.max_conversation_history
-	var history_start = max(0, current_conversation.size() - max_history)
+	# 继承50%的上下文（向上取整）
+	# 如果有对话记录，至少继承1条
+	var inherit_count = 0
+	if current_conversation.size() > 0:
+		inherit_count = max(1, int(ceil(current_conversation.size() * 0.5)))
+	var history_start = max(0, current_conversation.size() - inherit_count)
+	
 	for i in range(history_start, current_conversation.size()):
 		var msg = {"role": current_conversation[i].role, "content": current_conversation[i].content}
 		messages.append(msg)
@@ -112,6 +117,17 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 		messages.append({"role": "user", "content": user_message})
 		current_conversation.append({"role": "user", "content": user_message, "timestamp": timestamp})
 		_save_temp_conversation()
+	
+	# 检查最后一个消息是否为assistant，如果是则添加user占位符
+	# 或者如果messages中只有system消息（主动对话且无历史），也添加占位符
+	var last_role = messages[-1].role if messages.size() > 0 else ""
+	if last_role == "assistant":
+		messages.append({"role": "user", "content": "继续"})
+		print("检测到最后一条消息为assistant，添加user占位符以避免前缀独写")
+	# elif last_role == "system":
+	# 	# 主动对话时，如果没有历史记录，添加一个空的user消息作为触发
+	# 	messages.append({"role": "user", "content": ""})
+	# 	print("主动对话且无历史记录，添加空user消息作为触发")
 	
 	if is_first_message:
 		is_first_message = false
@@ -257,12 +273,19 @@ func end_chat():
 	var conversation_text = _flatten_conversation()
 	var conversation_copy = current_conversation.duplicate(true)  # 深拷贝用于总结
 	
-	# 只清除50%的上下文（向下取整，至少清除1条）
-	var clear_count = max(1, int(current_conversation.size() * 0.5))
-	for i in range(clear_count):
-		current_conversation.pop_front()
+	# 清除前50%的上下文（向下取整）
+	# 保留后50%（向上取整），与start_chat的继承逻辑对应
+	# 如果有对话记录，至少保留1条
+	var total_count = current_conversation.size()
+	var keep_count = max(1, int(ceil(total_count * 0.5))) if total_count > 0 else 0
+	var clear_count = total_count - keep_count
 	
-	print("清除了 %d 条上下文，保留 %d 条" % [clear_count, current_conversation.size()])
+	if clear_count > 0:
+		for i in range(clear_count):
+			current_conversation.pop_front()
+		print("清除了 %d 条上下文，保留 %d 条" % [clear_count, current_conversation.size()])
+	else:
+		print("对话记录太少，不清除上下文，保留 %d 条" % current_conversation.size())
 	
 	# 记录对话结束时间
 	last_conversation_time = Time.get_unix_time_from_system()
@@ -646,7 +669,19 @@ func _handle_address_response(response: Dictionary, address_request: HTTPRequest
 func _call_relationship_api():
 	"""调用关系模型 API"""
 	var relationship_config = config_loader.config.relationship_model
-	var url = relationship_config.base_url + "/chat/completions"
+	
+	# 使用relationship_model的配置，如果没有则回退到summary_model
+	var model = relationship_config.get("model", "")
+	var base_url = relationship_config.get("base_url", "")
+	
+	# 如果relationship_model没有配置，使用summary_model的配置
+	if model.is_empty() or base_url.is_empty():
+		var summary_config = config_loader.config.summary_model
+		model = summary_config.model
+		base_url = summary_config.base_url
+		print("relationship_model未配置，使用summary_model的配置")
+	
+	var url = base_url + "/chat/completions"
 	
 	var headers = [
 		"Content-Type: application/json",
@@ -665,7 +700,7 @@ func _call_relationship_api():
 	]
 	
 	var body = {
-		"model": relationship_config.model,
+		"model": model,
 		"messages": messages,
 		"max_tokens": int(relationship_config.max_tokens),
 		"temperature": float(relationship_config.temperature),

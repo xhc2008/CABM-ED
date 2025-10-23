@@ -136,13 +136,20 @@ func _extract_msg_from_buffer():
 			extracted_content += ch
 			current_pos += 1
 	
-	if extracted_content.length() > msg_buffer.length():
+	# 检查是否有新内容（包括从空到空的情况）
+	if extracted_content != msg_buffer:
 		var new_content = extracted_content.substr(msg_buffer.length())
+		var old_length = msg_buffer.length()
 		msg_buffer = extracted_content
 		
-		if not new_content.is_empty():
-			print("发送新内容: ", new_content)
-			content_received.emit(new_content)
+		# 只有当真的有新内容时才发送信号
+		if extracted_content.length() > old_length:
+			if not new_content.is_empty():
+				print("发送新内容: ", new_content)
+				content_received.emit(new_content)
+		# 如果msg字段是空字符串，也记录一下
+		elif extracted_content.is_empty() and old_length == 0:
+			print("警告: msg字段为空字符串")
 
 func _extract_mood_from_buffer(buffer: String):
 	"""从缓冲中提取mood字段"""
