@@ -22,6 +22,8 @@ var http_request: HTTPRequest
 var current_conversation: Array = []
 var is_chatting: bool = false
 var is_first_message: bool = true
+var last_conversation_time: float = 0.0  # 上次对话结束时间（Unix时间戳）
+var temp_conversation_file: String = "user://temp_conversation.json"  # 临时对话文件路径
 
 # 公共访问器（向后兼容）
 var api_key: String:
@@ -56,6 +58,9 @@ func _ready():
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
+	
+	# 检查断点恢复
+	_check_and_recover_interrupted_conversation()
 
 func reload_config():
 	"""重新加载配置和 API 密钥（公共接口）"""
@@ -65,7 +70,9 @@ func reload_config():
 
 func add_to_history(role: String, content: String):
 	"""手动添加消息到对话历史"""
-	current_conversation.append({"role": role, "content": content})
+	var timestamp = Time.get_unix_time_from_system()
+	current_conversation.append({"role": role, "content": content, "timestamp": timestamp})
+	_save_temp_conversation()
 	print("手动添加到历史: ", role, " - ", content)
 
 func start_chat(user_message: String = "", trigger_mode: String = "user_initiated"):
@@ -77,6 +84,13 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	if config_loader.api_key.is_empty():
 		chat_error.emit("API 密钥未配置")
 		return
+	
+	# 检查是否需要清除上下文（距上次对话超过5分钟）
+	var current_time = Time.get_unix_time_from_system()
+	if last_conversation_time > 0 and (current_time - last_conversation_time) > 300:  # 5分钟 = 300秒
+		print("距上次对话超过5分钟，清除全部上下文")
+		current_conversation.clear()
+		is_first_message = true
 	
 	is_chatting = true
 	
@@ -90,11 +104,14 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	var max_history = config_loader.config.memory.max_conversation_history
 	var history_start = max(0, current_conversation.size() - max_history)
 	for i in range(history_start, current_conversation.size()):
-		messages.append(current_conversation[i])
+		var msg = {"role": current_conversation[i].role, "content": current_conversation[i].content}
+		messages.append(msg)
 	
 	if trigger_mode == "user_initiated" and not user_message.is_empty():
+		var timestamp = Time.get_unix_time_from_system()
 		messages.append({"role": "user", "content": user_message})
-		current_conversation.append({"role": "user", "content": user_message})
+		current_conversation.append({"role": "user", "content": user_message, "timestamp": timestamp})
+		_save_temp_conversation()
 	
 	if is_first_message:
 		is_first_message = false
@@ -172,7 +189,9 @@ func _finalize_stream_response():
 	_apply_extracted_fields(extracted_fields)
 	
 	var full_response = response_parser.get_full_response()
-	current_conversation.append({"role": "assistant", "content": full_response})
+	var timestamp = Time.get_unix_time_from_system()
+	current_conversation.append({"role": "assistant", "content": full_response, "timestamp": timestamp})
+	_save_temp_conversation()
 	
 	var messages = http_request.get_meta("messages", [])
 	logger.log_api_call("CHAT_RESPONSE", messages, full_response)
@@ -236,10 +255,23 @@ func end_chat():
 		return
 	
 	var conversation_text = _flatten_conversation()
-	_call_summary_api(conversation_text)
+	var conversation_copy = current_conversation.duplicate(true)  # 深拷贝用于总结
 	
-	current_conversation.clear()
-	is_first_message = true
+	# 只清除50%的上下文（向下取整，至少清除1条）
+	var clear_count = max(1, int(current_conversation.size() * 0.5))
+	for i in range(clear_count):
+		current_conversation.pop_front()
+	
+	print("清除了 %d 条上下文，保留 %d 条" % [clear_count, current_conversation.size()])
+	
+	# 记录对话结束时间
+	last_conversation_time = Time.get_unix_time_from_system()
+	
+	# 更新临时文件
+	_save_temp_conversation()
+	
+	# 使用拷贝的完整对话进行总结
+	_call_summary_api_with_data(conversation_text, conversation_copy)
 
 func get_goto_field() -> int:
 	"""获取goto字段值"""
@@ -341,7 +373,11 @@ func _flatten_conversation() -> String:
 	return "\n".join(lines)
 
 func _call_summary_api(conversation_text: String):
-	"""调用总结 API"""
+	"""调用总结 API（使用当前对话数据）"""
+	_call_summary_api_with_data(conversation_text, current_conversation)
+
+func _call_summary_api_with_data(conversation_text: String, conversation_data: Array):
+	"""调用总结 API（使用指定的对话数据）"""
 	var summary_config = config_loader.config.summary_model
 	var url = summary_config.base_url + "/chat/completions"
 	
@@ -358,7 +394,7 @@ func _call_summary_api(conversation_text: String):
 	var user_address = save_mgr.get_user_address()
 	
 	# 根据对话条数动态计算字数限制
-	var conversation_count = current_conversation.size()
+	var conversation_count = conversation_data.size()
 	var word_limit = _calculate_word_limit(conversation_count)
 	
 	# 替换system_prompt中的占位符
@@ -389,6 +425,7 @@ func _call_summary_api(conversation_text: String):
 	http_request.set_meta("request_body", body)
 	http_request.set_meta("messages", messages)
 	http_request.set_meta("conversation_text", conversation_text)
+	http_request.set_meta("conversation_data", conversation_data)
 	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
@@ -436,12 +473,21 @@ func _handle_summary_response(response: Dictionary):
 	logger.log_api_call("SUMMARY_RESPONSE", messages, summary)
 	
 	var conversation_text = http_request.get_meta("conversation_text", "")
+	var conversation_data = http_request.get_meta("conversation_data", [])
 	
-	_save_memory_and_diary(summary, conversation_text)
+	# 使用对话数据中的时间戳（如果是断点恢复的对话）
+	var timestamp = null
+	if not conversation_data.is_empty() and conversation_data[0].has("timestamp"):
+		timestamp = conversation_data[0].timestamp
+	
+	_save_memory_and_diary(summary, conversation_text, timestamp)
+	
+	# 总结完成后删除临时文件
+	_delete_temp_conversation()
 	
 	summary_completed.emit(summary)
 
-func _save_memory_and_diary(summary: String, conversation_text: String):
+func _save_memory_and_diary(summary: String, conversation_text: String, custom_timestamp = null):
 	"""保存记忆到存档，同时保存总结和详细对话到日记"""
 	var save_mgr = get_node("/root/SaveManager")
 	
@@ -460,7 +506,13 @@ func _save_memory_and_diary(summary: String, conversation_text: String):
 	if not save_mgr.save_data.ai_data.has("relationship_history"):
 		save_mgr.save_data.ai_data.relationship_history = []
 	
-	var timestamp = Time.get_datetime_string_from_system()
+	# 使用自定义时间戳（断点恢复）或当前时间
+	var timestamp: String
+	if custom_timestamp != null:
+		timestamp = Time.get_datetime_string_from_unix_time(int(custom_timestamp))
+	else:
+		timestamp = Time.get_datetime_string_from_system()
+	
 	var cleaned_summary = summary.strip_edges()
 	
 	var memory_item = {
@@ -693,3 +745,102 @@ func _calculate_word_limit(conversation_count: int) -> int:
 		return 90
 	else:
 		return 110
+
+func _save_temp_conversation():
+	"""保存当前对话到临时文件"""
+	var data = {
+		"conversation": current_conversation,
+		"last_time": last_conversation_time,
+		"is_first_message": is_first_message
+	}
+	
+	var file = FileAccess.open(temp_conversation_file, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data))
+		file.close()
+
+func _load_temp_conversation() -> Dictionary:
+	"""从临时文件加载对话"""
+	if not FileAccess.file_exists(temp_conversation_file):
+		return {}
+	
+	var file = FileAccess.open(temp_conversation_file, FileAccess.READ)
+	if not file:
+		return {}
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(content) != OK:
+		push_error("临时对话文件解析失败")
+		return {}
+	
+	return json.data
+
+func _delete_temp_conversation():
+	"""删除临时对话文件"""
+	if FileAccess.file_exists(temp_conversation_file):
+		DirAccess.remove_absolute(temp_conversation_file)
+		print("临时对话文件已删除")
+
+func _check_and_recover_interrupted_conversation():
+	"""检查并恢复中断的对话"""
+	var temp_data = _load_temp_conversation()
+	if temp_data.is_empty():
+		return
+	
+	print("检测到未完成的对话，开始断点恢复...")
+	
+	var recovered_conversation = temp_data.get("conversation", [])
+	if recovered_conversation.is_empty():
+		_delete_temp_conversation()
+		return
+	
+	# 扁平化对话文本用于总结
+	var conversation_text = _flatten_conversation_from_data(recovered_conversation)
+	
+	print("恢复的对话包含 %d 条记录，开始总结..." % recovered_conversation.size())
+	
+	# 直接调用总结API，使用恢复的对话数据
+	_call_summary_api_with_data(conversation_text, recovered_conversation)
+
+func _flatten_conversation_from_data(conversation_data: Array) -> String:
+	"""从指定的对话数据扁平化对话历史"""
+	var lines = []
+	
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var app_config = prompt_builder._load_app_config()
+	var char_name = app_config.get("character_name", "角色")
+	
+	var save_mgr = get_node("/root/SaveManager")
+	var user_name = save_mgr.get_user_name()
+	
+	for msg in conversation_data:
+		if msg.role == "user":
+			lines.append("%s：%s" % [user_name, msg.content])
+		elif msg.role == "assistant":
+			var content = msg.content
+			var clean_content = content
+			if clean_content.contains("```json"):
+				var json_start = clean_content.find("```json") + 7
+				clean_content = clean_content.substr(json_start)
+			elif clean_content.contains("```"):
+				var json_start = clean_content.find("```") + 3
+				clean_content = clean_content.substr(json_start)
+			
+			if clean_content.contains("```"):
+				var json_end = clean_content.find("```")
+				clean_content = clean_content.substr(0, json_end)
+			
+			clean_content = clean_content.strip_edges()
+			
+			var json = JSON.new()
+			if json.parse(clean_content) == OK:
+				var data = json.data
+				if data.has("msg"):
+					content = data.msg
+			
+			lines.append("%s：%s" % [char_name, content])
+	
+	return "\n".join(lines)
