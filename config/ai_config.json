@@ -14,9 +14,9 @@
             "output_requirements_diary": "你必须以严格的JSON格式输出，格式如下：\n{\n  \"entries\": [\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"},\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"}\n  ]\n}\n\n要求：\n- time: 包含日期和时间，格式为\"MM-DD HH:MM\"（例如\"10-21 09:30\"、\"10-22 14:00\"）\n- 时间必须在{start_time}到{end_time}这个范围内\n- 如果时间跨越多天，确保日期正确递增\n- event: 用1-2个完整句子描述你做了什么，符合你的角色设定。禁止换行，禁止使用markdown。必须使用中文标点。\n- 事件应该按时间顺序排列\n- 事件内容要真实、具体、符合日常生活\n- 数组必须包含{event_count}个元素",
             "current_status": "时间：{current_time}\n你和用户位于：{current_scene}\n天气：{current_weather}\n对用户的好感度：{affection_level}\n互动意愿：{interaction_level}\n目前心情：{current_mood}",
             "relationship": "{relationship_context}",
-            "memory": "```\\n{memory_context}\\n```",
+            "memory": "```\n{memory_context}\n```",
             "trigger": "{trigger_context}",
-            "task": "列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。"
+            "task": "列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。需要注意时间上的合理性。"
         },
         "prompt_frameworks": {
             "chat": [

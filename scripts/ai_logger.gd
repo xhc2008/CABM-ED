@@ -106,6 +106,7 @@ func save_to_diary(summary: String, conversation_text: String):
 	var diary_path = diary_dir + "/" + date_str + ".jsonl"
 	
 	var diary_record = {
+		"type": "chat",
 		"timestamp": time_str,
 		"summary": summary,
 		"conversation": conversation_text

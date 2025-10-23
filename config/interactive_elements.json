@@ -1,24 +1,7 @@
 {
   "elements": {
-    "diary_button": {
-      "name": "玩家的日记入口",
-      "type": "click_area",
-      "size": {
-        "width": 200,
-        "height": 150
-      },
-      "position": {
-        "anchor": "bottom_left",
-        "offset_x": 160,
-        "offset_y": -150
-      },
-      "scenes": [
-        "studyroom"
-      ],
-      "enabled": true
-    },
     "character_diary_button": {
-      "name": "角色的日记入口",
+      "name": "日记入口",
       "type": "click_area",
       "size": {
         "width": 140,

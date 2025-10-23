@@ -557,10 +557,10 @@ func _ensure_diary_directory() -> bool:
 		print("错误: 无法访问 user:// 目录")
 		return false
 	
-	if not dir.dir_exists("character_diary"):
-		var err = dir.make_dir("character_diary")
+	if not dir.dir_exists("diary"):
+		var err = dir.make_dir("diary")
 		if err != OK:
-			print("错误: 无法创建 character_diary 目录")
+			print("错误: 无法创建 diary 目录")
 			return false
 	
 	return true
@@ -570,7 +570,7 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	if not _ensure_diary_directory():
 		return
 	
-	var diary_dir = "user://character_diary"
+	var diary_dir = "user://diary"
 	
 	# 从 time_str 中提取日期，如果没有日期则使用 start_datetime
 	var date_str = _extract_date_from_time(time_str, start_datetime)
@@ -578,6 +578,7 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	
 	# 构建日记记录
 	var diary_record = {
+		"type": "offline",
 		"time": time_str,
 		"event": event_text
 	}
