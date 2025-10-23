@@ -78,18 +78,34 @@ func _update_app_config(character_name: String):
 		print("角色名称已保存: ", character_name)
 
 func _save_api_key(api_key: String):
-	"""保存API密钥（使用新格式）"""
+	"""保存API密钥并应用标准模板"""
 	var keys_path = "user://ai_keys.json"
+	
+	# 使用标准模板配置
 	var keys = {
-		"mode": "simple",
-		"api_key": api_key
+		"api_key": api_key,
+		"chat_model": {
+			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
+			"base_url": "https://api.siliconflow.cn/v1",
+			"api_key": api_key
+		},
+		"summary_model": {
+			"model": "Qwen/Qwen3-8B",
+			"base_url": "https://api.siliconflow.cn/v1",
+			"api_key": api_key
+		},
+		"tts_model": {
+			"model": "FunAudioLLM/CosyVoice2-0.5B",
+			"base_url": "https://api.siliconflow.cn",
+			"api_key": api_key
+		}
 	}
 	
 	var file = FileAccess.open(keys_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(keys, "\t"))
 		file.close()
-		print("API密钥已保存")
+		print("API密钥已保存（标准模板）")
 		
 		# 重新加载AI服务配置
 		if has_node("/root/AIService"):

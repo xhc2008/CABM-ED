@@ -540,15 +540,23 @@ func _load_api_key_display():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var config = json.data
-			var mode = config.get("mode", "")
 			
-			if mode == "simple" and config.has("api_key"):
-				var masked_key = _mask_api_key(config.api_key)
-				api_key_status.text = "✓ 已配置 (简单): " + masked_key
-				api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
-				return
-			elif mode == "detailed":
-				api_key_status.text = "✓ 已配置 (详细)"
+			# 检查是否有 API 密钥（新格式不再使用 mode 字段）
+			var has_api_key = false
+			var api_key = ""
+			
+			# 优先从 chat_model 获取 API 密钥
+			if config.has("chat_model") and config.chat_model.has("api_key"):
+				api_key = config.chat_model.api_key
+				has_api_key = not api_key.is_empty()
+			# 兼容旧的 api_key 字段
+			elif config.has("api_key"):
+				api_key = config.api_key
+				has_api_key = not api_key.is_empty()
+			
+			if has_api_key:
+				# var masked_key = _mask_api_key(api_key)
+				api_key_status.text = "✓ 已配置" #+ masked_key
 				api_key_status.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 				return
 	

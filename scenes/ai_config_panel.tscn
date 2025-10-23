@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://ai_config_panel_001"]
+[gd_scene load_steps=3 format=3 uid="uid://ai_config_panel_001"]
 
 [ext_resource type="Script" path="res://scripts/ai_config_panel.gd" id="1"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_template"]
+resource_name = "TemplateGroup"
 
 [node name="AIConfigPanel" type="Panel"]
 anchors_preset = 8
@@ -60,29 +63,62 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/快速配置"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/快速配置"]
 layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 15
 
-[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/VBoxContainer"]
+[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "填入硅基流动的API密钥"
+text = "选择配置模板"
 horizontal_alignment = 1
 
-[node name="KeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/VBoxContainer"]
+[node name="TemplateContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="FreeButton" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer"]
+layout_mode = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_template")
+text = "免费"
+
+[node name="StandardButton" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer"]
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("ButtonGroup_template")
+text = "标准"
+
+[node name="DescriptionLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+text = "性能优秀，价格合理。推荐使用。"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="KeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 text = "API密钥:"
 
-[node name="KeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/VBoxContainer"]
+[node name="KeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 placeholder_text = "sk-..."
 secret = true
 
-[node name="SaveButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/VBoxContainer"]
+[node name="ApplyButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "保存配置"
+text = "应用配置"
 
-[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 horizontal_alignment = 1
 
@@ -232,6 +268,7 @@ theme_override_constants/separation = 15
 
 [node name="EnableContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
+alignment = 3
 
 [node name="EnableLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/EnableContainer"]
 layout_mode = 2
@@ -239,8 +276,6 @@ text = "启用语音合成"
 
 [node name="EnableCheckBox" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/EnableContainer"]
 layout_mode = 2
-size_flags_horizontal = 3
-alignment = 2
 
 [node name="VolumeContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2

@@ -73,35 +73,54 @@ func _load_new_format_config(path: String):
 		return
 	
 	var user_config = json.data
-	var mode = user_config.get("mode", "")
 	
-	if mode == "simple":
-		api_key = user_config.get("api_key", "")
-		if api_key.is_empty():
-			push_error("API 密钥为空")
-		else:
-			print("API 密钥加载成功 (简单模式)")
+	# 严格使用用户配置，不回退到默认值
+	# 即使配置不存在或不合法也不使用 ai_config.json 的默认值
 	
-	elif mode == "detailed":
-		if user_config.has("chat_model"):
-			var chat = user_config.chat_model
-			config.chat_model.model = chat.get("model", config.chat_model.model)
-			config.chat_model.base_url = chat.get("base_url", config.chat_model.base_url)
-			api_key = chat.get("api_key", "")
-		
-		if user_config.has("summary_model"):
-			var summary = user_config.summary_model
-			config.summary_model.model = summary.get("model", config.summary_model.model)
-			config.summary_model.base_url = summary.get("base_url", config.summary_model.base_url)
-		
-		if api_key.is_empty():
-			push_error("API 密钥为空")
-		else:
-			print("API 配置加载成功 (详细模式)")
-			print("  对话模型: ", config.chat_model.model)
-			print("  总结模型: ", config.summary_model.model)
+	if user_config.has("chat_model"):
+		var chat = user_config.chat_model
+		# 直接使用用户配置的值，不提供默认值回退
+		if chat.has("model"):
+			config.chat_model.model = chat.model
+		if chat.has("base_url"):
+			config.chat_model.base_url = chat.base_url
+		if chat.has("api_key"):
+			api_key = chat.api_key
+	
+	if user_config.has("summary_model"):
+		var summary = user_config.summary_model
+		# 直接使用用户配置的值，不提供默认值回退
+		if summary.has("model"):
+			config.summary_model.model = summary.model
+		if summary.has("base_url"):
+			config.summary_model.base_url = summary.base_url
+	
+	if user_config.has("relationship_model"):
+		var relationship = user_config.relationship_model
+		# 直接使用用户配置的值，不提供默认值回退
+		if relationship.has("model"):
+			config.relationship_model.model = relationship.model
+		if relationship.has("base_url"):
+			config.relationship_model.base_url = relationship.base_url
+	
+	if user_config.has("tts_model"):
+		var tts = user_config.tts_model
+		# 直接使用用户配置的值，不提供默认值回退
+		if tts.has("model"):
+			config.tts_model.model = tts.model
+		if tts.has("base_url"):
+			config.tts_model.base_url = tts.base_url
+	
+	# 兼容旧的 api_key 字段（用于快速配置）
+	if user_config.has("api_key") and api_key.is_empty():
+		api_key = user_config.api_key
+	
+	if api_key.is_empty():
+		push_error("API 密钥为空")
 	else:
-		push_error("未知的配置模式: " + mode)
+		print("API 配置加载成功")
+		print("  对话模型: ", config.chat_model.model)
+		print("  总结模型: ", config.summary_model.model)
 
 func _load_old_format_config(path: String):
 	"""加载旧格式的配置文件（兼容性）"""

@@ -95,18 +95,24 @@ func _load_tts_settings():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var ai_config = json.data
+			# 严格使用用户配置，不提供默认值回退
 			# 尝试从tts_model获取
 			if ai_config.has("tts_model") and ai_config.tts_model.has("api_key"):
-				api_key = ai_config.tts_model.get("api_key", "")
+				api_key = ai_config.tts_model.api_key
 				print("从AI配置(tts_model)加载TTS密钥")
-			# 如果tts_model没有，尝试从简单模式获取
-			elif ai_config.has("mode") and ai_config.mode == "simple" and ai_config.has("api_key"):
-				api_key = ai_config.get("api_key", "")
-				print("从AI配置(简单模式)加载TTS密钥")
-			# 如果是详细模式，尝试从chat_model获取
+				# 同时加载TTS的model和base_url到config中
+				if ai_config.tts_model.has("model"):
+					config.tts_model.model = ai_config.tts_model.model
+				if ai_config.tts_model.has("base_url"):
+					config.tts_model.base_url = ai_config.tts_model.base_url
+			# 如果tts_model没有，尝试从chat_model获取（兼容旧配置）
 			elif ai_config.has("chat_model") and ai_config.chat_model.has("api_key"):
-				api_key = ai_config.chat_model.get("api_key", "")
+				api_key = ai_config.chat_model.api_key
 				print("从AI配置(chat_model)加载TTS密钥")
+			# 兼容旧的api_key字段
+			elif ai_config.has("api_key"):
+				api_key = ai_config.api_key
+				print("从AI配置(通用api_key)加载TTS密钥")
 			
 			if not api_key.is_empty():
 				print("API密钥已加载: ", api_key.substr(0, 10) + "...")
@@ -245,8 +251,11 @@ func upload_reference_audio(force: bool = false):
 		tts_error.emit(error_msg)
 		return
 	
-	# 从配置文件读取参考文本
-	var ref_text = config.get("tts_model", {}).get("reference_text", "")
+	# 从配置文件读取参考文本（这个字段只在ai_config.json中，不会被用户配置覆盖）
+	var ref_text = ""
+	if config.has("tts_model") and config.tts_model.has("reference_text"):
+		ref_text = config.tts_model.reference_text
+	
 	if ref_text.is_empty():
 		var error_msg = "配置文件中未设置参考文本 (tts_model.reference_text)"
 		push_error(error_msg)
@@ -267,10 +276,14 @@ func upload_reference_audio(force: bool = false):
 	var boundary = "----GodotFormBoundary" + str(Time.get_ticks_msec())
 	var body = PackedByteArray()
 	
-	# 添加model字段
+	# 添加model字段（严格使用用户配置，不提供默认值）
+	var model = ""
+	if config.has("tts_model") and config.tts_model.has("model"):
+		model = config.tts_model.model
+	
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
 	body.append_array("Content-Disposition: form-data; name=\"model\"\r\n\r\n".to_utf8_buffer())
-	body.append_array((config.get("tts_model", {}).get("model", "FunAudioLLM/CosyVoice2-0.5B") + "\r\n").to_utf8_buffer())
+	body.append_array((model + "\r\n").to_utf8_buffer())
 	
 	# 添加customName字段
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
@@ -292,7 +305,12 @@ func upload_reference_audio(force: bool = false):
 	# 结束boundary
 	body.append_array(("--" + boundary + "--\r\n").to_utf8_buffer())
 	
-	var url = config.get("tts_model", {}).get("base_url", "https://api.siliconflow.cn") + "/v1/uploads/audio/voice"
+	# 严格使用用户配置的base_url，不提供默认值
+	var base_url = ""
+	if config.has("tts_model") and config.tts_model.has("base_url"):
+		base_url = config.tts_model.base_url
+	
+	var url = base_url + "/v1/uploads/audio/voice"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: multipart/form-data; boundary=" + boundary
@@ -405,15 +423,23 @@ func synthesize_speech(text: String):
 	# 保存到字典
 	tts_requests[request_id] = http_request
 	
-	# 发送请求
-	var url = config.get("tts_model", {}).get("base_url", "https://api.siliconflow.cn") + "/v1/audio/speech"
+	# 发送请求（严格使用用户配置，不提供默认值）
+	var base_url = ""
+	var model = ""
+	if config.has("tts_model"):
+		if config.tts_model.has("base_url"):
+			base_url = config.tts_model.base_url
+		if config.tts_model.has("model"):
+			model = config.tts_model.model
+	
+	var url = base_url + "/v1/audio/speech"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: application/json"
 	]
 	
 	var request_body = {
-		"model": config.get("tts_model", {}).get("model", "FunAudioLLM/CosyVoice2-0.5B"),
+		"model": model,
 		"input": text,
 		"voice": voice_uri
 	}
