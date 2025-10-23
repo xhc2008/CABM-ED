@@ -612,15 +612,25 @@ func _extract_sentences_from_buffer():
 		if not found_punct:
 			break
 		
-		# 提取到标点为止的句子（包含标点）
-		var sentence = sentence_buffer.substr(0, earliest_pos + 1).strip_edges()
+		# 找到第一个标点后，继续查找连续的标点符号
+		var end_pos = earliest_pos + 1
+		while end_pos < sentence_buffer.length():
+			var next_char = sentence_buffer[end_pos]
+			# 检查下一个字符是否也是标点符号
+			if next_char in CHINESE_PUNCTUATION:
+				end_pos += 1
+			else:
+				break
+		
+		# 提取到最后一个连续标点为止的句子（包含所有连续标点）
+		var sentence = sentence_buffer.substr(0, end_pos).strip_edges()
 		
 		if not sentence.is_empty():
 			sentence_queue.append(sentence)
 			print("提取句子: ", sentence)
 		
 		# 移除已处理的部分
-		sentence_buffer = sentence_buffer.substr(earliest_pos + 1)
+		sentence_buffer = sentence_buffer.substr(end_pos)
 	
 	# 如果还没有开始显示句子，且队列中有句子，开始显示
 	if not is_showing_sentence and sentence_queue.size() > 0:
