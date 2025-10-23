@@ -80,7 +80,7 @@
         "top_p": 0.9,
         "timeout": 30,
         "enable_thinking": false,
-        "system_prompt": "你是{character_name}。请以你的视角，用第一人称总结你和{user_name}（你习惯称呼为：{user_address}）的对话，保持简洁，不超过50字。/no_think",
+        "system_prompt": "你是{character_name}。请以你的视角，用第一人称总结你和{user_name}的对话，保持简洁，不超过50字。/no_think",
         "address_system_prompt": "你是一个总结专家。请根据对话内容更新**{character_name}对{user_name}**的称呼。\n当前称呼是：{current_address}\n如果对话中没有明确要求改变或提及称呼，就直接回复“{current_address}”。只输出称呼，不要输出任何解释或多余文字。\n/no_think"
     },
     "relationship_model": {

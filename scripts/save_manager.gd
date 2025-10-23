@@ -320,7 +320,7 @@ func set_user_name(user_name: String):
 	_auto_save()
 
 func get_user_address() -> String:
-	return save_data.user_data.get("user_address", "主人")
+	return save_data.user_data.get("user_address", "你")
 
 func set_user_address(user_address: String):
 	save_data.user_data.user_address = user_address
