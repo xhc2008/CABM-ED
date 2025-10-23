@@ -22,8 +22,8 @@ var http_request: HTTPRequest
 var current_conversation: Array = []
 var is_chatting: bool = false
 var is_first_message: bool = true
-var last_conversation_time: float = 0.0  # 上次对话结束时间（Unix时间戳）
-var temp_conversation_file: String = "user://temp_conversation.json"  # 临时对话文件路径
+var last_conversation_time: float = 0.0 # 上次对话结束时间（Unix时间戳）
+var temp_conversation_file: String = "user://temp_conversation.json" # 临时对话文件路径
 
 # 公共访问器（向后兼容）
 var api_key: String:
@@ -87,7 +87,7 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	
 	# 检查是否需要清除上下文（距上次对话超过5分钟）
 	var current_time = Time.get_unix_time_from_system()
-	if last_conversation_time > 0 and (current_time - last_conversation_time) > 300:  # 5分钟 = 300秒
+	if last_conversation_time > 0 and (current_time - last_conversation_time) > 300: # 5分钟 = 300秒
 		print("距上次对话超过5分钟，清除全部上下文")
 		current_conversation.clear()
 		is_first_message = true
@@ -99,7 +99,7 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	var prompt_builder = get_node("/root/PromptBuilder")
 	var system_prompt = prompt_builder.build_system_prompt(actual_trigger_mode)
 	
-	var messages = [{"role": "system", "content": system_prompt}]
+	var messages = [ {"role": "system", "content": system_prompt}]
 	
 	# 继承50%的上下文（向上取整）
 	# 如果有对话记录，至少继承1条
@@ -271,7 +271,7 @@ func end_chat():
 		return
 	
 	var conversation_text = _flatten_conversation()
-	var conversation_copy = current_conversation.duplicate(true)  # 深拷贝用于总结
+	var conversation_copy = current_conversation.duplicate(true) # 深拷贝用于总结
 	
 	# 清除前50%的上下文（向下取整）
 	# 保留后50%（向上取整），与start_chat的继承逻辑对应
@@ -498,10 +498,14 @@ func _handle_summary_response(response: Dictionary):
 	var conversation_text = http_request.get_meta("conversation_text", "")
 	var conversation_data = http_request.get_meta("conversation_data", [])
 	
-	# 使用对话数据中的时间戳（如果是断点恢复的对话）
+	# 使用对话数据中的时间戳（取最后一条消息的时间戳作为对话结束时间）
 	var timestamp = null
-	if not conversation_data.is_empty() and conversation_data[0].has("timestamp"):
-		timestamp = conversation_data[0].timestamp
+	if not conversation_data.is_empty():
+		# 从后往前找第一条有timestamp的消息
+		for i in range(conversation_data.size() - 1, -1, -1):
+			if conversation_data[i].has("timestamp"):
+				timestamp = conversation_data[i].timestamp
+				break
 	
 	_save_memory_and_diary(summary, conversation_text, timestamp)
 	
@@ -552,7 +556,8 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	
 	save_mgr.save_game(save_mgr.current_slot)
 	
-	logger.save_to_diary(cleaned_summary, conversation_text)
+	# 将时间戳传递给日记保存函数
+	logger.save_to_diary(cleaned_summary, conversation_text, custom_timestamp)
 	
 	print("记忆已保存: ", summary)
 	
