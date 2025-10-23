@@ -357,11 +357,16 @@ func _call_summary_api(conversation_text: String):
 	var user_name = save_mgr.get_user_name()
 	var user_address = save_mgr.get_user_address()
 	
+	# 根据对话条数动态计算字数限制
+	var conversation_count = current_conversation.size()
+	var word_limit = _calculate_word_limit(conversation_count)
+	
 	# 替换system_prompt中的占位符
 	var system_prompt = summary_config.system_prompt
 	system_prompt = system_prompt.replace("{character_name}", char_name)
 	system_prompt = system_prompt.replace("{user_name}", user_name)
 	system_prompt = system_prompt.replace("{user_address}", user_address)
+	system_prompt = system_prompt.replace("{word_limit}", str(word_limit))
 	
 	var messages = [
 		{"role": "system", "content": system_prompt},
@@ -667,3 +672,24 @@ func _save_relationship(relationship_summary: String):
 	save_mgr.save_game(save_mgr.current_slot)
 	
 	print("关系信息已保存: ", relationship_summary)
+
+func _calculate_word_limit(conversation_count: int) -> int:
+	"""根据对话条数动态计算字数限制
+	
+	规则：
+	- 1-2条对话：30字
+	- 3-4条对话：50字
+	- 5-6条对话：70字
+	- 7-8条对话：90字
+	- 9条及以上：110字
+	"""
+	if conversation_count <= 2:
+		return 30
+	elif conversation_count <= 4:
+		return 50
+	elif conversation_count <= 6:
+		return 70
+	elif conversation_count <= 8:
+		return 90
+	else:
+		return 110
