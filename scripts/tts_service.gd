@@ -9,6 +9,8 @@ signal tts_error(error_message: String)
 
 var config: Dictionary = {}
 var api_key: String = ""
+var tts_model: String = "" # TTS模型名称（从用户配置加载）
+var tts_base_url: String = "" # TTS API地址（从用户配置加载）
 var voice_uri: String = "" # 缓存的声音URI
 var is_enabled: bool = false # 是否启用TTS
 var volume: float = 0.8 # 音量 (0.0 - 1.0)
@@ -69,6 +71,7 @@ func _load_config():
 func _load_tts_settings():
 	"""加载TTS设置（API密钥、启用状态、音量）"""
 	var settings_path = "user://tts_settings.json"
+	var has_tts_settings = false
 	
 	if FileAccess.file_exists(settings_path):
 		var file = FileAccess.open(settings_path, FileAccess.READ)
@@ -82,10 +85,9 @@ func _load_tts_settings():
 			is_enabled = settings.get("enabled", false)
 			volume = settings.get("volume", 0.8)
 			print("TTS设置加载成功: enabled=%s, volume=%.2f, api_key=%s" % [is_enabled, volume, "已设置" if not api_key.is_empty() else "未设置"])
-			if not api_key.is_empty():
-				return
+			has_tts_settings = not api_key.is_empty()
 	
-	# 如果没有TTS专用设置或API密钥为空，尝试从AI配置加载
+	# 始终从AI配置加载model和base_url（以及备用的api_key）
 	var ai_keys_path = "user://ai_keys.json"
 	if FileAccess.file_exists(ai_keys_path):
 		var file = FileAccess.open(ai_keys_path, FileAccess.READ)
@@ -97,22 +99,27 @@ func _load_tts_settings():
 			var ai_config = json.data
 			# 严格使用用户配置，不提供默认值回退
 			# 尝试从tts_model获取
-			if ai_config.has("tts_model") and ai_config.tts_model.has("api_key"):
-				api_key = ai_config.tts_model.api_key
-				print("从AI配置(tts_model)加载TTS密钥")
-				# 同时加载TTS的model和base_url到config中
+			if ai_config.has("tts_model"):
+				# 如果没有从tts_settings.json加载到api_key，从这里加载
+				if not has_tts_settings and ai_config.tts_model.has("api_key"):
+					api_key = ai_config.tts_model.api_key
+					print("从AI配置(tts_model)加载TTS密钥")
+				# 加载TTS的model和base_url（必须从用户配置加载）
 				if ai_config.tts_model.has("model"):
-					config.tts_model.model = ai_config.tts_model.model
+					tts_model = ai_config.tts_model.model
+					print("从AI配置加载TTS模型: ", tts_model)
 				if ai_config.tts_model.has("base_url"):
-					config.tts_model.base_url = ai_config.tts_model.base_url
+					tts_base_url = ai_config.tts_model.base_url
+					print("从AI配置加载TTS地址: ", tts_base_url)
 			# 如果tts_model没有，尝试从chat_model获取（兼容旧配置）
-			elif ai_config.has("chat_model") and ai_config.chat_model.has("api_key"):
-				api_key = ai_config.chat_model.api_key
-				print("从AI配置(chat_model)加载TTS密钥")
-			# 兼容旧的api_key字段
-			elif ai_config.has("api_key"):
-				api_key = ai_config.api_key
-				print("从AI配置(通用api_key)加载TTS密钥")
+			elif not has_tts_settings:
+				if ai_config.has("chat_model") and ai_config.chat_model.has("api_key"):
+					api_key = ai_config.chat_model.api_key
+					print("从AI配置(chat_model)加载TTS密钥")
+				# 兼容旧的api_key字段
+				elif ai_config.has("api_key"):
+					api_key = ai_config.api_key
+					print("从AI配置(通用api_key)加载TTS密钥")
 			
 			if not api_key.is_empty():
 				print("API密钥已加载: ", api_key.substr(0, 10) + "...")
@@ -124,6 +131,8 @@ func _load_tts_settings():
 	# 最终状态总结
 	print("=== TTS设置加载完成 ===")
 	print("API密钥: %s" % ("已配置" if not api_key.is_empty() else "未配置"))
+	print("模型: %s" % (tts_model if not tts_model.is_empty() else "未配置"))
+	print("地址: %s" % (tts_base_url if not tts_base_url.is_empty() else "未配置"))
 	print("启用状态: %s" % is_enabled)
 	print("音量: %.2f" % volume)
 
@@ -276,14 +285,16 @@ func upload_reference_audio(force: bool = false):
 	var boundary = "----GodotFormBoundary" + str(Time.get_ticks_msec())
 	var body = PackedByteArray()
 	
-	# 添加model字段（严格使用用户配置，不提供默认值）
-	var model = ""
-	if config.has("tts_model") and config.tts_model.has("model"):
-		model = config.tts_model.model
+	# 添加model字段（必须从用户配置加载）
+	if tts_model.is_empty():
+		var error_msg = "TTS模型未配置，请在AI配置中设置tts_model.model"
+		push_error(error_msg)
+		tts_error.emit(error_msg)
+		return
 	
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
 	body.append_array("Content-Disposition: form-data; name=\"model\"\r\n\r\n".to_utf8_buffer())
-	body.append_array((model + "\r\n").to_utf8_buffer())
+	body.append_array((tts_model + "\r\n").to_utf8_buffer())
 	
 	# 添加customName字段
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
@@ -305,12 +316,14 @@ func upload_reference_audio(force: bool = false):
 	# 结束boundary
 	body.append_array(("--" + boundary + "--\r\n").to_utf8_buffer())
 	
-	# 严格使用用户配置的base_url，不提供默认值
-	var base_url = ""
-	if config.has("tts_model") and config.tts_model.has("base_url"):
-		base_url = config.tts_model.base_url
+	# 必须从用户配置加载base_url
+	if tts_base_url.is_empty():
+		var error_msg = "TTS API地址未配置，请在AI配置中设置tts_model.base_url"
+		push_error(error_msg)
+		tts_error.emit(error_msg)
+		return
 	
-	var url = base_url + "/v1/uploads/audio/voice"
+	var url = tts_base_url + "/v1/uploads/audio/voice"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: multipart/form-data; boundary=" + boundary
@@ -423,23 +436,22 @@ func synthesize_speech(text: String):
 	# 保存到字典
 	tts_requests[request_id] = http_request
 	
-	# 发送请求（严格使用用户配置，不提供默认值）
-	var base_url = ""
-	var model = ""
-	if config.has("tts_model"):
-		if config.tts_model.has("base_url"):
-			base_url = config.tts_model.base_url
-		if config.tts_model.has("model"):
-			model = config.tts_model.model
+	# 必须从用户配置加载
+	if tts_base_url.is_empty() or tts_model.is_empty():
+		push_error("TTS配置不完整（model或base_url未配置）")
+		# 清理失败的请求
+		tts_requests.erase(request_id)
+		http_request.queue_free()
+		return
 	
-	var url = base_url + "/v1/audio/speech"
+	var url = tts_base_url + "/v1/audio/speech"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: application/json"
 	]
 	
 	var request_body = {
-		"model": model,
+		"model": tts_model,
 		"input": text,
 		"voice": voice_uri
 	}

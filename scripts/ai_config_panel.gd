@@ -16,8 +16,8 @@ const CONFIG_TEMPLATES = {
 			"base_url": "https://api.siliconflow.cn/v1"
 		},
 		"tts_model": {
-			"model": "[Disabled]",
-			"base_url": "[Disabled]",
+			"model": "",
+			"base_url": "",
 		}
 	},
 	"standard": {
@@ -335,13 +335,12 @@ func _on_detail_save_pressed():
 		}
 	}
 	
-	# TTS配置是可选的
-	if not tts_model.is_empty() and not tts_base_url.is_empty() and not tts_key.is_empty():
-		config["tts_model"] = {
-			"model": tts_model,
-			"base_url": tts_base_url,
-			"api_key": tts_key
-		}
+	# TTS配置是可选的，但始终保存配置块（即使为空）
+	config["tts_model"] = {
+		"model": tts_model,
+		"base_url": tts_base_url,
+		"api_key": tts_key
+	}
 	
 	if _save_config(config):
 		_update_detail_status(true, "配置已保存")
