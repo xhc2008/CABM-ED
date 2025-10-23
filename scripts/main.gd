@@ -30,6 +30,9 @@ var scene_switch_timer: Timer = null
 var pending_chat_timer: Timer = null
 
 func _ready():
+	# 检查并迁移旧日记数据
+	_check_and_migrate_diary()
+	
 	# 初始化管理器
 	_setup_managers()
 	
@@ -878,6 +881,18 @@ func _on_character_diary_selected():
 func _on_character_diary_closed():
 	"""角色日记查看器关闭事件"""
 	print("角色日记查看器已关闭")
+
+func _check_and_migrate_diary():
+	"""检查并迁移旧日记数据"""
+	var migration = preload("res://scripts/diary_migration.gd").new()
+	
+	# 检查是否需要迁移
+	if migration.check_needs_migration():
+		print("检测到旧的日记数据，开始自动迁移...")
+		var count = migration.migrate_diary_data()
+		print("日记迁移完成，共处理 %d 条记录" % count)
+	else:
+		print("未检测到需要迁移的旧日记数据")
 
 func _on_character_called():
 	"""呼唤角色事件"""

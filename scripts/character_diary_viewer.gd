@@ -243,9 +243,12 @@ func _add_diary_card(record: Dictionary):
 		var timestamp = record.get("timestamp", "")
 		var summary = record.get("summary", "无总结")
 		
+		# 格式化时间显示（只显示到分钟）
+		var display_time = _format_chat_time_display(timestamp)
+		
 		# 时间标签（带💬标记）
 		var time_label = Label.new()
-		time_label.text = "💬 " + timestamp
+		time_label.text = "💬 " + display_time
 		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		time_label.custom_minimum_size.x = 700
@@ -289,6 +292,8 @@ func _add_diary_card(record: Dictionary):
 		)
 	else:
 		# offline类型：显示事件，不可点击
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
 		var time_str = record.get("time", "")
 		var event_text = record.get("event", "")
 		
@@ -301,6 +306,7 @@ func _add_diary_card(record: Dictionary):
 		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(time_label)
 		
 		# 事件内容
@@ -310,9 +316,11 @@ func _add_diary_card(record: Dictionary):
 		event_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		event_label.custom_minimum_size.x = 700
+		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(event_label)
 		
 		card_panel.add_child(card_vbox)
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	content_vbox.add_child(card_panel)
 
@@ -485,9 +493,9 @@ func _on_close_button_pressed():
 
 
 func _format_time_display(time_str: String) -> String:
-	"""格式化时间显示
+	"""格式化offline类型时间显示
 	输入: "MM-DD HH:MM" 或 "HH:MM"
-	输出: "HH:MM" （只显示时间，不显示日期，因为上面已经有日期选择器了）
+	输出: "HH:MM" （只显示时间到分钟）
 	"""
 	if time_str.length() == 11:
 		# 格式: MM-DD HH:MM，只提取时间部分
@@ -497,3 +505,14 @@ func _format_time_display(time_str: String) -> String:
 	
 	# 如果是 HH:MM 格式，直接返回
 	return time_str
+
+func _format_chat_time_display(timestamp: String) -> String:
+	"""格式化chat类型时间显示
+	输入: "HH:MM:SS"
+	输出: "HH:MM" （只显示到分钟）
+	"""
+	if timestamp.length() >= 5:
+		# 提取前5个字符 HH:MM
+		return timestamp.substr(0, 5)
+	
+	return timestamp

@@ -350,8 +350,21 @@ func _call_summary_api(conversation_text: String):
 		"Authorization: Bearer " + config_loader.api_key
 	]
 	
+	# 获取角色和用户信息用于占位符替换
+	var save_mgr = get_node("/root/SaveManager")
+	var helpers = get_node("/root/EventHelpers")
+	var char_name = helpers.get_character_name()
+	var user_name = save_mgr.get_user_name()
+	var user_address = save_mgr.get_user_address()
+	
+	# 替换system_prompt中的占位符
+	var system_prompt = summary_config.system_prompt
+	system_prompt = system_prompt.replace("{character_name}", char_name)
+	system_prompt = system_prompt.replace("{user_name}", user_name)
+	system_prompt = system_prompt.replace("{user_address}", user_address)
+	
 	var messages = [
-		{"role": "system", "content": summary_config.system_prompt},
+		{"role": "system", "content": system_prompt},
 		{"role": "user", "content": conversation_text}
 	]
 	

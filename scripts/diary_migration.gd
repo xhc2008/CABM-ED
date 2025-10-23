@@ -15,6 +15,9 @@ func migrate_diary_data():
 	# 为玩家日记添加type字段（user://diary/）
 	migrated_count += _add_type_to_player_diary()
 	
+	# 删除旧的角色日记目录
+	_delete_old_character_diary()
+	
 	print("日记数据迁移完成，共迁移 %d 条记录" % migrated_count)
 	return migrated_count
 
@@ -164,3 +167,42 @@ func _ensure_directory(path: String):
 	var dir_name = path.replace("user://", "")
 	if not dir.dir_exists(dir_name):
 		dir.make_dir(dir_name)
+
+func _delete_old_character_diary():
+	"""删除旧的角色日记目录"""
+	var old_dir = "user://character_diary"
+	var dir = DirAccess.open(old_dir)
+	if dir == null:
+		print("旧的角色日记目录不存在，无需删除")
+		return
+	
+	print("开始删除旧的角色日记目录...")
+	
+	# 删除目录中的所有文件
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	
+	while file_name != "":
+		if not dir.current_is_dir():
+			var file_path = old_dir + "/" + file_name
+			var file_err = DirAccess.remove_absolute(file_path)
+			if file_err == OK:
+				print("已删除文件: ", file_name)
+			else:
+				print("删除文件失败: ", file_name, " 错误码: ", file_err)
+		file_name = dir.get_next()
+	
+	dir.list_dir_end()
+	
+	# 删除目录本身
+	var dir_err = DirAccess.remove_absolute(old_dir)
+	if dir_err == OK:
+		print("已删除旧的角色日记目录")
+	else:
+		print("删除目录失败，错误码: ", dir_err)
+
+func check_needs_migration() -> bool:
+	"""检查是否需要迁移"""
+	var old_dir = "user://character_diary"
+	var dir = DirAccess.open(old_dir)
+	return dir != null
