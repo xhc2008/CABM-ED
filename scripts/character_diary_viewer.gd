@@ -59,6 +59,13 @@ func _create_back_button_container():
 
 func show_diary():
 	"""显示日记查看器"""
+	# 重置视图状态
+	view_mode = "list"
+	if date_selector:
+		date_selector.visible = true
+	if back_button_container:
+		back_button_container.visible = false
+	
 	# 更新标题为角色名称
 	_update_title()
 	
@@ -207,7 +214,7 @@ func _display_records():
 
 func _add_diary_card(record: Dictionary):
 	"""添加一个日记卡片"""
-	var record_type = record.get("type", "offline")  # 默认为offline类型
+	var record_type = record.get("type", "offline") # 默认为offline类型
 	
 	# 创建卡片容器
 	var card_panel = PanelContainer.new()
@@ -501,7 +508,7 @@ func _format_time_display(time_str: String) -> String:
 		# 格式: MM-DD HH:MM，只提取时间部分
 		var parts = time_str.split(" ")
 		if parts.size() == 2:
-			return parts[1]  # 返回 HH:MM
+			return parts[1] # 返回 HH:MM
 	
 	# 如果是 HH:MM 格式，直接返回
 	return time_str
