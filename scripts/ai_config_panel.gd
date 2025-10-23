@@ -16,8 +16,8 @@ const CONFIG_TEMPLATES = {
 			"base_url": "https://api.siliconflow.cn/v1"
 		},
 		"tts_model": {
-			"model": "",
-			"base_url": ""
+			"model": "[Disabled]",
+			"base_url": "[Disabled]",
 		}
 	},
 	"standard": {

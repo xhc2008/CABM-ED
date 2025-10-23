@@ -1,7 +1,7 @@
 {
     "chat_model": {
         "model": "",
-        "base_url": "https://api.siliconflow.cn/v1",
+        "base_url": "",
         "max_tokens": 1024,
         "temperature": 1.2,
         "top_p": 0.9,
@@ -74,7 +74,7 @@
     },
     "summary_model": {
         "model": "",
-        "base_url": "https://api.siliconflow.cn/v1",
+        "base_url": "",
         "max_tokens": 256,
         "temperature": 0.3,
         "top_p": 0.9,
@@ -85,7 +85,7 @@
     },
     "relationship_model": {
         "model": "",
-        "base_url": "https://api.siliconflow.cn/v1",
+        "base_url": "",
         "max_tokens": 256,
         "temperature": 0.3,
         "top_p": 0.9,
@@ -100,7 +100,7 @@
     },
     "tts_model": {
         "model": "",
-        "base_url": "https://api.siliconflow.cn",
+        "base_url": "",
         "reference_text": "你问我害怕什么？我害怕的不是失败，而是遗忘。害怕有一天，没有人再记得我们为何而战，为何而牺牲。"
     }
 }
