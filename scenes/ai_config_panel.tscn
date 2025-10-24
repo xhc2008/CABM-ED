@@ -11,10 +11,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -250.0
-offset_right = 300.0
-offset_bottom = 250.0
+offset_left = -280.0
+offset_top = -300.0
+offset_right = 520.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
@@ -73,7 +73,7 @@ theme_override_constants/separation = 15
 
 [node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "选择配置模板"
+text = "选择配置模板（仅限硅基流动，其他平台请使用详细配置）"
 horizontal_alignment = 1
 
 [node name="TemplateContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
@@ -313,4 +313,48 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "提示：TTS比较贵，不用的话建议关闭"
 horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="日志导出" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/日志导出"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="InfoLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+text = "导出日志文件到 Documents/SnowFox_Logs/ 目录
+包含：AI日志、Godot日志、存档信息、日记"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+
+[node name="ExportButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+text = "导出日志"
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/line_spacing = -2
+theme_override_font_sizes/font_size = 20
+text = "提示：
+• 手机端可在文件管理器的Documents目录找到导出的文件
+• 可将日志压缩后分享给开发者用于问题诊断
+• 日志包含对话内容，请注意隐私保护"
 autowrap_mode = 3

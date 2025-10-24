@@ -95,10 +95,6 @@ func _input(event):
 	# 按 F12 打开存档调试面板
 	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
 		_show_save_debug_panel()
-	
-	# 按 F11 打开日志导出面板
-	if event is InputEventKey and event.pressed and event.keycode == KEY_F11:
-		_show_log_export_panel()
 
 func _load_initial_scene() -> String:
 	"""从存档加载初始场景，如果没有或不合法则返回默认场景"""
@@ -816,13 +812,6 @@ func _show_save_debug_panel():
 	if debug_panel_scene:
 		var debug_panel = debug_panel_scene.instantiate()
 		add_child(debug_panel)
-
-func _show_log_export_panel():
-	"""显示日志导出面板"""
-	var log_export_panel_scene = load("res://scenes/log_export_panel.tscn")
-	if log_export_panel_scene:
-		var log_export_panel = log_export_panel_scene.instantiate()
-		add_child(log_export_panel)
 
 func _check_pending_offline_position_change():
 	"""检查并应用待处理的离线位置变化"""
