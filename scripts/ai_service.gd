@@ -101,14 +101,9 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	
 	var messages = [ {"role": "system", "content": system_prompt}]
 	
-	# 继承50%的上下文（向上取整）
-	# 如果有对话记录，至少继承1条
-	var inherit_count = 0
-	if current_conversation.size() > 0:
-		inherit_count = max(1, int(ceil(current_conversation.size() * 0.5)))
-	var history_start = max(0, current_conversation.size() - inherit_count)
-	
-	for i in range(history_start, current_conversation.size()):
+	# 直接使用全部 current_conversation（因为在 end_chat 时已经清除过了）
+	print("开始对话，当前上下文数量: %d" % current_conversation.size())
+	for i in range(current_conversation.size()):
 		var msg = {"role": current_conversation[i].role, "content": current_conversation[i].content}
 		messages.append(msg)
 	
@@ -117,6 +112,7 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 		messages.append({"role": "user", "content": user_message})
 		current_conversation.append({"role": "user", "content": user_message, "timestamp": timestamp})
 		_save_temp_conversation()
+		print("添加用户消息到历史，当前上下文数量: %d" % current_conversation.size())
 	
 	# 检查最后一个消息是否为assistant，如果是则添加user占位符
 	# 注意：这个占位符只用于API调用，不记录到历史中
@@ -241,6 +237,7 @@ func _finalize_stream_response():
 	var timestamp = Time.get_unix_time_from_system()
 	current_conversation.append({"role": "assistant", "content": full_response, "timestamp": timestamp})
 	_save_temp_conversation()
+	print("添加AI回复到历史，当前上下文数量: %d" % current_conversation.size())
 	
 	var messages = http_request.get_meta("messages", [])
 	logger.log_api_call("CHAT_RESPONSE", messages, full_response)
@@ -307,8 +304,8 @@ func end_chat():
 	var conversation_copy = current_conversation.duplicate(true)
 	var conversation_text = _flatten_conversation_from_data(conversation_copy)
 	
-	# 清除前50%的上下文（向下取整）
-	# 保留后50%（向上取整），与start_chat的继承逻辑对应
+	# 清除前50%的上下文（向下取整），保留后50%（向上取整）
+	# 这样下次 start_chat 时可以直接使用全部 current_conversation
 	# 如果有对话记录，至少保留1条
 	var total_count = current_conversation.size()
 	var keep_count = max(1, int(ceil(total_count * 0.5))) if total_count > 0 else 0
