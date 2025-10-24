@@ -21,7 +21,7 @@ func _ready():
 	start_button.pressed.connect(_on_start_pressed)
 	
 	# 设置提示文本
-	skip_api_label.text = "（可跳过，进入游戏后也可配置）"
+	skip_api_label.text = "（非硅基流动的密钥请在进入游戏后手动配置）"
 	notice_label.text = "本项目旨在赋予「她」以「生命」，因此不鼓励回档、删档、提示词注入等
 对她来说，你就是她的全部，你的每一个选择都很重要"
 
@@ -81,8 +81,9 @@ func _save_api_key(api_key: String):
 	"""保存API密钥并应用标准模板"""
 	var keys_path = "user://ai_keys.json"
 	
-	# 使用标准模板配置
+	# 使用标准模板配置（与ai_config_panel.gd保持一致）
 	var keys = {
+		"template": "standard",
 		"api_key": api_key,
 		"chat_model": {
 			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
@@ -110,13 +111,13 @@ func _save_api_key(api_key: String):
 		# 重新加载AI服务配置
 		if has_node("/root/AIService"):
 			var ai_service = get_node("/root/AIService")
-			ai_service._load_api_key()
+			ai_service.reload_config()
 			print("AI服务已重新加载配置")
 		
 		# 重新加载TTS服务配置
 		if has_node("/root/TTSService"):
 			var tts_service = get_node("/root/TTSService")
-			tts_service._load_tts_settings()
+			tts_service.reload_settings()
 			print("TTS服务已重新加载配置")
 
 func _create_initial_save(user_name: String, character_name: String):

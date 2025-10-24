@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://setup001"]
 
 [ext_resource type="Script" path="res://scripts/initial_setup.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://cxqxqxqxqxqxq" path="res://assets/images/index2.png" id="2_index2"]
+[ext_resource type="Texture2D" path="res://assets/images/index2.png" id="2_index2"]
 
 [node name="InitialSetup" type="Control"]
 layout_mode = 3
@@ -100,7 +100,7 @@ theme_override_font_sizes/font_size = 18
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
-text = "（可跳过，进入游戏后也可配置）"
+text = "（非硅基流动的密钥请在进入游戏后手动配置）"
 
 [node name="Spacer2" type="Control" parent="SetupContainer"]
 custom_minimum_size = Vector2(0, 10)

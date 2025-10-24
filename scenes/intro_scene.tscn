@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://intro001"]
 
 [ext_resource type="Script" path="res://scripts/intro_story.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://bxqxqxqxqxqxq" path="res://assets/images/index.png" id="2_index"]
+[ext_resource type="Texture2D" path="res://assets/images/index.png" id="2_index"]
 
 [node name="IntroScene" type="Control"]
 layout_mode = 3
