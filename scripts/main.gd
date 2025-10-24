@@ -81,6 +81,9 @@ func _ready():
 	var initial_time = sidebar.current_time_id
 	load_scene(initial_scene, initial_weather, initial_time)
 	
+	# 同步 sidebar 的当前场景，避免天气/时间变化时切换到错误的场景
+	sidebar.set_current_scene(initial_scene)
+	
 	# 初始化UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
@@ -371,15 +374,31 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	var old_scene = current_scene
 	
 	# 检查场景是否真的改变了
-	var scene_actually_changed = (old_scene != scene_id)
+	# 只有当 current_scene 不为空且与 scene_id 不同时，才认为是场景切换
+	# 如果 current_scene 为空，说明是初始化阶段，不应该切换场景
+	var scene_actually_changed = (current_scene != "" and scene_id != current_scene)
 	
 	# 场景切换时取消待触发的聊天
 	if scene_actually_changed:
 		_cancel_pending_chat()
 		_lock_scene_switch()
 	
-	# 加载新场景（或更新天气/时间）
-	load_scene(scene_id, weather_id, time_id)
+	# 决定目标场景：
+	# - 如果场景真的改变了，使用新场景
+	# - 如果场景没改变或 current_scene 为空，保持当前场景
+	var target_scene = scene_id if scene_actually_changed else current_scene
+	
+	# 如果 target_scene 仍然为空（初始化阶段），直接返回，不做任何操作
+	if target_scene == "":
+		print("场景为空，忽略此次变化")
+		return
+	
+	# 加载场景（或只更新天气/时间）
+	load_scene(target_scene, weather_id, time_id)
+	
+	# 如果场景真的改变了，同步更新 sidebar 的场景
+	if scene_actually_changed:
+		sidebar.set_current_scene(target_scene)
 	
 	# 等待场景加载完成
 	await get_tree().process_frame
@@ -388,7 +407,7 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	if scene_actually_changed:
 		# 优先级：进入 > 离开
 		# 如果进入有角色的场景，触发进入事件
-		if _has_character_in_scene(scene_id):
+		if _has_character_in_scene(target_scene):
 			_try_scene_interaction("enter_scene")
 		# 否则，如果离开了有角色的场景，触发离开事件
 		elif _has_character_in_scene(old_scene):
