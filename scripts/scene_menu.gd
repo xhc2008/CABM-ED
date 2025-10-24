@@ -46,6 +46,17 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 		vbox.add_child(button)
 		scene_buttons.append(button)
 	
+	# 添加分隔线
+	var separator = HSeparator.new()
+	vbox.add_child(separator)
+	
+	# 添加"导出日志"按钮
+	var export_log_button = Button.new()
+	export_log_button.text = "📋 导出日志"
+	export_log_button.pressed.connect(_on_export_log_pressed)
+	vbox.add_child(export_log_button)
+	scene_buttons.append(export_log_button)
+	
 	# 更新面板大小
 	await get_tree().process_frame
 	custom_minimum_size = vbox.size + Vector2(20, 20)
@@ -92,6 +103,22 @@ func _on_scene_button_pressed(scene_id: String):
 func _on_call_button_pressed():
 	character_called.emit()
 	hide_menu()
+
+func _on_export_log_pressed():
+	"""导出日志按钮被点击"""
+	hide_menu()
+	# 等待菜单隐藏动画完成
+	await get_tree().create_timer(0.3).timeout
+	# 显示日志导出面板
+	_show_log_export_panel()
+
+func _show_log_export_panel():
+	"""显示日志导出面板"""
+	var log_export_panel_scene = load("res://scenes/log_export_panel.tscn")
+	if log_export_panel_scene:
+		var log_export_panel = log_export_panel_scene.instantiate()
+		# 添加到场景树的根节点
+		get_tree().root.add_child(log_export_panel)
 
 func _get_character_name() -> String:
 	"""获取角色名称"""

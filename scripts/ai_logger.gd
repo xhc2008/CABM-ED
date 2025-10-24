@@ -22,9 +22,13 @@ func log_api_call(log_type: String, messages: Array, response: String):
 		log_file.store_line('"messages": [')
 		for i in range(messages.size()):
 			var msg = messages[i]
-			var content = msg.content.replace('"', '\\"').replace("\n", "\\n")
+			# 使用JSON.stringify来正确转义内容，避免手动转义的问题
+			var content_escaped = JSON.stringify(msg.content)
+			# 移除stringify添加的外层引号
+			if content_escaped.begins_with('"') and content_escaped.ends_with('"'):
+				content_escaped = content_escaped.substr(1, content_escaped.length() - 2)
 			var comma = "," if i < messages.size() - 1 else ""
-			log_file.store_line('  {"role": "%s","content": "%s"}%s' % [msg.role, content, comma])
+			log_file.store_line('  {"role": "%s","content": "%s"}%s' % [msg.role, content_escaped, comma])
 		log_file.store_line(']')
 	
 	if not response.is_empty():

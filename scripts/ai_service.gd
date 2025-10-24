@@ -119,15 +119,16 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 		_save_temp_conversation()
 	
 	# 检查最后一个消息是否为assistant，如果是则添加user占位符
-	# 或者如果messages中只有system消息（主动对话且无历史），也添加占位符
+	# 注意：这个占位符只用于API调用，不记录到历史中
 	var last_role = messages[-1].role if messages.size() > 0 else ""
 	if last_role == "assistant":
 		messages.append({"role": "user", "content": "继续"})
 		print("检测到最后一条消息为assistant，添加user占位符以避免前缀独写")
-	# elif last_role == "system":
-	# 	# 主动对话时，如果没有历史记录，添加一个空的user消息作为触发
-	# 	messages.append({"role": "user", "content": ""})
-	# 	print("主动对话且无历史记录，添加空user消息作为触发")
+	elif last_role == "system":
+		# 主动对话时，如果没有历史记录，添加一个空的user消息作为触发
+		# 避免messages数组只有system消息导致API错误
+		messages.append({"role": "user", "content": " "})
+		print("主动对话且无历史记录，添加空user消息作为触发")
 	
 	if is_first_message:
 		is_first_message = false
@@ -136,6 +137,27 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 
 func _call_chat_api(messages: Array, _user_message: String):
 	"""调用对话 API"""
+	# 验证messages数组的有效性
+	if messages.is_empty():
+		push_error("错误: messages数组为空")
+		chat_error.emit("消息数组为空")
+		is_chatting = false
+		return
+	
+	# 验证最后一条消息不是assistant（OpenAI API要求）
+	var last_msg = messages[-1]
+	if last_msg.role == "assistant":
+		push_error("错误: messages数组最后一条消息是assistant，这会导致400错误")
+		# 添加一个占位符user消息
+		messages.append({"role": "user", "content": "继续"})
+		print("紧急修复: 添加user占位符以避免API错误")
+	
+	# 验证消息内容不为null
+	for i in range(messages.size()):
+		if not messages[i].has("content") or messages[i].content == null:
+			messages[i].content = ""
+			print("警告: 修复了第%d条消息的空content" % i)
+	
 	var chat_config = config_loader.config.chat_model
 	var url = chat_config.base_url + "/chat/completions"
 	
@@ -156,7 +178,18 @@ func _call_chat_api(messages: Array, _user_message: String):
 	
 	var json_body = JSON.stringify(body)
 	
+	# 验证JSON是否有效
+	var test_parse = JSON.new()
+	if test_parse.parse(json_body) != OK:
+		push_error("错误: 生成的JSON无效: " + test_parse.get_error_message())
+		chat_error.emit("JSON序列化失败")
+		is_chatting = false
+		return
+	
 	logger.log_api_request("CHAT_REQUEST", body, json_body)
+	
+	# 额外的调试信息
+	print("发送对话请求，messages数量: %d, 最后一条role: %s" % [messages.size(), messages[-1].role])
 	
 	response_parser.reset()
 	
@@ -815,7 +848,11 @@ func _flatten_conversation_from_data(conversation_data: Array) -> String:
 	
 	for msg in conversation_data:
 		if msg.role == "user":
-			lines.append("%s：%s" % [user_name, msg.content])
+			# 过滤掉空消息或占位符
+			var user_content = msg.content.strip_edges()
+			if user_content.is_empty() or user_content == "继续":
+				continue
+			lines.append("%s：%s" % [user_name, user_content])
 		elif msg.role == "assistant":
 			var content = msg.content
 			var clean_content = content
@@ -835,8 +872,11 @@ func _flatten_conversation_from_data(conversation_data: Array) -> String:
 			var json = JSON.new()
 			if json.parse(clean_content) == OK:
 				var data = json.data
-				if data.has("msg"):
+				if data.has("msg") and data.msg is String:
 					content = data.msg
+			else:
+				# JSON解析失败，使用原始内容但记录警告
+				print("警告: 无法解析assistant消息的JSON格式，使用原始内容")
 			
 			lines.append("%s：%s" % [char_name, content])
 	
