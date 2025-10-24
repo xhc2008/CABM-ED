@@ -270,8 +270,9 @@ func end_chat():
 	if current_conversation.is_empty():
 		return
 	
-	var conversation_text = _flatten_conversation()
-	var conversation_copy = current_conversation.duplicate(true) # 深拷贝用于总结
+	# 先保存完整对话的拷贝用于总结
+	var conversation_copy = current_conversation.duplicate(true)
+	var conversation_text = _flatten_conversation_from_data(conversation_copy)
 	
 	# 清除前50%的上下文（向下取整）
 	# 保留后50%（向上取整），与start_chat的继承逻辑对应
@@ -354,50 +355,6 @@ func remove_goto_from_history():
 			var new_content = JSON.stringify(data)
 			current_conversation[-1].content = new_content
 			print("已从历史记录中移除goto字段")
-
-func _flatten_conversation() -> String:
-	"""扁平化对话历史"""
-	var lines = []
-	
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var app_config = prompt_builder._load_app_config()
-	var char_name = app_config.get("character_name", "角色")
-	
-	var save_mgr = get_node("/root/SaveManager")
-	var user_name = save_mgr.get_user_name()
-	
-	for msg in current_conversation:
-		if msg.role == "user":
-			lines.append("%s：%s" % [user_name, msg.content])
-		elif msg.role == "assistant":
-			var content = msg.content
-			var clean_content = content
-			if clean_content.contains("```json"):
-				var json_start = clean_content.find("```json") + 7
-				clean_content = clean_content.substr(json_start)
-			elif clean_content.contains("```"):
-				var json_start = clean_content.find("```") + 3
-				clean_content = clean_content.substr(json_start)
-			
-			if clean_content.contains("```"):
-				var json_end = clean_content.find("```")
-				clean_content = clean_content.substr(0, json_end)
-			
-			clean_content = clean_content.strip_edges()
-			
-			var json = JSON.new()
-			if json.parse(clean_content) == OK:
-				var data = json.data
-				if data.has("msg"):
-					content = data.msg
-			
-			lines.append("%s：%s" % [char_name, content])
-	
-	return "\n".join(lines)
-
-func _call_summary_api(conversation_text: String):
-	"""调用总结 API（使用当前对话数据）"""
-	_call_summary_api_with_data(conversation_text, current_conversation)
 
 func _call_summary_api_with_data(conversation_text: String, conversation_data: Array):
 	"""调用总结 API（使用指定的对话数据）"""
