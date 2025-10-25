@@ -706,6 +706,11 @@ func _trigger_active_chat():
 	if not character.visible or character.is_chatting:
 		return
 	
+	# 检查聊天对话框是否已经打开（防止在对话中途触发主动聊天）
+	if chat_dialog.visible:
+		print("聊天对话框已打开，忽略主动聊天触发")
+		return
+	
 	# 检查是否在有角色的场景
 	if not _has_character_in_scene(current_scene):
 		return
