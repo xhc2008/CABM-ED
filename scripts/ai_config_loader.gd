@@ -111,6 +111,14 @@ func _load_new_format_config(path: String):
 		if tts.has("base_url"):
 			config.tts_model.base_url = tts.base_url
 	
+	if user_config.has("embedding_model"):
+		var embedding = user_config.embedding_model
+		# 直接使用用户配置的值，不提供默认值回退
+		if embedding.has("model"):
+			config.embedding_model.model = embedding.model
+		if embedding.has("base_url"):
+			config.embedding_model.base_url = embedding.base_url
+	
 	# 兼容旧的 api_key 字段（用于快速配置）
 	if user_config.has("api_key") and api_key.is_empty():
 		api_key = user_config.api_key

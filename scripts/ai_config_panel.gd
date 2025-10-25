@@ -307,6 +307,11 @@ func _on_quick_apply_pressed():
 			"model": template.tts_model.model,
 			"base_url": template.tts_model.base_url,
 			"api_key": api_key
+		},
+		"embedding_model": {
+			"model": template.embedding_model.model,
+			"base_url": template.embedding_model.base_url,
+			"api_key": api_key
 		}
 	}
 	

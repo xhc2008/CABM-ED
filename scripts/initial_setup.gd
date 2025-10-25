@@ -99,6 +99,11 @@ func _save_api_key(api_key: String):
 			"model": "FunAudioLLM/CosyVoice2-0.5B",
 			"base_url": "https://api.siliconflow.cn",
 			"api_key": api_key
+		},
+		"embedding_model": {
+			"model": "BAAI/bge-m3",
+			"base_url": "https://api.siliconflow.cn",
+			"api_key": api_key
 		}
 	}
 	
