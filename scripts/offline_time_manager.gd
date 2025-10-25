@@ -640,7 +640,7 @@ func _save_diary_to_memory(time_str: String, event_text: String, date_str: Strin
 	# 保存到向量数据库（RAG长期记忆）
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
-		# 构建日记条目
+		# 构建日记条目（简化，不需要额外 metadata）
 		var diary_entry = {
 			"time": time_str,
 			"event": event_text

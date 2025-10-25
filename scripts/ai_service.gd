@@ -97,7 +97,16 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	var actual_trigger_mode = trigger_mode if is_first_message else "ongoing"
 	
 	var prompt_builder = get_node("/root/PromptBuilder")
-	var system_prompt = prompt_builder.build_system_prompt(actual_trigger_mode)
+	
+	# 使用包含长期记忆的系统提示词
+	var system_prompt: String
+	if trigger_mode == "user_initiated" and not user_message.is_empty():
+		# 用户主动对话，使用用户消息检索记忆
+		print("检索长期记忆，查询: %s" % user_message.substr(0, 50))
+		system_prompt = await prompt_builder.build_system_prompt_with_long_term_memory(actual_trigger_mode, user_message)
+	else:
+		# 其他情况（主动对话、继续对话等），使用基础提示词
+		system_prompt = prompt_builder.build_system_prompt(actual_trigger_mode)
 	
 	var messages = [ {"role": "system", "content": system_prompt}]
 	
@@ -551,7 +560,8 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	# 保存到向量数据库（RAG长期记忆）
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
-		# 异步保存对话总结到向量库
+		# 可以选择性地添加 metadata（如心情、好感度等）
+		# 目前保持简单，不添加额外信息
 		await memory_mgr.add_conversation_summary(cleaned_summary)
 	
 	_call_address_api(conversation_text)

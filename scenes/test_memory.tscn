@@ -1,0 +1,142 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8vxqy7n3qm8h"]
+
+[ext_resource type="Script" path="res://scripts/test_memory.gd" id="1_test"]
+
+[node name="TestMemory" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_test")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "记忆系统调试终端 [主数据库]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="AddSection" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBoxContainer/AddSection"]
+layout_mode = 2
+text = "添加记忆："
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/AddSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TextInput" type="LineEdit" parent="VBoxContainer/AddSection/HBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "输入要添加的文本..."
+
+[node name="TypeOption" type="OptionButton" parent="VBoxContainer/AddSection/HBoxContainer"]
+layout_mode = 2
+item_count = 2
+selected = 0
+popup/item_0/text = "conversation"
+popup/item_0/id = 0
+popup/item_1/text = "diary"
+popup/item_1/id = 1
+
+[node name="AddButton" type="Button" parent="VBoxContainer/AddSection/HBoxContainer"]
+layout_mode = 2
+text = "添加"
+
+[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="SearchSection" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBoxContainer/SearchSection"]
+layout_mode = 2
+text = "搜索记忆："
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/SearchSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="QueryInput" type="LineEdit" parent="VBoxContainer/SearchSection/HBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "输入搜索查询..."
+
+[node name="TopKSpin" type="SpinBox" parent="VBoxContainer/SearchSection/HBoxContainer"]
+layout_mode = 2
+min_value = 1.0
+max_value = 20.0
+value = 5.0
+
+[node name="SearchButton" type="Button" parent="VBoxContainer/SearchSection/HBoxContainer"]
+layout_mode = 2
+text = "搜索"
+
+[node name="HSeparator3" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ResultsSection" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="VBoxContainer/ResultsSection"]
+layout_mode = 2
+text = "结果："
+
+[node name="ResultsText" type="TextEdit" parent="VBoxContainer/ResultsSection"]
+layout_mode = 2
+size_flags_vertical = 3
+editable = false
+wrap_mode = 1
+
+[node name="HSeparator4" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ActionsSection" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="StatusLabel" type="Label" parent="VBoxContainer/ActionsSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "就绪"
+
+[node name="ViewDBButton" type="Button" parent="VBoxContainer/ActionsSection"]
+layout_mode = 2
+text = "查看数据库"
+
+[node name="ClearButton" type="Button" parent="VBoxContainer/ActionsSection"]
+layout_mode = 2
+text = "清空数据库"
+
+[node name="SaveButton" type="Button" parent="VBoxContainer/ActionsSection"]
+layout_mode = 2
+text = "保存"
+
+[node name="BackButton" type="Button" parent="VBoxContainer/ActionsSection"]
+layout_mode = 2
+text = "关闭"

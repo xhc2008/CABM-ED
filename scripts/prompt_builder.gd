@@ -26,8 +26,13 @@ func _load_config():
 	else:
 		push_error("PromptBuilder: AI 配置解析失败")
 
-func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
-	"""构建系统提示词"""
+func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term_memory_placeholder: bool = false) -> String:
+	"""构建系统提示词
+	
+	Args:
+		trigger_mode: 触发模式
+		keep_long_term_memory_placeholder: 是否保留长期记忆占位符（用于后续填充）
+	"""
 	if config.is_empty():
 		push_error("PromptBuilder: 配置未加载")
 		return ""
@@ -80,7 +85,7 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 		"{user_address}": user_address,
 		"{current_scene}": _get_scene_description(save_mgr.get_character_scene()),
 		"{current_weather}": _get_weather_description(save_mgr.get_current_weather()),
-		"{long_term_memory}": "", # 将在对话时动态填充
+		"{long_term_memory}": "{long_term_memory}" if keep_long_term_memory_placeholder else "", # 保留或清空
 		"{memory_context}": memory_context,
 		"{relationship_context}": relationship_context,
 		"{moods}": moods,
@@ -499,14 +504,16 @@ func build_system_prompt_with_long_term_memory(trigger_mode: String, user_input:
 	Returns:
 		完整的系统提示词
 	"""
-	# 先构建基础提示词
-	var base_prompt = build_system_prompt(trigger_mode)
+	# 先构建基础提示词（保留长期记忆占位符）
+	var base_prompt = build_system_prompt(trigger_mode, true)
 	
 	# 检索长期记忆
 	var long_term_memory = await _retrieve_long_term_memory(user_input)
 	
 	# 替换长期记忆占位符
+	print("替换前占位符存在: %s" % str(base_prompt.contains("{long_term_memory}")))
 	base_prompt = base_prompt.replace("{long_term_memory}", long_term_memory)
+	print("替换后占位符存在: %s" % str(base_prompt.contains("{long_term_memory}")))
 	
 	return base_prompt
 
@@ -534,7 +541,13 @@ func _retrieve_long_term_memory(query: String) -> String:
 		query = _get_recent_context_for_query()
 	
 	# 检索相关记忆
+	print("正在检索长期记忆，查询: %s" % query.substr(0, 50))
 	var memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query)
+	
+	if memory_prompt.is_empty():
+		print("未找到相关长期记忆")
+	else:
+		print("找到长期记忆，长度: %d 字符" % memory_prompt.length())
 	
 	return memory_prompt
 

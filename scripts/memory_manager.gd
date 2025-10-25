@@ -168,11 +168,12 @@ func _on_auto_save():
 		memory_system.save_to_file()
 		print("记忆数据已自动保存")
 
-func add_conversation_summary(summary: String):
+func add_conversation_summary(summary: String, metadata: Dictionary = {}):
 	"""添加对话总结到记忆系统
 	
 	Args:
 		summary: 对话总结文本
+		metadata: 元数据（可选），如 {"mood": "happy", "affection": 75}
 	"""
 	if not is_initialized:
 		await memory_system_ready
@@ -182,21 +183,25 @@ func add_conversation_summary(summary: String):
 	
 	var storage_config = config.get("storage", {})
 	if storage_config.get("store_summaries", true):
-		await memory_system.add_text(summary, "conversation")
+		# 只在有实际内容时才传递 metadata
+		await memory_system.add_text(summary, "conversation", metadata)
 		print("对话总结已添加到向量库")
 
 func add_diary_entry(entry: Dictionary):
 	"""添加日记条目到记忆系统
 	
 	Args:
-		entry: 日记条目 {time: String, event: String}
+		entry: 日记条目 {time: String, event: String, type: String (可选)}
 	"""
 	if not is_initialized:
 		await memory_system_ready
 	
 	var storage_config = config.get("storage", {})
 	if storage_config.get("store_diaries", true):
-		var diary_text = "[%s] %s" % [entry.time, entry.event]
+		# 日记文本（add_text 会自动添加当前时间戳）
+		var diary_text = entry.event
+		
+		# metadata 留空，因为时间已经在文本中了
 		await memory_system.add_diary_entry(diary_text)
 		print("日记条目已添加到向量库")
 
@@ -210,6 +215,7 @@ func get_relevant_memory_for_chat(context: String) -> String:
 		格式化的记忆提示词
 	"""
 	if not is_initialized:
+		print("记忆系统未初始化，等待就绪...")
 		await memory_system_ready
 	
 	var retrieval_config = config.get("retrieval", {})
@@ -217,7 +223,11 @@ func get_relevant_memory_for_chat(context: String) -> String:
 	var min_similarity = retrieval_config.get("min_similarity", 0.3)
 	var timeout = retrieval_config.get("timeout", 10.0)
 	
-	return await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity)
+	print("开始检索记忆：top_k=%d, min_similarity=%.2f" % [top_k, min_similarity])
+	var result = await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity)
+	print("记忆检索完成，结果长度: %d" % result.length())
+	
+	return result
 
 func save():
 	"""手动保存记忆数据"""
