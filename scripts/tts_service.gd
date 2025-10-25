@@ -478,22 +478,29 @@ func _on_tts_completed(result: int, response_code: int, _headers: PackedStringAr
 	tts_requests.erase(request_id)
 	http_request.queue_free()
 	
+	var request_failed = false
+	
 	if result != HTTPRequest.RESULT_SUCCESS:
 		var error_msg = "TTS请求 #%d 失败: %s" % [request_id, str(result)]
 		print(error_msg)
 		tts_error.emit(error_msg)
-		return
-	
-	if response_code != 200:
+		request_failed = true
+	elif response_code != 200:
 		var error_text = body.get_string_from_utf8()
 		var error_msg = "TTS请求 #%d 错误 (%d): %s" % [request_id, response_code, error_text]
 		print(error_msg)
 		tts_error.emit(error_msg)
-		return
-	
-	# 检查音频数据大小
-	if body.size() == 0:
+		request_failed = true
+	elif body.size() == 0:
 		print("错误: TTS请求 #%d 接收到的音频数据为空" % request_id)
+		request_failed = true
+	
+	# 如果请求失败，在缓冲区中标记为空，避免阻塞后续播放
+	if request_failed:
+		audio_buffer[request_id] = PackedByteArray() # 空数据标记
+		print("TTS请求 #%d 失败，已标记为空以避免阻塞" % request_id)
+		# 尝试播放下一个（跳过失败的）
+		_try_play_next()
 		return
 	
 	print("TTS请求 #%d 接收到音频数据: %d 字节" % [request_id, body.size()])
@@ -526,8 +533,16 @@ func _try_play_next():
 	print("=== 播放音频 #%d ===" % next_play_id)
 	print("数据大小: %d 字节" % audio_data.size())
 	
-	is_playing = true
 	next_play_id += 1
+	
+	# 如果是空数据（失败的请求），直接跳过
+	if audio_data.size() == 0:
+		print("音频 #%d 为空（请求失败），跳过并继续下一个" % (next_play_id - 1))
+		# 递归调用以尝试播放下一个
+		_try_play_next()
+		return
+	
+	is_playing = true
 	
 	# 将音频数据转换为AudioStream
 	var stream = _create_audio_stream(audio_data)
