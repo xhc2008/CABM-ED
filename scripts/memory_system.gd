@@ -128,20 +128,22 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 		print("警告: 尝试添加空文本")
 		return
 	
-	# 为文本添加时间戳前缀（便于查看和检索）
+	# 在开始时就确定时间戳，避免嵌入 API 延迟影响
 	var timestamp = MemoryItem._get_local_datetime_string()
 	var time_str = _format_timestamp_for_display(timestamp)
 	var formatted_text = "[%s] %s" % [time_str, text]
 	
-	# 获取文本的向量表示（使用队列系统）
+	# 获取文本的向量表示（使用队列系统，可能有延迟）
 	var vector = await get_embedding(formatted_text)
 	
 	if vector.is_empty():
 		print("警告: 获取向量失败，跳过添加")
 		return
 	
-	# 创建记忆项
+	# 创建记忆项（使用之前确定的时间戳）
 	var item = MemoryItem.new(formatted_text, vector, item_type)
+	item.timestamp = timestamp  # 覆盖构造函数中的时间戳
+	
 	# 只在有实际内容时才设置 metadata
 	if not metadata.is_empty():
 		item.metadata = metadata.duplicate()
@@ -293,14 +295,14 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 	# 继续处理下一个请求
 	_process_request_queue()
 
-func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> Array:
+func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_contents: Array = []) -> Array:
 	"""搜索相关记忆
 	
 	Args:
 		query: 查询文本
 		top_k: 返回结果数量
 		min_similarity: 最小相似度阈值
-		exclude_timestamps: 要排除的时间戳列表
+		exclude_contents: 要排除的内容列表（通过文本匹配）
 	"""
 	if memory_items.is_empty():
 		return []
@@ -318,8 +320,8 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 	for i in range(memory_items.size()):
 		var item = memory_items[i]
 		
-		# 跳过要排除的时间戳
-		if exclude_timestamps.has(item.timestamp):
+		# 跳过要排除的内容（通过文本匹配）
+		if _should_exclude_item(item, exclude_contents):
 			continue
 		
 		var similarity = _calculate_similarity(query_vector, item.vector)
@@ -345,6 +347,98 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 		})
 	
 	return results
+
+func _should_exclude_item(item: MemoryItem, exclude_contents: Array) -> bool:
+	"""判断记忆项是否应该被排除
+	
+	Args:
+		item: 记忆项
+		exclude_contents: 要排除的内容列表
+	
+	Returns:
+		是否应该排除
+	"""
+	if exclude_contents.is_empty():
+		return false
+	
+	# 提取记忆项的纯文本内容（去除时间戳前缀）
+	var item_content = _extract_content_without_timestamp(item.text)
+	
+	# 检查是否与排除列表中的任何内容匹配
+	for exclude_content in exclude_contents:
+		# 使用模糊匹配：如果内容相似度很高，则排除
+		if _is_content_similar(item_content, exclude_content):
+			return true
+	
+	return false
+
+func _extract_content_without_timestamp(text: String) -> String:
+	"""从文本中提取内容，去除时间戳前缀
+	
+	Args:
+		text: 完整文本，如 "[10-25 11:35] 我整理完餐桌..."
+	
+	Returns:
+		纯内容，如 "我整理完餐桌..."
+	"""
+	# 匹配格式：[MM-DD HH:MM] 或 [HH:MM]
+	var regex = RegEx.new()
+	regex.compile("^\\[\\d{2}-\\d{2} \\d{2}:\\d{2}\\] |^\\[\\d{2}:\\d{2}\\] ")
+	var result = regex.sub(text, "", true)
+	return result.strip_edges()
+
+func _is_content_similar(content1: String, content2: String) -> bool:
+	"""判断两个内容是否相似（用于排除重复）
+	
+	Args:
+		content1: 内容1
+		content2: 内容2
+	
+	Returns:
+		是否相似
+	"""
+	# 清理文本
+	var c1 = content1.strip_edges()
+	var c2 = content2.strip_edges()
+	
+	# 完全匹配
+	if c1 == c2:
+		return true
+	
+	# 如果一个是另一个的子串（长度差不大）
+	var len_diff = abs(c1.length() - c2.length())
+	if len_diff < 10:  # 允许10个字符的差异
+		if c1.contains(c2) or c2.contains(c1):
+			return true
+	
+	# 计算相似度（简单的字符匹配）
+	var similarity = _calculate_text_similarity(c1, c2)
+	return similarity > 0.9  # 90% 以上相似度认为是重复
+
+func _calculate_text_similarity(text1: String, text2: String) -> float:
+	"""计算两个文本的相似度（简单实现）
+	
+	Args:
+		text1: 文本1
+		text2: 文本2
+	
+	Returns:
+		相似度 (0.0 - 1.0)
+	"""
+	if text1.is_empty() or text2.is_empty():
+		return 0.0
+	
+	# 使用最长公共子序列的长度比例
+	var shorter = text1 if text1.length() < text2.length() else text2
+	var longer = text2 if text1.length() < text2.length() else text1
+	
+	# 简化：检查较短文本的字符在较长文本中出现的比例
+	var match_count = 0
+	for ch in shorter:
+		if longer.contains(ch):
+			match_count += 1
+	
+	return float(match_count) / float(shorter.length())
 
 func _calculate_similarity(vec1: Array, vec2: Array) -> float:
 	"""计算余弦相似度"""
@@ -375,7 +469,7 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array) -> float:
 	
 	return dot / (mag1 * mag2)
 
-func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> String:
+func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3, exclude_contents: Array = []) -> String:
 	"""获取相关记忆并格式化为提示词
 	
 	Args:
@@ -383,9 +477,9 @@ func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, 
 		top_k: 返回结果数量
 		_timeout: 超时时间（保留参数，暂未使用）
 		min_similarity: 最小相似度阈值
-		exclude_timestamps: 要排除的时间戳列表
+		exclude_contents: 要排除的内容列表
 	"""
-	var results = await search(query, top_k, min_similarity, exclude_timestamps)
+	var results = await search(query, top_k, min_similarity, exclude_contents)
 	
 	if results.is_empty():
 		return ""

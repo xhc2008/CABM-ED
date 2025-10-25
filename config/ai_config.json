@@ -112,7 +112,7 @@
         "vector_db": {
             "enable": true,
             "top_k": 5,
-            "min_similarity": 0.4,
+            "min_similarity": 0.6,
             "timeout": 10.0,
             "auto_save": true,
             "save_interval": 300,

@@ -205,12 +205,12 @@ func add_diary_entry(entry: Dictionary):
 		await memory_system.add_diary_entry(diary_text)
 		print("日记条目已添加到向量库")
 
-func get_relevant_memory_for_chat(context: String, exclude_timestamps: Array = []) -> String:
+func get_relevant_memory_for_chat(context: String, exclude_contents: Array = []) -> String:
 	"""获取与当前对话相关的记忆
 	
 	Args:
 		context: 当前对话上下文
-		exclude_timestamps: 要排除的时间戳列表（通常是短期记忆）
+		exclude_contents: 要排除的内容列表（通常是短期记忆的文本）
 	
 	Returns:
 		格式化的记忆提示词
@@ -224,8 +224,8 @@ func get_relevant_memory_for_chat(context: String, exclude_timestamps: Array = [
 	var min_similarity = retrieval_config.get("min_similarity", 0.3)
 	var timeout = retrieval_config.get("timeout", 10.0)
 	
-	print("开始检索记忆：top_k=%d, min_similarity=%.2f, 排除=%d条" % [top_k, min_similarity, exclude_timestamps.size()])
-	var result = await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity, exclude_timestamps)
+	print("开始检索记忆：top_k=%d, min_similarity=%.2f, 排除=%d条" % [top_k, min_similarity, exclude_contents.size()])
+	var result = await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity, exclude_contents)
 	print("记忆检索完成，结果长度: %d" % result.length())
 	
 	return result

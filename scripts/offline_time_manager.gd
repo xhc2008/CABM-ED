@@ -610,7 +610,7 @@ func _build_memory_timestamp(date_str: String, time_str: String) -> String:
 	
 	return "%sT%s:00" % [date_str, time_str]
 
-func _save_diary_to_memory(time_str: String, event_text: String, date_str: String):
+func _save_diary_to_memory(time_str: String, event_text: String, _date_str: String):
 	"""将日记保存到记忆系统"""
 	var save_mgr = get_node("/root/SaveManager")
 	var ai_service = get_node("/root/AIService")
@@ -623,9 +623,18 @@ func _save_diary_to_memory(time_str: String, event_text: String, date_str: Strin
 			"relationship_history": []
 		}
 	
-	# 构建并添加记忆条目
+	# 在开始时就确定时间戳（避免嵌入 API 延迟导致时间不一致）
+	var current_unix = Time.get_unix_time_from_system()
+	var timezone_offset = _get_timezone_offset()
+	var local_dict = Time.get_datetime_dict_from_unix_time(int(current_unix + timezone_offset))
+	var current_timestamp = "%04d-%02d-%02dT%02d:%02d:%02d" % [
+		local_dict.year, local_dict.month, local_dict.day,
+		local_dict.hour, local_dict.minute, local_dict.second
+	]
+	
+	# 保存到存档（使用确定的时间戳）
 	var memory_item = {
-		"timestamp": _build_memory_timestamp(date_str, time_str),
+		"timestamp": current_timestamp,
 		"content": event_text
 	}
 	save_mgr.save_data.ai_data.memory.append(memory_item)
@@ -638,12 +647,13 @@ func _save_diary_to_memory(time_str: String, event_text: String, date_str: Strin
 	save_mgr.save_game(save_mgr.current_slot, false)
 	
 	# 保存到向量数据库（RAG长期记忆）
+	# 注意：memory_system.add_text 内部也会在开始时确定时间戳
+	# 两个时间戳应该非常接近（相差不到1秒）
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
-		# 构建日记条目（简化，不需要额外 metadata）
 		var diary_entry = {
 			"time": time_str,
 			"event": event_text
 		}
-		# 异步保存日记到向量库
+		# 异步保存日记到向量库（可能有几秒延迟）
 		await memory_mgr.add_diary_entry(diary_entry)
