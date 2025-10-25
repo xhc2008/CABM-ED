@@ -10,20 +10,46 @@ var board: Array = []
 var current_player: int = 1 # 1=玩家(黑), 2=AI(白)
 var game_over: bool = false
 var player_first: bool = true
+var game_started: bool = false
+var player_name: String = "玩家"
+var character_name: String = "角色"
 
 @onready var board_container: Control = $BoardContainer
-@onready var player_info: Panel = $PlayerInfo
-@onready var ai_info: Panel = $AIInfo
+@onready var player_info: Panel = $LeftPanel
+@onready var ai_info: Panel = $RightPanel
 @onready var back_button: Button = $BackButton
-@onready var ai_first_button: Button = $AIFirstButton
+@onready var start_hint: Label = $LeftPanel/StartHint
+@onready var ai_first_button: Button = $RightPanel/AIFirstButton
+@onready var player_name_label: Label = $LeftPanel/PlayerName
+@onready var player_turn_label: Label = $LeftPanel/TurnLabel
+@onready var ai_name_label: Label = $RightPanel/AIName
+@onready var ai_turn_label: Label = $RightPanel/TurnLabel
 
 func _ready():
 	_init_board()
+	_load_character_name()
+	_setup_ui()
 	back_button.pressed.connect(_on_back_pressed)
 	ai_first_button.pressed.connect(_on_ai_first_pressed)
 	board_container.gui_input.connect(_on_board_input)
 	board_container.draw.connect(_on_board_draw)
 	_draw_board()
+
+func _load_character_name():
+	# 从EventHelpers获取角色名称
+	if has_node("/root/EventHelpers"):
+		var helpers = get_node("/root/EventHelpers")
+		character_name = helpers.get_character_name()
+
+func _setup_ui():
+	# 设置初始UI状态
+	player_name_label.text = player_name
+	ai_name_label.text = character_name
+	start_hint.visible = true
+	ai_first_button.visible = true
+	player_turn_label.visible = false
+	ai_turn_label.visible = false
+	_update_turn_display()
 
 func _init_board():
 	board.clear()
@@ -77,6 +103,10 @@ func _on_board_input(event: InputEvent):
 		return
 	
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# 第一次点击时开始游戏
+		if not game_started:
+			_start_game()
+		
 		var pos = event.position
 		var row = int((pos.y - BOARD_MARGIN + CELL_SIZE / 2.0) / CELL_SIZE)
 		var col = int((pos.x - BOARD_MARGIN + CELL_SIZE / 2.0) / CELL_SIZE)
@@ -84,6 +114,14 @@ func _on_board_input(event: InputEvent):
 		if row >= 0 and row < BOARD_SIZE and col >= 0 and col < BOARD_SIZE:
 			if board[row][col] == 0:
 				_place_stone(row, col, 1)
+
+func _start_game():
+	game_started = true
+	start_hint.visible = false
+	ai_first_button.visible = false
+	player_turn_label.visible = true
+	ai_turn_label.visible = true
+	_update_turn_display()
 
 func _place_stone(row: int, col: int, player: int):
 	board[row][col] = player
@@ -100,10 +138,26 @@ func _place_stone(row: int, col: int, player: int):
 		return
 	
 	current_player = 3 - current_player
+	_update_turn_display()
 	
 	if current_player == 2:
 		await get_tree().create_timer(0.5).timeout
 		_ai_move()
+
+func _update_turn_display():
+	if not game_started:
+		return
+	
+	if current_player == 1:
+		player_turn_label.text = "● 你的回合"
+		player_turn_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+		ai_turn_label.text = "○ 等待中..."
+		ai_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	else:
+		player_turn_label.text = "○ 等待中..."
+		player_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		ai_turn_label.text = "● 思考中..."
+		ai_turn_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 
 func _ai_move():
 	var move = _get_ai_move(board)
@@ -207,11 +261,26 @@ func _is_board_full() -> bool:
 	return true
 
 func _show_winner(player: int):
-	var winner_name = "玩家" if player == 1 else "角色"
+	var winner_name = player_name if player == 1 else character_name
 	_show_game_result(winner_name + " 获胜！")
+	_update_turn_display_game_over(player)
 
 func _show_draw():
 	_show_game_result("平局！")
+	player_turn_label.text = "平局"
+	ai_turn_label.text = "平局"
+
+func _update_turn_display_game_over(winner: int):
+	if winner == 1:
+		player_turn_label.text = "🎉 胜利！"
+		player_turn_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
+		ai_turn_label.text = "失败"
+		ai_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	else:
+		player_turn_label.text = "失败"
+		player_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		ai_turn_label.text = "🎉 胜利！"
+		ai_turn_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
 
 func _show_game_result(message: String):
 	# 创建结果提示
@@ -237,7 +306,7 @@ func _on_ai_first_pressed():
 		return
 	
 	player_first = false
-	ai_first_button.visible = false
+	_start_game()
 	
 	# 直接在中心落子，不触发 _place_stone 的玩家切换逻辑
 	board[7][7] = 2
