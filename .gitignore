@@ -4,6 +4,7 @@
 .godot/
 *.import
 *.translation
+*.zip
 export.cfg
 export_presets.cfg
 godot-cpp/
