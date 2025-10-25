@@ -55,6 +55,16 @@ func reset_idle_timer():
 		idle_timer.wait_time = _get_random_idle_timeout()
 		idle_timer.start()
 
+func pause_timers():
+	"""暂停所有计时器"""
+	if idle_timer:
+		idle_timer.paused = true
+
+func resume_timers():
+	"""恢复所有计时器"""
+	if idle_timer:
+		idle_timer.paused = false
+
 # ========================================
 # 事件函数
 # ========================================

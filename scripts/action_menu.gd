@@ -1,11 +1,17 @@
 extends Panel
 
 signal action_selected(action: String)
+signal game_selected(game_type: String)
 
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 @onready var chat_button: Button = $MarginContainer/VBoxContainer/ChatButton
+@onready var game_button: Button = $MarginContainer/VBoxContainer/GameButton
+@onready var game_submenu: Panel = $GameSubmenu
+@onready var gomoku_button: Button = $GameSubmenu/MarginContainer/VBoxContainer/GomokuButton
 
 const ANIMATION_DURATION = 0.2
+
+var current_scene: String = ""
 
 func _ready():
 	visible = false
@@ -13,23 +19,70 @@ func _ready():
 	scale = Vector2(0.8, 0.8)
 	
 	# 连接按钮信号
-	chat_button.pressed.connect(_on_chat_button_pressed)
+	if chat_button:
+		chat_button.pressed.connect(_on_chat_button_pressed)
+		print("聊天按钮信号已连接")
+	else:
+		print("警告：聊天按钮未找到")
+		
+	if game_button:
+		game_button.pressed.connect(_on_game_button_pressed)
+		print("游戏按钮信号已连接")
+	else:
+		print("警告：游戏按钮未找到")
+		
+	if gomoku_button:
+		gomoku_button.pressed.connect(_on_gomoku_button_pressed)
+		print("五子棋按钮信号已连接")
+	else:
+		print("警告：五子棋按钮未找到")
+	
+	# 初始隐藏游戏子菜单
+	if game_submenu:
+		game_submenu.visible = false
+		print("游戏子菜单已初始化")
+	else:
+		print("警告：游戏子菜单未找到")
 
 func _input(event):
-	# 如果菜单可见，且点击了菜单外的区域，则隐藏菜单
-	if visible and event is InputEventMouseButton:
-		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			# 检查点击位置是否在菜单内
-			var local_pos = get_local_mouse_position()
-			var menu_rect = Rect2(Vector2.ZERO, size)
-			if not menu_rect.has_point(local_pos):
-				hide_menu()
-				# 接受事件，防止传递到其他节点
-				get_viewport().set_input_as_handled()
+	# 如果菜单不可见，不处理
+	if not visible:
+		return
+	
+	# 只处理鼠标左键按下事件
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	
+	# 获取全局鼠标位置
+	var mouse_pos = get_viewport().get_mouse_position()
+	
+	# 检查是否点击在主菜单内
+	var main_rect = get_global_rect()
+	var in_main_menu = main_rect.has_point(mouse_pos)
+	
+	# 检查是否点击在子菜单内
+	var in_submenu = false
+	if game_submenu and game_submenu.visible:
+		var submenu_rect = game_submenu.get_global_rect()
+		in_submenu = submenu_rect.has_point(mouse_pos)
+	
+	# 只有点击在菜单和子菜单外才隐藏
+	if not in_main_menu and not in_submenu:
+		hide_menu()
+		get_viewport().set_input_as_handled()
 
-func show_menu(at_position: Vector2):
+func show_menu(at_position: Vector2, scene_id: String = ""):
 	# 设置菜单位置（在角色旁边）
 	position = at_position
+	current_scene = scene_id
+	
+	# 根据场景显示/隐藏游戏按钮
+	if game_button:
+		game_button.visible = (scene_id == "livingroom")
+	
+	# 隐藏子菜单
+	if game_submenu:
+		game_submenu.visible = false
 	
 	visible = true
 	pivot_offset = size / 2.0
@@ -41,6 +94,10 @@ func show_menu(at_position: Vector2):
 	tween.tween_property(self, "scale", Vector2.ONE, ANIMATION_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func hide_menu():
+	# 隐藏子菜单
+	if game_submenu:
+		game_submenu.visible = false
+	
 	pivot_offset = size / 2.0
 	
 	# 收起动画
@@ -54,4 +111,17 @@ func hide_menu():
 
 func _on_chat_button_pressed():
 	action_selected.emit("chat")
+	hide_menu()
+
+func _on_game_button_pressed():
+	print("游戏按钮被点击")
+	# 显示游戏子菜单
+	if game_submenu:
+		game_submenu.position = Vector2(size.x + 10, 0)
+		game_submenu.visible = true
+		print("子菜单已显示")
+
+func _on_gomoku_button_pressed():
+	print("五子棋按钮被点击")
+	game_selected.emit("gomoku")
 	hide_menu()

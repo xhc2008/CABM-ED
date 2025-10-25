@@ -54,6 +54,7 @@ func _ready():
 	
 	# 连接选项菜单信号
 	action_menu.action_selected.connect(_on_action_selected)
+	action_menu.game_selected.connect(_on_game_selected)
 	
 	# 连接场景菜单信号
 	scene_menu.scene_selected.connect(_on_scene_menu_selected)
@@ -476,7 +477,7 @@ func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	menu_pos.x = max(menu_pos.x, scene_rect.position.x + 10)
 	menu_pos.y = max(menu_pos.y, scene_rect.position.y + 10)
 	
-	action_menu.show_menu(menu_pos)
+	action_menu.show_menu(menu_pos, current_scene)
 
 func _on_action_selected(action: String):
 	if action == "chat":
@@ -505,6 +506,11 @@ func _on_action_selected(action: String):
 			if has_node("/root/UIManager"):
 				get_node("/root/UIManager").disable_all()
 
+func _on_game_selected(game_type: String):
+	print("游戏选择信号接收: ", game_type)
+	if game_type == "gomoku":
+		_start_gomoku_game()
+
 func _on_chat_ended():
 	# 聊天结束，角色返回场景（会自动处理位置变动和字幕）
 	await character.end_chat()
@@ -512,6 +518,61 @@ func _on_chat_ended():
 	# 重新启用所有UI交互
 	if has_node("/root/UIManager"):
 		get_node("/root/UIManager").enable_all()
+
+func _start_gomoku_game():
+	print("开始加载五子棋游戏")
+	# 加载五子棋场景
+	var gomoku_scene = load("res://scenes/gomoku_game.tscn")
+	if gomoku_scene:
+		print("五子棋场景加载成功")
+		var gomoku = gomoku_scene.instantiate()
+		gomoku.game_ended.connect(_on_gomoku_ended)
+		
+		# 隐藏主场景元素
+		_hide_main_scene()
+		
+		# 添加游戏场景
+		add_child(gomoku)
+		gomoku.z_index = 100
+		print("五子棋游戏已添加到场景树")
+	else:
+		print("错误：无法加载五子棋场景")
+
+func _hide_main_scene():
+	# 隐藏主场景的交互元素
+	sidebar.visible = false
+	character.visible = false
+	action_menu.visible = false
+	scene_menu.visible = false
+	if character_diary_button:
+		character_diary_button.visible = false
+	
+	# 停止计时器
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.pause_timers()
+
+func _show_main_scene():
+	# 恢复主场景元素
+	sidebar.visible = true
+	_update_ui_layout()
+	
+	# 重新加载角色
+	character.load_character_for_scene(current_scene)
+	
+	# 恢复计时器
+	if has_node("/root/EventManager"):
+		var event_mgr = get_node("/root/EventManager")
+		event_mgr.resume_timers()
+
+func _on_gomoku_ended():
+	# 移除游戏场景
+	for child in get_children():
+		if child.name == "GomokuGame":
+			child.queue_free()
+	
+	# 恢复主场景
+	_show_main_scene()
 
 
 func _on_character_scene_changed(new_scene: String):

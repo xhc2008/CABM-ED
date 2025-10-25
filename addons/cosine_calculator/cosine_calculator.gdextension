@@ -2,6 +2,7 @@
 
 entry_symbol = "cosine_calculator_library_init"
 compatibility_minimum = "4.1"
+reloadable = false
 
 [libraries]
 
