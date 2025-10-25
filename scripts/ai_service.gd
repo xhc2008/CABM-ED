@@ -548,6 +548,12 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	
 	print("记忆已保存: ", summary)
 	
+	# 保存到向量数据库（RAG长期记忆）
+	if has_node("/root/MemoryManager"):
+		var memory_mgr = get_node("/root/MemoryManager")
+		# 异步保存对话总结到向量库
+		await memory_mgr.add_conversation_summary(cleaned_summary)
+	
 	_call_address_api(conversation_text)
 	
 	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_items:

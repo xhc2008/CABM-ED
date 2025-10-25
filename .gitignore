@@ -6,6 +6,9 @@
 *.translation
 export.cfg
 export_presets.cfg
+godot-cpp/
+RAG/
+bin/
 
 # ================================
 # Mono (C#) 忽略规则

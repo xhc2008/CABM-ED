@@ -61,6 +61,9 @@ var selected_template: String = "standard" # 默认选择标准模板
 @onready var tts_model_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSModelInput
 @onready var tts_base_url_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSBaseURLInput
 @onready var tts_key_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / TTSKeyInput
+@onready var embedding_model_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / EmbeddingModelInput
+@onready var embedding_base_url_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / EmbeddingBaseURLInput
+@onready var embedding_key_input = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / EmbeddingKeyInput
 @onready var detail_save_button = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailSaveButton
 @onready var detail_status_label = $MarginContainer/VBoxContainer/TabContainer / 详细配置 / ScrollContainer / VBoxContainer / DetailStatusLabel
 
@@ -234,6 +237,12 @@ func _load_existing_config():
 		tts_model_input.text = tts.get("model", "")
 		tts_base_url_input.text = tts.get("base_url", "")
 		tts_key_input.text = tts.get("api_key", "")
+	
+	if config.has("embedding_model"):
+		var embedding = config.embedding_model
+		embedding_model_input.text = embedding.get("model", "")
+		embedding_base_url_input.text = embedding.get("base_url", "")
+		embedding_key_input.text = embedding.get("api_key", "")
 
 func _migrate_old_config():
 	"""从旧的api_keys.json迁移配置"""
@@ -314,6 +323,9 @@ func _on_detail_save_pressed():
 	var tts_model = tts_model_input.text.strip_edges()
 	var tts_base_url = tts_base_url_input.text.strip_edges()
 	var tts_key = tts_key_input.text.strip_edges()
+	var embedding_model = embedding_model_input.text.strip_edges()
+	var embedding_base_url = embedding_base_url_input.text.strip_edges()
+	var embedding_key = embedding_key_input.text.strip_edges()
 	
 	# 验证必填字段
 	if chat_model.is_empty() or chat_base_url.is_empty() or chat_key.is_empty():
@@ -345,6 +357,13 @@ func _on_detail_save_pressed():
 		"model": tts_model,
 		"base_url": tts_base_url,
 		"api_key": tts_key
+	}
+	
+	# 嵌入模型配置是可选的，但始终保存配置块（即使为空）
+	config["embedding_model"] = {
+		"model": embedding_model,
+		"base_url": embedding_base_url,
+		"api_key": embedding_key
 	}
 	
 	if _save_config(config):
@@ -380,6 +399,12 @@ func _sync_to_detail_config(config: Dictionary):
 		tts_model_input.text = tts.model
 		tts_base_url_input.text = tts.base_url
 		tts_key_input.text = tts.api_key
+	
+	if config.has("embedding_model"):
+		var embedding = config.embedding_model
+		embedding_model_input.text = embedding.model
+		embedding_base_url_input.text = embedding.base_url
+		embedding_key_input.text = embedding.api_key
 
 func _save_config(config: Dictionary) -> bool:
 	"""保存配置到文件"""

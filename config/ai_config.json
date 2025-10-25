@@ -14,6 +14,7 @@
             "output_requirements_diary": "你必须以严格的JSON格式输出，格式如下：\n{\n  \"entries\": [\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"},\n    {\"time\": \"MM-DD HH:MM\", \"event\": \"事件描述\"}\n  ]\n}\n\n要求：\n- time: 包含日期和时间，格式为\"MM-DD HH:MM\"（例如\"10-21 09:30\"、\"10-22 14:00\"）\n- 时间必须在{start_time}到{end_time}这个范围内\n- 如果时间跨越多天，确保日期正确递增\n- event: 用1-2个完整句子描述你做了什么，符合你的角色设定。禁止换行，禁止使用markdown。必须使用中文标点。\n- 事件应该按时间顺序排列\n- 事件内容要真实、具体、符合日常生活\n- 数组必须包含{event_count}个元素",
             "current_status": "时间：{current_time}\n你和用户位于：{current_scene}\n天气：{current_weather}\n对用户的好感度：{affection_level}\n互动意愿：{interaction_level}\n目前心情：{current_mood}",
             "relationship": "{relationship_context}",
+            "long_term_memory": "{long_term_memory}",
             "memory": "```\n{memory_context}\n```",
             "trigger": "{trigger_context}",
             "task": "列出你在{start_time}到{end_time}这段用户不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。需要注意时间上的合理性。"
@@ -35,6 +36,10 @@
                 {
                     "title": "你们之间的关系",
                     "field": "relationship"
+                },
+                {
+                    "title": "长期记忆",
+                    "field": "long_term_memory"
                 },
                 {
                     "title": "之前发生的事情",
@@ -93,10 +98,37 @@
         "enable_thinking": false,
         "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过100字。目前的关系：{relationship}/no_think"
     },
+    "embedding_model": {
+        "model": "",
+        "base_url": "",
+        "timeout": 30,
+        "vector_dim": 1024,
+        "batch_size": 64
+    },
     "memory": {
-        "max_memory_items": 10,
+        "max_memory_items": 15,
         "max_conversation_history": 10,
-        "max_relationship_history": 2
+        "max_relationship_history": 2,
+        "vector_db": {
+            "enable": true,
+            "top_k": 5,
+            "min_similarity": 0.3,
+            "timeout": 10.0,
+            "auto_save": true,
+            "save_interval": 300,
+            "max_items": 1000
+        },
+        "prompts": {
+            "memory_prefix": "这是唤醒的记忆，可以作为参考：\n```\n",
+            "memory_suffix": "\n```\n以上是记忆而不是最近的对话，可以不使用。",
+            "no_memory": ""
+        },
+        "storage": {
+            "store_conversations": true,
+            "store_summaries": true,
+            "store_diaries": true,
+            "summary_before_storage": false
+        }
     },
     "tts_model": {
         "model": "",

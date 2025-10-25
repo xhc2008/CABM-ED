@@ -246,6 +246,39 @@ secret = true
 [node name="HSeparator4" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 
+[node name="EmbeddingModelLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "嵌入模型配置（用于长期记忆RAG）"
+horizontal_alignment = 1
+
+[node name="EmbeddingModelName" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "模型名称:"
+
+[node name="EmbeddingModelInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "text-embedding-3-small"
+
+[node name="EmbeddingBaseURLLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "Base URL:"
+
+[node name="EmbeddingBaseURLInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "https://api.openai.com/v1"
+
+[node name="EmbeddingKeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "API 密钥:"
+
+[node name="EmbeddingKeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "sk-..."
+secret = true
+
+[node name="HSeparator5" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
 [node name="DetailSaveButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 text = "保存详细配置"

@@ -80,6 +80,7 @@ func build_system_prompt(trigger_mode: String = "user_initiated") -> String:
 		"{user_address}": user_address,
 		"{current_scene}": _get_scene_description(save_mgr.get_character_scene()),
 		"{current_weather}": _get_weather_description(save_mgr.get_current_weather()),
+		"{long_term_memory}": "", # 将在对话时动态填充
 		"{memory_context}": memory_context,
 		"{relationship_context}": relationship_context,
 		"{moods}": moods,
@@ -486,3 +487,71 @@ func build_offline_diary_prompt(start_time: String, end_time: String, event_coun
 	
 	push_error("PromptBuilder: 未找到提示词配置")
 	return ""
+
+
+func build_system_prompt_with_long_term_memory(trigger_mode: String, user_input: String) -> String:
+	"""构建包含长期记忆的系统提示词
+	
+	Args:
+		trigger_mode: 触发模式
+		user_input: 用户输入（用于检索相关记忆）
+	
+	Returns:
+		完整的系统提示词
+	"""
+	# 先构建基础提示词
+	var base_prompt = build_system_prompt(trigger_mode)
+	
+	# 检索长期记忆
+	var long_term_memory = await _retrieve_long_term_memory(user_input)
+	
+	# 替换长期记忆占位符
+	base_prompt = base_prompt.replace("{long_term_memory}", long_term_memory)
+	
+	return base_prompt
+
+func _retrieve_long_term_memory(query: String) -> String:
+	"""检索长期记忆
+	
+	Args:
+		query: 查询文本（通常是用户输入）
+	
+	Returns:
+		格式化的长期记忆提示词
+	"""
+	# 检查MemoryManager是否存在
+	if not has_node("/root/MemoryManager"):
+		return ""
+	
+	var memory_mgr = get_node("/root/MemoryManager")
+	
+	# 等待记忆系统就绪
+	if not memory_mgr.is_initialized:
+		await memory_mgr.memory_system_ready
+	
+	# 如果查询为空，使用最近的对话上下文作为查询
+	if query.strip_edges().is_empty():
+		query = _get_recent_context_for_query()
+	
+	# 检索相关记忆
+	var memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query)
+	
+	return memory_prompt
+
+func _get_recent_context_for_query() -> String:
+	"""获取最近的对话上下文用于记忆检索"""
+	var save_mgr = get_node("/root/SaveManager")
+	var history = save_mgr.get_conversation_history()
+	
+	if history.is_empty():
+		return "日常对话"
+	
+	# 使用最近3轮对话作为上下文
+	var recent_turns = []
+	var start_idx = max(0, history.size() - 3)
+	
+	for i in range(start_idx, history.size()):
+		var turn = history[i]
+		recent_turns.append(turn.user + " " + turn.assistant)
+	
+	return " ".join(recent_turns)

@@ -1,0 +1,29 @@
+{
+    "embedding": {
+        "model": "",
+        "base_url": "",
+        "api_key": "",
+        "vector_dim": 1024,
+        "batch_size": 64
+    },
+    "retrieval": {
+        "top_k": 5,
+        "min_similarity": 0.3,
+        "timeout": 10.0
+    },
+    "storage": {
+        "auto_save": true,
+        "save_interval": 300,
+        "max_memory_items": 1000
+    },
+    "diary": {
+        "enable_vector_storage": true,
+        "summary_before_storage": false,
+        "max_diary_length": 500
+    },
+    "conversation": {
+        "enable_vector_storage": true,
+        "store_every_turn": false,
+        "store_summary_only": true
+    }
+}
