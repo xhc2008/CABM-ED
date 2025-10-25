@@ -85,12 +85,12 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 		chat_error.emit("API 密钥未配置")
 		return
 	
-	# 检查是否需要清除上下文（距上次对话超过5分钟）
-	var current_time = Time.get_unix_time_from_system()
-	if last_conversation_time > 0 and (current_time - last_conversation_time) > 300: # 5分钟 = 300秒
-		print("距上次对话超过5分钟，清除全部上下文")
-		current_conversation.clear()
-		is_first_message = true
+	# 只在新对话开始时检查是否需要清除上下文（距上次对话超过5分钟）
+	if is_first_message:
+		var current_time = Time.get_unix_time_from_system()
+		if last_conversation_time > 0 and (current_time - last_conversation_time) > 300: # 5分钟 = 300秒
+			print("距上次对话超过5分钟，清除全部上下文")
+			current_conversation.clear()
 	
 	is_chatting = true
 	
@@ -110,10 +110,14 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	
 	var messages = [ {"role": "system", "content": system_prompt}]
 	
-	# 直接使用全部 current_conversation（因为在 end_chat 时已经清除过了）
-	print("开始对话，当前上下文数量: %d" % current_conversation.size())
-	for i in range(current_conversation.size()):
-		var msg = {"role": current_conversation[i].role, "content": current_conversation[i].content}
+	# 限制发送给对话模型的上下文数量（最多 max_conversation_history 条）
+	var max_history = config_loader.config.memory.get("max_conversation_history", 10)
+	var start_index = max(0, current_conversation.size() - max_history)
+	var history_to_send = current_conversation.slice(start_index)
+	
+	print("开始对话，当前上下文总数: %d, 发送: %d 条（最多%d条）" % [current_conversation.size(), history_to_send.size(), max_history])
+	for i in range(history_to_send.size()):
+		var msg = {"role": history_to_send[i].role, "content": history_to_send[i].content}
 		messages.append(msg)
 	
 	if trigger_mode == "user_initiated" and not user_message.is_empty():
@@ -329,6 +333,9 @@ func end_chat():
 	
 	# 记录对话结束时间
 	last_conversation_time = Time.get_unix_time_from_system()
+	
+	# 重置为第一条消息状态，以便下次对话开始时检查超时清理
+	is_first_message = true
 	
 	# 更新临时文件
 	_save_temp_conversation()
