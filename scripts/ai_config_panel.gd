@@ -18,6 +18,10 @@ const CONFIG_TEMPLATES = {
 		"tts_model": {
 			"model": "",
 			"base_url": "",
+		},
+		"embedding_model": {
+			"model": "BAAI/bge-m3",
+			"base_url": "https://api.siliconflow.cn/v1"
 		}
 	},
 	"standard": {
@@ -34,6 +38,10 @@ const CONFIG_TEMPLATES = {
 		"tts_model": {
 			"model": "FunAudioLLM/CosyVoice2-0.5B",
 			"base_url": "https://api.siliconflow.cn"
+		},
+		"embedding_model": {
+			"model": "BAAI/bge-m3",
+			"base_url": "https://api.siliconflow.cn/v1"
 		}
 	}
 }

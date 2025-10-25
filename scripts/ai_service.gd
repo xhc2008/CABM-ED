@@ -532,9 +532,16 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	# 使用自定义时间戳（断点恢复）或当前时间
 	var timestamp: String
 	if custom_timestamp != null:
-		timestamp = Time.get_datetime_string_from_unix_time(int(custom_timestamp))
+		# 将 Unix 时间戳转换为本地时间字符串
+		var timezone_offset = _get_timezone_offset()
+		var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
+		timestamp = "%04d-%02d-%02dT%02d:%02d:%02d" % [
+			local_dict.year, local_dict.month, local_dict.day,
+			local_dict.hour, local_dict.minute, local_dict.second
+		]
 	else:
-		timestamp = Time.get_datetime_string_from_system()
+		# 获取本地时间
+		timestamp = _get_local_datetime_string()
 	
 	var cleaned_summary = summary.strip_edges()
 	
@@ -750,7 +757,7 @@ func _save_relationship(relationship_summary: String):
 	if not save_mgr.save_data.ai_data.has("relationship_history"):
 		save_mgr.save_data.ai_data.relationship_history = []
 	
-	var timestamp = Time.get_datetime_string_from_system()
+	var timestamp = _get_local_datetime_string()
 	var cleaned_summary = relationship_summary.strip_edges()
 	
 	var relationship_item = {
@@ -779,15 +786,15 @@ func _calculate_word_limit(conversation_count: int) -> int:
 	- 9条及以上：110字
 	"""
 	if conversation_count <= 2:
-		return 30
+		return 20
 	elif conversation_count <= 4:
-		return 50
+		return 40
 	elif conversation_count <= 6:
-		return 70
+		return 60
 	elif conversation_count <= 8:
-		return 90
+		return 80
 	else:
-		return 110
+		return 100
 
 func _save_temp_conversation():
 	"""保存当前对话到临时文件"""
@@ -894,3 +901,30 @@ func _flatten_conversation_from_data(conversation_data: Array) -> String:
 			lines.append("%s：%s" % [char_name, content])
 	
 	return "\n".join(lines)
+
+func _get_local_datetime_string() -> String:
+	"""获取本地时间字符串（带时区转换）"""
+	var unix_time = Time.get_unix_time_from_system()
+	var timezone_offset = _get_timezone_offset()
+	var local_dict = Time.get_datetime_dict_from_unix_time(int(unix_time + timezone_offset))
+	return "%04d-%02d-%02dT%02d:%02d:%02d" % [
+		local_dict.year, local_dict.month, local_dict.day,
+		local_dict.hour, local_dict.minute, local_dict.second
+	]
+
+func _get_timezone_offset() -> int:
+	"""获取本地时区相对于UTC的偏移（秒）"""
+	var local_time = Time.get_datetime_dict_from_system()
+	var unix_time = Time.get_unix_time_from_system()
+	var utc_time = Time.get_datetime_dict_from_unix_time(int(unix_time))
+	
+	# 计算小时差
+	var hour_diff = local_time.hour - utc_time.hour
+	
+	# 处理跨日情况
+	if hour_diff > 12:
+		hour_diff -= 24
+	elif hour_diff < -12:
+		hour_diff += 24
+	
+	return hour_diff * 3600

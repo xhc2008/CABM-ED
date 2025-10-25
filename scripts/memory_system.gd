@@ -13,8 +13,35 @@ class MemoryItem:
 	func _init(p_text: String = "", p_vector: Array = [], p_type: String = "conversation"):
 		text = p_text
 		vector = p_vector
-		timestamp = Time.get_datetime_string_from_system()
+		timestamp = _get_local_datetime_string()
 		type = p_type
+	
+	static func _get_local_datetime_string() -> String:
+		"""获取本地时间字符串（带时区转换）"""
+		var unix_time = Time.get_unix_time_from_system()
+		var timezone_offset = _get_timezone_offset()
+		var local_dict = Time.get_datetime_dict_from_unix_time(int(unix_time + timezone_offset))
+		return "%04d-%02d-%02dT%02d:%02d:%02d" % [
+			local_dict.year, local_dict.month, local_dict.day,
+			local_dict.hour, local_dict.minute, local_dict.second
+		]
+	
+	static func _get_timezone_offset() -> int:
+		"""获取本地时区相对于UTC的偏移（秒）"""
+		var local_time = Time.get_datetime_dict_from_system()
+		var unix_time = Time.get_unix_time_from_system()
+		var utc_time = Time.get_datetime_dict_from_unix_time(int(unix_time))
+		
+		# 计算小时差
+		var hour_diff = local_time.hour - utc_time.hour
+		
+		# 处理跨日情况
+		if hour_diff > 12:
+			hour_diff -= 24
+		elif hour_diff < -12:
+			hour_diff += 24
+		
+		return hour_diff * 3600
 	
 	func to_dict() -> Dictionary:
 		return {
@@ -102,7 +129,7 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 		return
 	
 	# 为文本添加时间戳前缀（便于查看和检索）
-	var timestamp = Time.get_datetime_string_from_system()
+	var timestamp = MemoryItem._get_local_datetime_string()
 	var time_str = _format_timestamp_for_display(timestamp)
 	var formatted_text = "[%s] %s" % [time_str, text]
 	
@@ -266,8 +293,15 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 	# 继续处理下一个请求
 	_process_request_queue()
 
-func search(query: String, top_k: int = 5, min_similarity: float = 0.3) -> Array:
-	"""搜索相关记忆"""
+func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> Array:
+	"""搜索相关记忆
+	
+	Args:
+		query: 查询文本
+		top_k: 返回结果数量
+		min_similarity: 最小相似度阈值
+		exclude_timestamps: 要排除的时间戳列表
+	"""
 	if memory_items.is_empty():
 		return []
 	
@@ -283,6 +317,11 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3) -> Array
 	
 	for i in range(memory_items.size()):
 		var item = memory_items[i]
+		
+		# 跳过要排除的时间戳
+		if exclude_timestamps.has(item.timestamp):
+			continue
+		
 		var similarity = _calculate_similarity(query_vector, item.vector)
 		
 		if similarity >= min_similarity:
@@ -336,9 +375,17 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array) -> float:
 	
 	return dot / (mag1 * mag2)
 
-func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3) -> String:
-	"""获取相关记忆并格式化为提示词"""
-	var results = await search(query, top_k, min_similarity)
+func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> String:
+	"""获取相关记忆并格式化为提示词
+	
+	Args:
+		query: 查询文本
+		top_k: 返回结果数量
+		_timeout: 超时时间（保留参数，暂未使用）
+		min_similarity: 最小相似度阈值
+		exclude_timestamps: 要排除的时间戳列表
+	"""
+	var results = await search(query, top_k, min_similarity, exclude_timestamps)
 	
 	if results.is_empty():
 		return ""
@@ -385,7 +432,7 @@ func save_to_file(file_path: String = "") -> void:
 	var data = {
 		"db_name": db_name,
 		"vector_dim": vector_dim,
-		"last_updated": Time.get_datetime_string_from_system(),
+		"last_updated": MemoryItem._get_local_datetime_string(),
 		"count": memory_items.size(),
 		"texts": texts,
 		"vectors": vectors

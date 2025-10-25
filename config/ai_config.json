@@ -2,7 +2,7 @@
     "chat_model": {
         "model": "",
         "base_url": "",
-        "max_tokens": 1024,
+        "max_tokens": 4096,
         "temperature": 1.0,
         "top_p": 0.7,
         "timeout": 30,
@@ -80,7 +80,7 @@
     "summary_model": {
         "model": "",
         "base_url": "",
-        "max_tokens": 256,
+        "max_tokens": 512,
         "temperature": 0.3,
         "top_p": 0.9,
         "timeout": 30,
@@ -91,7 +91,7 @@
     "relationship_model": {
         "model": "",
         "base_url": "",
-        "max_tokens": 256,
+        "max_tokens": 512,
         "temperature": 0.3,
         "top_p": 0.9,
         "timeout": 30,

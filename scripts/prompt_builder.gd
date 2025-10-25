@@ -540,9 +540,12 @@ func _retrieve_long_term_memory(query: String) -> String:
 	if query.strip_edges().is_empty():
 		query = _get_recent_context_for_query()
 	
-	# 检索相关记忆
-	print("正在检索长期记忆，查询: %s" % query.substr(0, 50))
-	var memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query)
+	# 获取短期记忆的时间戳，用于排除
+	var exclude_timestamps = _get_short_term_memory_timestamps()
+	
+	# 检索相关记忆（排除短期记忆）
+	print("正在检索长期记忆，查询: %s，排除最近 %d 条" % [query.substr(0, 50), exclude_timestamps.size()])
+	var memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query, exclude_timestamps)
 	
 	if memory_prompt.is_empty():
 		print("未找到相关长期记忆")
@@ -550,6 +553,27 @@ func _retrieve_long_term_memory(query: String) -> String:
 		print("找到长期记忆，长度: %d 字符" % memory_prompt.length())
 	
 	return memory_prompt
+
+func _get_short_term_memory_timestamps() -> Array:
+	"""获取短期记忆的时间戳列表，用于排除重复检索
+	
+	Returns:
+		时间戳数组
+	"""
+	var save_mgr = get_node("/root/SaveManager")
+	
+	# 确保 ai_data 字段存在
+	if not save_mgr.save_data.has("ai_data"):
+		return []
+	
+	var memories = save_mgr.save_data.ai_data.get("memory", [])
+	var timestamps = []
+	
+	for memory in memories:
+		if memory.has("timestamp"):
+			timestamps.append(memory.timestamp)
+	
+	return timestamps
 
 func _get_recent_context_for_query() -> String:
 	"""获取最近的对话上下文用于记忆检索"""
