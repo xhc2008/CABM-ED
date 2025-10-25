@@ -73,7 +73,7 @@
             "user_initiated": "现在，用户找你聊天。",
             "character_initiated": "现在，你想主动找用户聊天，说点什么吧。",
             "ongoing": "你在和用户聊天。",
-            "called": "现在，用户在{current_scene}呼唤了你，你来到了用户面前，主动说点什么吧。",
+            "called": "现在，用户在{current_scene}呼唤了你，你从{character_scene}来到了用户面前，主动说点什么吧。",
             "called_here": "现在，用户呼唤了你，主动说点什么吧。"
         }
     },

@@ -1029,6 +1029,10 @@ func _move_character_to_current_scene():
 	if has_node("/root/SaveManager"):
 		var save_mgr = get_node("/root/SaveManager")
 		
+		# 保存角色原来的场景（用于提示词）
+		var old_scene = save_mgr.get_character_scene()
+		save_mgr.set_meta("character_old_scene", old_scene)
+		
 		# 设置不显示移动通知（因为是被呼唤来的）
 		save_mgr.set_meta("show_move_notification", false)
 		

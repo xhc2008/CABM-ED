@@ -347,12 +347,27 @@ func _get_trigger_context(trigger_mode: String) -> String:
 	var trigger_contexts = config.chat_model.trigger_contexts
 	var context = trigger_contexts.get(trigger_mode, "你在和用户聊天。")
 	
+	var save_mgr = get_node("/root/SaveManager")
+	
 	# 如果trigger_context中包含{current_scene}占位符，需要替换
 	if context.contains("{current_scene}"):
-		var save_mgr = get_node("/root/SaveManager")
 		var current_scene = save_mgr.get_character_scene()
 		var scene_name = _get_scene_description(current_scene)
 		context = context.replace("{current_scene}", scene_name)
+	
+	# 如果trigger_context中包含{character_scene}占位符，需要替换
+	if context.contains("{character_scene}"):
+		var old_scene = ""
+		if save_mgr.has_meta("character_old_scene"):
+			old_scene = save_mgr.get_meta("character_old_scene")
+			# 使用后清除，避免影响后续对话
+			save_mgr.remove_meta("character_old_scene")
+		else:
+			# 如果没有保存旧场景，使用当前场景（兜底）
+			old_scene = save_mgr.get_character_scene()
+		
+		var old_scene_name = _get_scene_description(old_scene)
+		context = context.replace("{character_scene}", old_scene_name)
 	
 	return context
 
