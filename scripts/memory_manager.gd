@@ -168,12 +168,13 @@ func _on_auto_save():
 		memory_system.save_to_file()
 		print("记忆数据已自动保存")
 
-func add_conversation_summary(summary: String, metadata: Dictionary = {}):
+func add_conversation_summary(summary: String, metadata: Dictionary = {}, custom_timestamp: String = ""):
 	"""添加对话总结到记忆系统
 	
 	Args:
 		summary: 对话总结文本
 		metadata: 元数据（可选），如 {"mood": "happy", "affection": 75}
+		custom_timestamp: 自定义时间戳（可选），格式为 "YYYY-MM-DDTHH:MM:SS"
 	"""
 	if not is_initialized:
 		await memory_system_ready
@@ -183,8 +184,8 @@ func add_conversation_summary(summary: String, metadata: Dictionary = {}):
 	
 	var storage_config = config.get("storage", {})
 	if storage_config.get("store_summaries", true):
-		# 只在有实际内容时才传递 metadata
-		await memory_system.add_text(summary, "conversation", metadata)
+		# 只在有实际内容时才传递 metadata 和 custom_timestamp
+		await memory_system.add_text(summary, "conversation", metadata, custom_timestamp)
 		print("对话总结已添加到向量库")
 
 func add_diary_entry(entry: Dictionary):
@@ -205,12 +206,12 @@ func add_diary_entry(entry: Dictionary):
 		await memory_system.add_diary_entry(diary_text)
 		print("日记条目已添加到向量库")
 
-func get_relevant_memory_for_chat(context: String, exclude_contents: Array = []) -> String:
+func get_relevant_memory_for_chat(context: String, exclude_timestamps: Array = []) -> String:
 	"""获取与当前对话相关的记忆
 	
 	Args:
 		context: 当前对话上下文
-		exclude_contents: 要排除的内容列表（通常是短期记忆的文本）
+		exclude_timestamps: 要排除的时间戳列表（通常是短期记忆的时间戳）
 	
 	Returns:
 		格式化的记忆提示词
@@ -224,8 +225,8 @@ func get_relevant_memory_for_chat(context: String, exclude_contents: Array = [])
 	var min_similarity = retrieval_config.get("min_similarity", 0.3)
 	var timeout = retrieval_config.get("timeout", 10.0)
 	
-	print("开始检索记忆：top_k=%d, min_similarity=%.2f, 排除=%d条" % [top_k, min_similarity, exclude_contents.size()])
-	var result = await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity, exclude_contents)
+	print("开始检索记忆：top_k=%d, min_similarity=%.2f, 排除=%d条" % [top_k, min_similarity, exclude_timestamps.size()])
+	var result = await memory_system.get_relevant_memory(context, top_k, timeout, min_similarity, exclude_timestamps)
 	print("记忆检索完成，结果长度: %d" % result.length())
 	
 	return result

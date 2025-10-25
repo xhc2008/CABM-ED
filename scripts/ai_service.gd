@@ -564,12 +564,13 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	
 	print("记忆已保存: ", summary)
 	
-	# 保存到向量数据库（RAG长期记忆）
+	# 保存到向量数据库（RAG长期记忆），传递相同的时间戳
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
 		# 可以选择性地添加 metadata（如心情、好感度等）
 		# 目前保持简单，不添加额外信息
-		await memory_mgr.add_conversation_summary(cleaned_summary)
+		# 传递短期记忆的时间戳，确保时间一致
+		await memory_mgr.add_conversation_summary(cleaned_summary, {}, timestamp)
 	
 	_call_address_api(conversation_text)
 	
