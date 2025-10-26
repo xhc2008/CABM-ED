@@ -243,7 +243,38 @@ func _add_diary_card(record: Dictionary):
 	card_vbox.add_theme_constant_override("separation", 8)
 	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
-	if record_type == "chat":
+	if record_type == "games":
+		# games类型：显示游戏记录，不可点击
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
+		var time_str = record.get("time", "")
+		var event_text = record.get("event", "")
+		
+		# 格式化时间显示
+		var display_time = _format_time_display(time_str)
+		
+		# 时间标签（带游戏图标）
+		var time_label = Label.new()
+		time_label.text = "🎮 " + display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		
+		# 事件内容
+		var event_label = Label.new()
+		event_label.text = event_text
+		event_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		event_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		event_label.custom_minimum_size.x = 700
+		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(event_label)
+		
+		card_panel.add_child(card_vbox)
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	elif record_type == "chat":
 		# chat类型：显示总结，可点击查看详情
 		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
