@@ -77,7 +77,7 @@ func check_and_apply_offline_changes():
 		return
 	
 	# 根据离线时长应用不同的变化
-	if offline_minutes < 5:
+	if offline_minutes < -1:
 		print("离线时间小于5分钟，无变化")
 		_apply_no_change()
 	elif offline_hours < 3:
@@ -566,14 +566,61 @@ func _ensure_diary_directory() -> bool:
 	return true
 
 func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dictionary, _end_datetime: Dictionary):
-	"""保存单条日记到文件和记忆"""
+	"""保存单条日记到文件和记忆（使用统一保存器）"""
+	# 从 time_str 中提取日期，如果没有日期则使用 start_datetime
+	var date_str = _extract_date_from_time(time_str, start_datetime)
+	
+	# 构建完整的时间戳（YYYY-MM-DDTHH:MM:SS）
+	var time_only = time_str
+	if time_str.length() == 11:
+		# 格式: MM-DD HH:MM，提取时间部分
+		time_only = time_str.substr(6, 5)  # HH:MM
+	
+	# 构建完整时间戳
+	var full_timestamp = "%sT%s:00" % [date_str, time_only]
+	
+	# 将时间戳转换为Unix时间戳
+	var parts = full_timestamp.split("T")
+	var date_parts = parts[0].split("-")
+	var time_parts = parts[1].split(":")
+	
+	var datetime_dict = {
+		"year": int(date_parts[0]),
+		"month": int(date_parts[1]),
+		"day": int(date_parts[2]),
+		"weekday": 0,
+		"hour": int(time_parts[0]),
+		"minute": int(time_parts[1]),
+		"second": int(time_parts[2]),
+		"dst": false
+	}
+	
+	var unix_time = Time.get_unix_time_from_datetime_dict(datetime_dict)
+	var timezone_offset = _get_timezone_offset()
+	unix_time -= timezone_offset  # 转换为UTC
+	
+	# 使用统一记忆保存器
+	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
+	if unified_saver:
+		await unified_saver.save_memory(
+			event_text,
+			unified_saver.MemoryType.OFFLINE,
+			unix_time,  # 使用计算出的Unix时间戳
+			"",
+			{}
+		)
+		print("日记已保存: [%s] %s" % [time_str, event_text])
+	else:
+		# 降级方案：使用旧逻辑
+		push_warning("UnifiedMemorySaver 未找到，使用旧的保存逻辑")
+		_save_diary_entry_legacy(time_str, event_text, date_str)
+
+func _save_diary_entry_legacy(time_str: String, event_text: String, date_str: String):
+	"""降级方案：使用旧的日记保存逻辑"""
 	if not _ensure_diary_directory():
 		return
 	
 	var diary_dir = "user://diary"
-	
-	# 从 time_str 中提取日期，如果没有日期则使用 start_datetime
-	var date_str = _extract_date_from_time(time_str, start_datetime)
 	var diary_path = diary_dir + "/" + date_str + ".jsonl"
 	
 	# 构建日记记录
@@ -597,25 +644,10 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	file.store_line(JSON.stringify(diary_record))
 	file.close()
 	
-	# 同时保存到记忆系统
-	_save_diary_to_memory(time_str, event_text, date_str)
-	
-	print("日记已保存: [%s] %s" % [time_str, event_text])
-
-func _build_memory_timestamp(date_str: String, time_str: String) -> String:
-	"""构建记忆系统的时间戳格式"""
-	# 如果time_str包含日期（MM-DD HH:MM），提取时间部分
-	if time_str.length() == 11:
-		time_str = time_str.substr(6, 5) # 提取 HH:MM
-	
-	return "%sT%s:00" % [date_str, time_str]
-
-func _save_diary_to_memory(time_str: String, event_text: String, _date_str: String):
-	"""将日记保存到记忆系统"""
+	# 保存到存档和向量数据库
 	var save_mgr = get_node("/root/SaveManager")
 	var ai_service = get_node("/root/AIService")
 	
-	# 确保 ai_data 字段存在
 	if not save_mgr.save_data.has("ai_data"):
 		save_mgr.save_data.ai_data = {
 			"memory": [],
@@ -623,7 +655,6 @@ func _save_diary_to_memory(time_str: String, event_text: String, _date_str: Stri
 			"relationship_history": []
 		}
 	
-	# 在开始时就确定时间戳（避免嵌入 API 延迟导致时间不一致）
 	var current_unix = Time.get_unix_time_from_system()
 	var timezone_offset = _get_timezone_offset()
 	var local_dict = Time.get_datetime_dict_from_unix_time(int(current_unix + timezone_offset))
@@ -632,28 +663,24 @@ func _save_diary_to_memory(time_str: String, event_text: String, _date_str: Stri
 		local_dict.hour, local_dict.minute, local_dict.second
 	]
 	
-	# 保存到存档（使用确定的时间戳）
 	var memory_item = {
 		"timestamp": current_timestamp,
 		"content": event_text
 	}
 	save_mgr.save_data.ai_data.memory.append(memory_item)
 	
-	# 限制记忆条目数量
 	var max_items = ai_service.config.memory.max_memory_items
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
 		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
 	
 	save_mgr.save_game(save_mgr.current_slot, false)
 	
-	# 保存到向量数据库（RAG长期记忆）
-	# 注意：memory_system.add_text 内部也会在开始时确定时间戳
-	# 两个时间戳应该非常接近（相差不到1秒）
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
 		var diary_entry = {
 			"time": time_str,
 			"event": event_text
 		}
-		# 异步保存日记到向量库（可能有几秒延迟）
 		await memory_mgr.add_diary_entry(diary_entry)
+	
+	print("日记已保存（旧逻辑）: [%s] %s" % [time_str, event_text])

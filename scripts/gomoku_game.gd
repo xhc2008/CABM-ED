@@ -373,10 +373,7 @@ func _on_back_pressed():
 	game_ended.emit()
 
 func _save_game_to_diary():
-	"""保存游戏记录到日记"""
-	if not has_node("/root/SaveManager"):
-		return
-	
+	"""保存游戏记录到日记和记忆"""
 	# 获取用户名
 	var user_name = "玩家"
 	if has_node("/root/EventHelpers"):
@@ -412,18 +409,19 @@ func _save_game_to_diary():
 		
 		diary_content = "我和%s玩了%d局五子棋，%s，比分%d比%d" % [user_name, total_games, result_text, ai_wins, player_wins]
 	
-	# 保存到日记
-	var save_mgr = get_node("/root/SaveManager")
-	var current_time = Time.get_datetime_dict_from_system()
-	var time_str = "%02d:%02d" % [current_time.hour, current_time.minute]
-	
-	save_mgr.add_diary_entry({
-		"type": "games",
-		"time": time_str,
-		"event": diary_content
-	})
-	
-	print("五子棋游戏记录已保存到日记: ", diary_content)
+	# 使用统一记忆保存器
+	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
+	if unified_saver:
+		await unified_saver.save_memory(
+			diary_content,
+			unified_saver.MemoryType.GAMES,
+			null,  # 使用当前时间
+			"",
+			{}
+		)
+		print("五子棋游戏记录已保存: ", diary_content)
+	else:
+		push_warning("UnifiedMemorySaver 未找到，游戏记录未保存")
 
 func _on_restart_pressed():
 	"""重新开始游戏"""

@@ -536,52 +536,62 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 	if not save_mgr.save_data.ai_data.has("relationship_history"):
 		save_mgr.save_data.ai_data.relationship_history = []
 	
-	# 使用自定义时间戳（断点恢复）或当前时间
-	var timestamp: String
-	if custom_timestamp != null:
-		# 将 Unix 时间戳转换为本地时间字符串
-		var timezone_offset = _get_timezone_offset()
-		var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
-		timestamp = "%04d-%02d-%02dT%02d:%02d:%02d" % [
-			local_dict.year, local_dict.month, local_dict.day,
-			local_dict.hour, local_dict.minute, local_dict.second
-		]
+	# 使用统一记忆保存器
+	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
+	if unified_saver:
+		await unified_saver.save_memory(
+			summary,
+			unified_saver.MemoryType.CHAT,
+			custom_timestamp,
+			conversation_text,
+			{}
+		)
 	else:
-		# 获取本地时间
-		timestamp = _get_local_datetime_string()
-	
-	var cleaned_summary = summary.strip_edges()
-	
-	var memory_item = {
-		"timestamp": timestamp,
-		"content": cleaned_summary
-	}
-	
-	save_mgr.save_data.ai_data.memory.append(memory_item)
-	save_mgr.save_data.ai_data.accumulated_summary_count += 1
-	
-	var max_items = config_loader.config.memory.max_memory_items
-	if save_mgr.save_data.ai_data.memory.size() > max_items:
-		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
-	
-	save_mgr.save_game(save_mgr.current_slot)
-	
-	# 将时间戳传递给日记保存函数
-	logger.save_to_diary(cleaned_summary, conversation_text, custom_timestamp)
+		# 降级方案：使用旧逻辑
+		push_warning("UnifiedMemorySaver 未找到，使用旧的保存逻辑")
+		
+		# 使用自定义时间戳（断点恢复）或当前时间
+		var timestamp: String
+		if custom_timestamp != null:
+			var timezone_offset = _get_timezone_offset()
+			var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
+			timestamp = "%04d-%02d-%02dT%02d:%02d:%02d" % [
+				local_dict.year, local_dict.month, local_dict.day,
+				local_dict.hour, local_dict.minute, local_dict.second
+			]
+		else:
+			timestamp = _get_local_datetime_string()
+		
+		var cleaned_summary = summary.strip_edges()
+		
+		var memory_item = {
+			"timestamp": timestamp,
+			"content": cleaned_summary
+		}
+		
+		save_mgr.save_data.ai_data.memory.append(memory_item)
+		
+		var max_items = config_loader.config.memory.max_memory_items
+		if save_mgr.save_data.ai_data.memory.size() > max_items:
+			save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
+		
+		save_mgr.save_game(save_mgr.current_slot)
+		
+		logger.save_to_diary(cleaned_summary, conversation_text, custom_timestamp)
+		
+		if has_node("/root/MemoryManager"):
+			var memory_mgr = get_node("/root/MemoryManager")
+			await memory_mgr.add_conversation_summary(cleaned_summary, {}, timestamp)
 	
 	print("记忆已保存: ", summary)
 	
-	# 保存到向量数据库（RAG长期记忆），传递相同的时间戳
-	if has_node("/root/MemoryManager"):
-		var memory_mgr = get_node("/root/MemoryManager")
-		# 可以选择性地添加 metadata（如心情、好感度等）
-		# 目前保持简单，不添加额外信息
-		# 传递短期记忆的时间戳，确保时间一致
-		await memory_mgr.add_conversation_summary(cleaned_summary, {}, timestamp)
+	# 更新累计计数
+	save_mgr.save_data.ai_data.accumulated_summary_count += 1
 	
 	_call_address_api(conversation_text)
 	
-	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_items:
+	var max_memory_items = config_loader.config.memory.max_memory_items
+	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_memory_items:
 		print("累计条目数达到上限，调用关系模型...")
 		_call_relationship_api()
 		save_mgr.save_data.ai_data.accumulated_summary_count = 0
