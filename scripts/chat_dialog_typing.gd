@@ -62,6 +62,13 @@ func has_content() -> bool:
 	return sentence_queue.size() > 0 or not sentence_buffer.strip_edges().is_empty()
 
 func show_next_sentence():
+	# 确保当前句子已经显示完成
+	if not typing_timer.is_stopped():
+		print("警告: 上一句还在显示中，等待完成")
+		typing_timer.stop()
+		displayed_text = display_buffer
+		message_label.text = displayed_text
+	
 	_show_next_sentence()
 
 func has_more_sentences() -> bool:
@@ -98,14 +105,33 @@ func _extract_sentences_from_buffer():
 		
 		sentence_buffer = sentence_buffer.substr(end_pos)
 	
-	if not is_showing_sentence and sentence_queue.size() > 0:
-		_show_next_sentence()
+	# 只有在没有正在显示句子时才开始显示
+	# 如果打字机正在运行，说明正在显示句子，不要开始新句子
+	if not is_showing_sentence and sentence_queue.size() > 0 and typing_timer.is_stopped():
+		# 如果当前索引已经到达队列末尾，说明之前在等待新句子
+		# 现在有新句子了，应该继续显示
+		if current_sentence_index < sentence_queue.size():
+			print("检测到新句子，继续显示")
+			_show_next_sentence()
 
 func _show_next_sentence():
+	# 防止重复调用
+	if is_showing_sentence and not typing_timer.is_stopped():
+		print("警告: 句子正在显示中，忽略重复调用")
+		return
+	
 	if current_sentence_index >= sentence_queue.size():
+		# 没有更多句子了
 		if not is_receiving_stream:
+			# 流已结束，真的没有更多句子了
 			is_showing_sentence = false
 			all_sentences_completed.emit()
+			print("所有句子显示完成")
+		else:
+			# 流还在继续，但暂时没有新句子
+			# 保持 is_showing_sentence = false，让系统知道可以接收新句子
+			is_showing_sentence = false
+			print("等待流式接收更多句子...")
 		return
 	
 	is_showing_sentence = true

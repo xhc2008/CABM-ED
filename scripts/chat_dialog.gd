@@ -453,17 +453,26 @@ func _on_all_sentences_completed():
 
 func _on_continue_clicked():
 	if not waiting_for_continue:
+		print("警告: 不在等待继续状态，忽略点击")
 		return
 	
+	# 立即设置为false，防止重复触发
 	waiting_for_continue = false
 	input_handler.set_waiting_for_continue(false)
 	ui_manager.hide_continue_indicator()
 	
 	if typing_manager.has_more_sentences():
+		# 有更多句子，显示下一句
 		typing_manager.show_next_sentence()
 	elif typing_manager.is_receiving_stream:
-		pass # 等待更多句子
+		# 流还在继续，但暂时没有新句子
+		# 重新设置等待状态，等待新句子到来
+		print("流式接收中，暂无新句子，继续等待...")
+		waiting_for_continue = true
+		input_handler.set_waiting_for_continue(true)
+		ui_manager.show_continue_indicator()
 	else:
+		# 流已结束，所有句子都显示完了
 		var goto_action = _check_and_handle_goto()
 		
 		if goto_action == "immediate":
