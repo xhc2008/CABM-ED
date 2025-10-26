@@ -13,6 +13,7 @@ var player_first: bool = true
 var game_started: bool = false
 var player_name: String = "玩家"
 var character_name: String = "角色"
+var ai: GomokuAI = null
 
 @onready var board_container: Control = $BoardContainer
 @onready var player_info: Panel = $LeftPanel
@@ -26,6 +27,7 @@ var character_name: String = "角色"
 @onready var ai_turn_label: Label = $RightPanel/TurnLabel
 
 func _ready():
+	ai = GomokuAI.new()
 	_init_board()
 	_load_character_name()
 	_setup_ui()
@@ -160,98 +162,12 @@ func _update_turn_display():
 		ai_turn_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 
 func _ai_move():
-	var move = _get_ai_move(board)
+	var move = ai.get_next_move(board, BOARD_SIZE, 2, 1,3)
 	if move:
 		_place_stone(move.row, move.col, 2)
 
-func _get_ai_move(board_state: Array) -> Dictionary:
-	# 简单AI：寻找最佳位置
-	var best_score = -999999
-	var best_move = null
-	
-	for i in range(BOARD_SIZE):
-		for j in range(BOARD_SIZE):
-			if board_state[i][j] == 0:
-				var score = _evaluate_position(i, j, board_state)
-				if score > best_score:
-					best_score = score
-					best_move = {"row": i, "col": j}
-	
-	return best_move
-
-func _evaluate_position(row: int, col: int, board_state: Array) -> int:
-	var score = 0
-	
-	# 中心位置加分（越靠近中心越好）
-	var center = BOARD_SIZE / 2.0
-	var distance_to_center = abs(row - center) + abs(col - center)
-	score += int((BOARD_SIZE - distance_to_center) * 2)
-	
-	# 检查AI的进攻分数
-	board_state[row][col] = 2
-	if _check_win(row, col, 2):
-		board_state[row][col] = 0
-		return 100000 # 必胜
-	score += _count_threats(row, col, 2, board_state) * 100
-	board_state[row][col] = 0
-	
-	# 检查防守分数
-	board_state[row][col] = 1
-	if _check_win(row, col, 1):
-		board_state[row][col] = 0
-		return 50000 # 必须防守
-	score += _count_threats(row, col, 1, board_state) * 80
-	board_state[row][col] = 0
-	
-	return score
-
-func _count_threats(row: int, col: int, player: int, board_state: Array) -> int:
-	var threats = 0
-	var directions = [
-		Vector2i(1, 0), Vector2i(0, 1),
-		Vector2i(1, 1), Vector2i(1, -1)
-	]
-	
-	for dir in directions:
-		var count = 1
-		count += _count_line(row, col, dir.x, dir.y, player, board_state)
-		count += _count_line(row, col, -dir.x, -dir.y, player, board_state)
-		
-		if count >= 3:
-			threats += count
-	
-	return threats
-
-func _count_line(row: int, col: int, dx: int, dy: int, player: int, board_state: Array) -> int:
-	var count = 0
-	var r = row + dx
-	var c = col + dy
-	
-	while r >= 0 and r < BOARD_SIZE and c >= 0 and c < BOARD_SIZE:
-		if board_state[r][c] == player:
-			count += 1
-			r += dx
-			c += dy
-		else:
-			break
-	
-	return count
-
 func _check_win(row: int, col: int, player: int) -> bool:
-	var directions = [
-		Vector2i(1, 0), Vector2i(0, 1),
-		Vector2i(1, 1), Vector2i(1, -1)
-	]
-	
-	for dir in directions:
-		var count = 1
-		count += _count_line(row, col, dir.x, dir.y, player, board)
-		count += _count_line(row, col, -dir.x, -dir.y, player, board)
-		
-		if count >= 5:
-			return true
-	
-	return false
+	return ai._check_win(row, col, player, board, BOARD_SIZE)
 
 func _is_board_full() -> bool:
 	for i in range(BOARD_SIZE):
