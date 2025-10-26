@@ -54,7 +54,16 @@ func _update_position_and_scale_from_preset():
 		print("错误: background_node 为空")
 		return
 	
+	if not background_node.texture:
+		print("错误: background_node.texture 为空")
+		return
+	
 	if not texture_normal:
+		print("错误: texture_normal 为空")
+		return
+	
+	if original_preset.size() == 0:
+		print("错误: original_preset 为空")
 		return
 	
 	# 获取实际渲染的背景区域
@@ -62,6 +71,11 @@ func _update_position_and_scale_from_preset():
 	var actual_bg_size = bg_rect.size
 	var bg_offset = bg_rect.offset
 	var bg_scale = bg_rect.scale
+	
+	# 验证背景区域是否有效
+	if actual_bg_size.x <= 0 or actual_bg_size.y <= 0:
+		print("错误: 背景区域无效 - size: ", actual_bg_size)
+		return
 	
 	# 直接使用预设的缩放值，不再乘以背景缩放比例
 	var final_scale = original_preset.scale
@@ -102,6 +116,12 @@ func load_character_for_scene(scene_id: String):
 		# 角色不在这个场景，隐藏
 		visible = false
 		print("角色不在场景 %s，当前在 %s" % [scene_id, character_scene])
+		return
+	
+	# 验证 background_node 是否有效
+	if not background_node:
+		print("错误: background_node 为空，无法加载角色")
+		visible = false
 		return
 	
 	current_scene = scene_id
@@ -167,6 +187,23 @@ func load_character_for_scene(scene_id: String):
 		await get_tree().process_frame
 		await get_tree().process_frame
 		
+		# 再次验证 background_node（防止在等待期间被清除）
+		if not background_node:
+			print("错误: 等待后 background_node 为空")
+			visible = false
+			return
+		
+		# 验证背景纹理是否已加载
+		if not background_node.texture:
+			print("警告: 背景纹理未加载，等待加载...")
+			# 再等待几帧
+			await get_tree().process_frame
+			await get_tree().process_frame
+			if not background_node.texture:
+				print("错误: 背景纹理仍未加载")
+				visible = false
+				return
+		
 		# 更新位置和缩放
 		_update_position_and_scale_from_preset()
 		
@@ -177,7 +214,7 @@ func load_character_for_scene(scene_id: String):
 		var fade_in_tween = create_tween()
 		fade_in_tween.tween_property(self, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		
-		print("角色已加载: ", image_path, " 预设位置: ", original_preset.position, " 实际位置: ", position)
+		print("角色已加载: ", image_path, " 预设位置: ", original_preset.position, " 实际位置: ", position, " 缩放: ", scale)
 	else:
 		print("角色图片不存在: ", image_path)
 		visible = false
@@ -373,6 +410,12 @@ func _reload_same_preset():
 		load_character_for_scene(current_scene)
 		return
 	
+	# 验证 background_node
+	if not background_node:
+		print("错误: _reload_same_preset 时 background_node 为空")
+		load_character_for_scene(current_scene)
+		return
+	
 	# 加载角色图片
 	var image_path = "res://assets/images/character/%s/%s" % [current_scene, original_preset.image]
 	if ResourceLoader.exists(image_path):
@@ -385,6 +428,12 @@ func _reload_same_preset():
 		
 		await get_tree().process_frame
 		await get_tree().process_frame
+		
+		# 再次验证
+		if not background_node or not background_node.texture:
+			print("错误: 等待后 background_node 或纹理无效")
+			visible = false
+			return
 		
 		_update_position_and_scale_from_preset()
 		_save_character_state()

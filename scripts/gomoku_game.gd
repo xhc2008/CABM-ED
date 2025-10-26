@@ -82,17 +82,10 @@ func _load_names():
 		var helpers = get_node("/root/EventHelpers")
 		character_name = helpers.get_character_name()
 	
-	# 从配置文件获取用户名
-	var config_path = "res://config/app_config.json"
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		if file:
-			var json_string = file.get_as_text()
-			file.close()
-			var json = JSON.new()
-			if json.parse(json_string) == OK:
-				var config = json.data
-				player_name = config.get("user_name", "玩家")
+	# 从SaveManager获取用户名
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		player_name = save_mgr.get_user_name()
 
 func _setup_ui():
 	# 设置初始UI状态

@@ -694,6 +694,16 @@ func _handle_address_response(response: Dictionary, address_request: HTTPRequest
 	var messages = address_request.get_meta("messages", [])
 	logger.log_api_call("ADDRESS_RESPONSE", messages, new_address)
 	
+	# 获取角色名称用于验证
+	var prompt_builder = get_node("/root/PromptBuilder")
+	var app_config = prompt_builder._load_app_config()
+	var char_name = app_config.get("character_name", "角色")
+	
+	# 检查返回的称呼是否包含角色名，如果包含则认为是模型出错，抛弃此次更新
+	if new_address.contains(char_name):
+		print("称呼模型返回包含角色名 '%s'，判定为错误，抛弃此次更新: %s" % [char_name, new_address])
+		return
+	
 	var save_mgr = get_node("/root/SaveManager")
 	save_mgr.set_user_address(new_address)
 	

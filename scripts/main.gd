@@ -1039,8 +1039,14 @@ func _move_character_to_current_scene():
 		# 移动角色到当前场景
 		save_mgr.set_character_scene(current_scene)
 		
-		# 等待角色加载完成
+		# 等待角色加载完成（多等待几帧确保背景和角色都准备好）
 		await get_tree().process_frame
+		await get_tree().process_frame
+		await get_tree().process_frame
+		
+		# 再次验证角色是否成功加载
+		if not character.visible:
+			print("警告: 角色加载后仍不可见")
 		
 		# 触发对话
 		_start_called_chat()
