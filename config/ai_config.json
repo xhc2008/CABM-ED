@@ -107,7 +107,7 @@
     },
     "memory": {
         "max_memory_items": 10,
-        "max_conversation_history": 10,
+        "max_conversation_history": 16,
         "max_relationship_history": 2,
         "vector_db": {
             "enable": true,
@@ -116,7 +116,7 @@
             "timeout": 10.0,
             "auto_save": true,
             "save_interval": 300,
-            "max_items": 1000
+            "max_items": 33550336
         },
         "prompts": {
             "memory_prefix": "这是和用户在一起的回忆，可以作为参考：\n```\n",

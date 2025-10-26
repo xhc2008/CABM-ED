@@ -14,26 +14,47 @@ var game_started: bool = false
 var player_name: String = "玩家"
 var character_name: String = "角色"
 var ai: GomokuAI = null
-var ai_difficulty: int = 2 # AI难度：1=放水，2=随便玩玩，3=使出全力
+var ai_difficulty: int = 0 # AI难度：0=未选择(随机)，1=放水，2=随便玩玩，3=使出全力
 var player_wins: int = 0 # 玩家胜场
 var ai_wins: int = 0 # AI胜场
 var total_moves: int = 0 # 当前局总步数
 var game_in_progress: bool = false # 是否有进行中的游戏
+var any_game_started: bool = false # 是否至少开始过一局游戏
+
+# 聊天气泡相关
+var ai_chat_messages: Array = [
+	"让我想想...",
+	"这步棋不错",
+	"有意思",
+	"你很厉害呢",
+	"我要认真了",
+	"这局很精彩",
+	"继续加油",
+	"好棋！"
+]
+
+var player_chat_messages: Dictionary = {
+	1: "能放点水吗",
+	2: "随便玩玩就好",
+	3: "使出全力吧"
+}
+
+var player_chat_tween: Tween = null
+var ai_chat_tween: Tween = null
 
 @onready var board_container: Control = $BoardContainer
-@onready var player_info: Panel = $LeftPanel
-@onready var ai_info: Panel = $RightPanel
 @onready var back_button: Button = $BackButton
-@onready var start_hint: Label = $LeftPanel/StartHint
-@onready var ai_first_button: Button = $RightPanel/AIFirstButton
-@onready var player_name_label: Label = $LeftPanel/PlayerName
-@onready var player_turn_label: Label = $LeftPanel/TurnLabel
-@onready var ai_name_label: Label = $RightPanel/AIName
-@onready var ai_turn_label: Label = $RightPanel/TurnLabel
-@onready var difficulty_container: VBoxContainer = $DifficultyContainer
-@onready var game_info_label: Label = $GameInfoLabel
-@onready var player_video: VideoStreamPlayer = $LeftPanel/PlayerVideo
-@onready var ai_video: VideoStreamPlayer = $RightPanel/AIVideo
+@onready var player_avatar: Panel = $PlayerAvatar
+@onready var ai_avatar: Panel = $AIAvatar
+@onready var ai_video: VideoStreamPlayer = $AIAvatar/AIVideo
+@onready var difficulty_buttons_container: VBoxContainer = $LeftButtons/DifficultyButtons
+@onready var ai_first_button: Button = $LeftButtons/AIFirstButton
+@onready var player_chat_bubble: PanelContainer = $PlayerChatBubble
+@onready var player_chat_label: Label = $PlayerChatBubble/Label
+@onready var ai_chat_bubble: PanelContainer = $AIChatBubble
+@onready var ai_chat_label: Label = $AIChatBubble/Label
+@onready var player_info_label: RichTextLabel = $PlayerAvatar/PlayerInfo
+@onready var ai_info_label: RichTextLabel = $AIAvatar/AIInfo
 
 func _ready():
 	# 入场动画
@@ -43,10 +64,11 @@ func _ready():
 	
 	ai = GomokuAI.new()
 	_init_board()
-	_load_character_name()
+	_load_names()
 	_setup_ui()
 	_setup_difficulty_buttons()
 	_setup_videos()
+	_hide_chat_bubbles()
 	back_button.pressed.connect(_on_back_pressed)
 	ai_first_button.pressed.connect(_on_ai_first_pressed)
 	board_container.gui_input.connect(_on_board_input)
@@ -54,35 +76,32 @@ func _ready():
 	_draw_board()
 	_update_game_info()
 
-func _load_character_name():
+func _load_names():
 	# 从EventHelpers获取角色名称
 	if has_node("/root/EventHelpers"):
 		var helpers = get_node("/root/EventHelpers")
 		character_name = helpers.get_character_name()
+	
+	# 从配置文件获取用户名
+	var config_path = "res://config/app_config.json"
+	if FileAccess.file_exists(config_path):
+		var file = FileAccess.open(config_path, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			file.close()
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				var config = json.data
+				player_name = config.get("user_name", "玩家")
 
 func _setup_ui():
 	# 设置初始UI状态
-	player_name_label.text = player_name
-	ai_name_label.text = character_name
-	start_hint.visible = true
 	ai_first_button.visible = true
-	player_turn_label.visible = false
-	ai_turn_label.visible = false
-	
-	# 放大开始提示
-	if start_hint:
-		start_hint.add_theme_font_size_override("font_size", 24)
-		start_hint.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
-	
-	# 放大"你先吧"按钮
-	if ai_first_button:
-		ai_first_button.add_theme_font_size_override("font_size", 22)
-	
-	_update_turn_display()
+	difficulty_buttons_container.visible = true
 
 func _setup_difficulty_buttons():
 	"""设置难度选择按钮"""
-	if not difficulty_container:
+	if not difficulty_buttons_container:
 		return
 	
 	# 创建难度按钮
@@ -95,34 +114,128 @@ func _setup_difficulty_buttons():
 	for diff in difficulties:
 		var button = Button.new()
 		button.text = diff.text
-		button.add_theme_font_size_override("font_size", 20)
-		button.custom_minimum_size = Vector2(180, 50)
+		button.add_theme_font_size_override("font_size", 18)
+		button.custom_minimum_size = Vector2(160, 45)
 		button.pressed.connect(_on_difficulty_selected.bind(diff.difficulty))
-		difficulty_container.add_child(button)
-	
-	difficulty_container.visible = true
+		difficulty_buttons_container.add_child(button)
 
 func _setup_videos():
 	"""设置角色视频"""
-	if player_video:
-		player_video.visible = false
 	if ai_video:
 		var video_path = "res://assets/images/character/games/chess.mp4"
 		if FileAccess.file_exists(video_path):
-			# 注意：Godot 4需要使用VideoStreamTheora或其他支持的格式
-			# 如果chess.mp4不是Theora格式，可能需要转换
 			ai_video.stream = load(video_path)
 			ai_video.loop = true
 			ai_video.visible = false
 
+func _hide_chat_bubbles():
+	"""隐藏聊天气泡"""
+	if player_chat_bubble:
+		player_chat_bubble.visible = false
+	if ai_chat_bubble:
+		ai_chat_bubble.visible = false
+
+func _show_player_chat(message: String):
+	"""显示玩家聊天气泡"""
+	if not player_chat_bubble or not player_chat_label:
+		return
+	
+	# 停止之前的动画
+	if player_chat_tween and player_chat_tween.is_valid():
+		player_chat_tween.kill()
+	
+	# 设置圆角样式
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.6, 1, 0.95)
+	style.corner_radius_top_left = 15
+	style.corner_radius_top_right = 15
+	style.corner_radius_bottom_right = 15
+	style.corner_radius_bottom_left = 3
+	style.shadow_color = Color(0, 0, 0, 0.3)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(2, 2)
+	style.content_margin_left = 15
+	style.content_margin_right = 15
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	player_chat_bubble.add_theme_stylebox_override("panel", style)
+	
+	player_chat_label.text = message
+	player_chat_bubble.visible = true
+	player_chat_bubble.modulate.a = 0.0
+	player_chat_bubble.scale = Vector2(0.8, 0.8)
+	
+	player_chat_tween = create_tween()
+	player_chat_tween.set_parallel(true)
+	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 1.0, 0.3)
+	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	player_chat_tween.chain()
+	player_chat_tween.tween_interval(2.5)
+	player_chat_tween.set_parallel(true)
+	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 0.0, 0.3)
+	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
+	player_chat_tween.chain()
+	player_chat_tween.tween_callback(func():
+		if player_chat_bubble:
+			player_chat_bubble.visible = false
+	)
+
+func _show_ai_chat(message: String):
+	"""显示AI聊天气泡"""
+	if not ai_chat_bubble or not ai_chat_label:
+		return
+	
+	# 停止之前的动画
+	if ai_chat_tween and ai_chat_tween.is_valid():
+		ai_chat_tween.kill()
+	
+	# 设置圆角样式
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(1, 1, 1, 0.95)
+	style.corner_radius_top_left = 15
+	style.corner_radius_top_right = 15
+	style.corner_radius_bottom_left = 15
+	style.corner_radius_bottom_right = 3
+	style.shadow_color = Color(0, 0, 0, 0.3)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(2, 2)
+	style.content_margin_left = 15
+	style.content_margin_right = 15
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	ai_chat_bubble.add_theme_stylebox_override("panel", style)
+	
+	ai_chat_label.text = message
+	ai_chat_bubble.visible = true
+	ai_chat_bubble.modulate.a = 0.0
+	ai_chat_bubble.scale = Vector2(0.8, 0.8)
+	
+	ai_chat_tween = create_tween()
+	ai_chat_tween.set_parallel(true)
+	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 1.0, 0.3)
+	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	ai_chat_tween.chain()
+	ai_chat_tween.tween_interval(2.5)
+	ai_chat_tween.set_parallel(true)
+	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 0.0, 0.3)
+	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
+	ai_chat_tween.chain()
+	ai_chat_tween.tween_callback(func():
+		if ai_chat_bubble:
+			ai_chat_bubble.visible = false
+	)
+
 func _on_difficulty_selected(difficulty: int):
 	"""选择难度"""
 	ai_difficulty = difficulty
-	difficulty_container.visible = false
+	difficulty_buttons_container.visible = false
 	
-	# 显示选择的难度提示
-	var difficulty_names = {1: "放水模式", 2: "普通模式", 3: "全力模式"}
-	print("选择难度: ", difficulty_names.get(difficulty, "未知"))
+	# 显示玩家聊天气泡
+	var message = player_chat_messages.get(difficulty, "")
+	if message:
+		_show_player_chat(message)
+	
+	print("选择难度: ", difficulty)
 
 func _init_board():
 	board.clear()
@@ -170,7 +283,7 @@ func _on_board_draw():
 				var color = Color.BLACK if board[i][j] == 1 else Color.WHITE
 				board_container.draw_circle(pos, CELL_SIZE * 0.4, color)
 				if board[i][j] == 2:
-					board_container.draw_circle(pos, CELL_SIZE * 0.4, Color.BLACK, false, 2)
+					board_container.draw_arc(pos, CELL_SIZE * 0.4, 0, TAU, 32, Color.BLACK, 2)
 
 func _on_board_input(event: InputEvent):
 	if game_over or current_player != 1:
@@ -179,6 +292,10 @@ func _on_board_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# 第一次点击时开始游戏
 		if not game_started:
+			# 如果没选择难度，随机选择
+			if ai_difficulty == 0:
+				ai_difficulty = randi() % 3 + 1
+				print("随机难度: ", ai_difficulty)
 			_start_game()
 		
 		var pos = event.position
@@ -192,18 +309,15 @@ func _on_board_input(event: InputEvent):
 func _start_game():
 	game_started = true
 	game_in_progress = true
-	start_hint.visible = false
+	any_game_started = true
 	ai_first_button.visible = false
-	difficulty_container.visible = false
-	player_turn_label.visible = true
-	ai_turn_label.visible = true
+	difficulty_buttons_container.visible = false
 	
 	# 显示角色视频
 	if ai_video and ai_video.stream:
 		ai_video.visible = true
 		ai_video.play()
 	
-	_update_turn_display()
 	_update_game_info()
 
 func _place_stone(row: int, col: int, player: int):
@@ -212,8 +326,6 @@ func _place_stone(row: int, col: int, player: int):
 	
 	# 落子动画
 	_play_stone_animation(row, col, player)
-	_draw_board()
-	_update_game_info()
 	
 	if _check_win(row, col, player):
 		game_over = true
@@ -228,51 +340,108 @@ func _place_stone(row: int, col: int, player: int):
 		return
 	
 	current_player = 3 - current_player
-	_update_turn_display()
+	_update_game_info()
 	
 	if current_player == 2:
+		# AI回合，延迟后再执行AI移动
+		await get_tree().create_timer(0.3).timeout
+		
+		# 有30%概率显示聊天气泡
+		if randf() < 0.3:
+			var message = ai_chat_messages[randi() % ai_chat_messages.size()]
+			_show_ai_chat(message)
+		
+		# 再等待一下让气泡显示
 		await get_tree().create_timer(0.5).timeout
 		_ai_move()
 
-func _play_stone_animation(_row: int, _col: int, _player: int):
+func _play_stone_animation(row: int, col: int, player: int):
 	"""播放落子动画"""
-	# 简单的缩放动画效果
-	# TODO: 可以在这里添加落子的视觉效果
-	pass
+	# 创建临时节点用于动画
+	var stone_anim = ColorRect.new()
+	var start_pos = Vector2(BOARD_MARGIN, BOARD_MARGIN)
+	var board_pos = Vector2(
+		start_pos.x + col * CELL_SIZE,
+		start_pos.y + row * CELL_SIZE
+	)
+	
+	# 相对于board_container的位置
+	stone_anim.position = board_pos - Vector2(CELL_SIZE * 0.4, CELL_SIZE * 0.4)
+	stone_anim.size = Vector2(CELL_SIZE * 0.8, CELL_SIZE * 0.8)
+	stone_anim.color = Color.BLACK if player == 1 else Color.WHITE
+	
+	# 直接添加到board_container
+	board_container.add_child(stone_anim)
+	
+	# 缩放动画
+	stone_anim.scale = Vector2(0.1, 0.1)
+	stone_anim.modulate.a = 0.5
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(stone_anim, "scale", Vector2(1.0, 1.0), 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.tween_property(stone_anim, "modulate:a", 1.0, 0.2)
+	await tween.finished
+	
+	# 清理并重绘棋盘
+	stone_anim.queue_free()
+	_draw_board()
 
 func _update_game_info():
 	"""更新游戏信息显示"""
-	if not game_info_label:
-		return
+	# 更新头像下的信息
+	if player_info_label:
+		var info_parts = []
+		
+		# 名字和先手标记
+		if player_first and game_started:
+			info_parts.append("%s [先手]" % player_name)
+		else:
+			info_parts.append(player_name)
+		
+		# 比分
+		info_parts.append("比分: %d" % player_wins)
+		
+		# 状态
+		if game_started and not game_over:
+			if current_player == 1:
+				info_parts.append("[color=#00AA00]你的回合[/color]")
+			else:
+				info_parts.append("[color=#888888]等待中[/color]")
+		
+		player_info_label.text = "\n".join(info_parts)
 	
-	var info_text = ""
-	if game_started:
-		var first_player = "你" if player_first else character_name
-		info_text = "步数: %d | 先手: %s | 比分: %d - %d" % [total_moves, first_player, player_wins, ai_wins]
-	else:
-		info_text = "比分: %d - %d" % [player_wins, ai_wins]
-	
-	game_info_label.text = info_text
-
-func _update_turn_display():
-	if not game_started:
-		return
-	
-	if current_player == 1:
-		player_turn_label.text = "● 你的回合"
-		player_turn_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
-		ai_turn_label.text = "○ 等待中..."
-		ai_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	else:
-		player_turn_label.text = "○ 等待中..."
-		player_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		ai_turn_label.text = "● 思考中..."
-		ai_turn_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
+	if ai_info_label:
+		var info_parts = []
+		
+		# 名字和先手标记
+		if not player_first and game_started:
+			info_parts.append("%s [先手]" % character_name)
+		else:
+			info_parts.append(character_name)
+		
+		# 比分
+		info_parts.append("比分: %d" % ai_wins)
+		
+		# 状态
+		if game_started and not game_over:
+			if current_player == 2:
+				info_parts.append("[color=#FF6600]思考中[/color]")
+			else:
+				info_parts.append("[color=#888888]等待中[/color]")
+		
+		ai_info_label.text = "\n".join(info_parts)
 
 func _ai_move():
-	var move = ai.get_next_move(board, BOARD_SIZE, 2, 1, ai_difficulty)
-	if move:
+	# 分帧执行AI计算，避免长时间阻塞
+	var move = await _calculate_ai_move_deferred()
+	if move and move.has("row") and move.has("col"):
 		_place_stone(move.row, move.col, 2)
+
+func _calculate_ai_move_deferred():
+	# 等待一帧后执行，让UI有机会更新
+	await get_tree().process_frame
+	var move = ai.get_next_move(board, BOARD_SIZE, 2, 1, ai_difficulty)
+	return move
 
 func _check_win(row: int, col: int, player: int) -> bool:
 	return ai._check_win(row, col, player, board, BOARD_SIZE)
@@ -297,7 +466,6 @@ func _show_winner(player: int):
 	_play_game_end_animation(player)
 	
 	_show_game_result(winner_name + " 获胜！")
-	_update_turn_display_game_over(player)
 	_update_game_info()
 	
 	# 显示"再来一局"按钮
@@ -307,16 +475,16 @@ func _play_game_end_animation(winner: int):
 	"""播放游戏结束动画"""
 	if winner == 1:
 		# 玩家胜利动画
-		if player_info:
+		if player_avatar:
 			var tween = create_tween()
-			tween.tween_property(player_info, "modulate", Color(1.2, 1.2, 0.8), 0.3)
-			tween.tween_property(player_info, "modulate", Color.WHITE, 0.3)
+			tween.tween_property(player_avatar, "modulate", Color(1.2, 1.2, 0.8), 0.3)
+			tween.tween_property(player_avatar, "modulate", Color.WHITE, 0.3)
 	else:
 		# AI胜利动画
-		if ai_info:
+		if ai_avatar:
 			var tween = create_tween()
-			tween.tween_property(ai_info, "modulate", Color(1.2, 1.2, 0.8), 0.3)
-			tween.tween_property(ai_info, "modulate", Color.WHITE, 0.3)
+			tween.tween_property(ai_avatar, "modulate", Color(1.2, 1.2, 0.8), 0.3)
+			tween.tween_property(ai_avatar, "modulate", Color.WHITE, 0.3)
 
 func _show_restart_button():
 	"""显示再来一局按钮"""
@@ -330,20 +498,6 @@ func _show_restart_button():
 
 func _show_draw():
 	_show_game_result("平局！")
-	player_turn_label.text = "平局"
-	ai_turn_label.text = "平局"
-
-func _update_turn_display_game_over(winner: int):
-	if winner == 1:
-		player_turn_label.text = "🎉 胜利！"
-		player_turn_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
-		ai_turn_label.text = "失败"
-		ai_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	else:
-		player_turn_label.text = "失败"
-		player_turn_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		ai_turn_label.text = "🎉 胜利！"
-		ai_turn_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
 
 func _show_game_result(message: String):
 	# 创建结果提示
@@ -374,18 +528,9 @@ func _on_back_pressed():
 
 func _save_game_to_diary():
 	"""保存游戏记录到日记和记忆"""
-	# 获取用户名
-	var user_name = "玩家"
-	if has_node("/root/EventHelpers"):
-		var config_path = "res://config/app_config.json"
-		if FileAccess.file_exists(config_path):
-			var file = FileAccess.open(config_path, FileAccess.READ)
-			var json_string = file.get_as_text()
-			file.close()
-			var json = JSON.new()
-			if json.parse(json_string) == OK:
-				var config = json.data
-				user_name = config.get("user_name", "玩家")
+	# 如果一局游戏都没开始，不记录
+	if not any_game_started:
+		return
 	
 	# 构建日记内容
 	var diary_content = ""
@@ -394,7 +539,7 @@ func _save_game_to_diary():
 	if total_games == 0:
 		# 一局都没完成
 		if game_in_progress:
-			diary_content = "我和%s玩了五子棋，但我们还没分出胜负" % user_name
+			diary_content = "我和%s玩了五子棋，但我们还没分出胜负" % player_name
 		else:
 			return # 没有开始游戏，不记录
 	else:
@@ -407,7 +552,7 @@ func _save_game_to_diary():
 		else:
 			result_text = "我们打成了平手"
 		
-		diary_content = "我和%s玩了%d局五子棋，%s，比分%d比%d" % [user_name, total_games, result_text, ai_wins, player_wins]
+		diary_content = "我和%s玩了%d局五子棋，%s，比分%d比%d" % [player_name, total_games, result_text, ai_wins, player_wins]
 	
 	# 使用统一记忆保存器
 	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
@@ -415,7 +560,7 @@ func _save_game_to_diary():
 		await unified_saver.save_memory(
 			diary_content,
 			unified_saver.MemoryType.GAMES,
-			null,  # 使用当前时间
+			null, # 使用当前时间
 			"",
 			{}
 		)
@@ -425,9 +570,9 @@ func _save_game_to_diary():
 
 func _on_restart_pressed():
 	"""重新开始游戏"""
-	# 移除"再来一局"按钮
+	# 移除"再来一局"按钮和结果标签
 	for child in get_children():
-		if child is Button and child.text == "再来一局":
+		if (child is Button and child.text == "再来一局") or (child is Label and (child.text.contains("获胜") or child.text.contains("平局"))):
 			child.queue_free()
 	
 	# 重置棋盘
@@ -438,16 +583,15 @@ func _on_restart_pressed():
 	game_started = false
 	game_in_progress = false
 	total_moves = 0
-	start_hint.visible = true
+	ai_difficulty = 0 # 重置难度选择
 	ai_first_button.visible = true
-	difficulty_container.visible = true
-	player_turn_label.visible = false
-	ai_turn_label.visible = false
+	difficulty_buttons_container.visible = true
 	
-	# 隐藏视频
+	# 隐藏视频和聊天气泡
 	if ai_video:
 		ai_video.stop()
 		ai_video.visible = false
+	_hide_chat_bubbles()
 	
 	_update_game_info()
 
@@ -455,8 +599,16 @@ func _on_ai_first_pressed():
 	if game_over or board[7][7] != 0:
 		return
 	
+	# 如果没选择难度，随机选择
+	if ai_difficulty == 0:
+		ai_difficulty = randi() % 3 + 1
+		print("随机难度: ", ai_difficulty)
+	
 	player_first = false
 	_start_game()
+	
+	# 显示玩家聊天气泡
+	_show_player_chat("还是你先吧")
 	
 	# 直接在中心落子，不触发 _place_stone 的玩家切换逻辑
 	board[7][7] = 2

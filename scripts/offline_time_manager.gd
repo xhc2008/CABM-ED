@@ -77,7 +77,7 @@ func check_and_apply_offline_changes():
 		return
 	
 	# 根据离线时长应用不同的变化
-	if offline_minutes < -1:
+	if offline_minutes < 5:
 		print("离线时间小于5分钟，无变化")
 		_apply_no_change()
 	elif offline_hours < 3:
@@ -574,7 +574,7 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	var time_only = time_str
 	if time_str.length() == 11:
 		# 格式: MM-DD HH:MM，提取时间部分
-		time_only = time_str.substr(6, 5)  # HH:MM
+		time_only = time_str.substr(6, 5) # HH:MM
 	
 	# 构建完整时间戳
 	var full_timestamp = "%sT%s:00" % [date_str, time_only]
@@ -597,7 +597,7 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 	
 	var unix_time = Time.get_unix_time_from_datetime_dict(datetime_dict)
 	var timezone_offset = _get_timezone_offset()
-	unix_time -= timezone_offset  # 转换为UTC
+	unix_time -= timezone_offset # 转换为UTC
 	
 	# 使用统一记忆保存器
 	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
@@ -605,7 +605,7 @@ func _save_diary_entry(time_str: String, event_text: String, start_datetime: Dic
 		await unified_saver.save_memory(
 			event_text,
 			unified_saver.MemoryType.OFFLINE,
-			unix_time,  # 使用计算出的Unix时间戳
+			unix_time, # 使用计算出的Unix时间戳
 			"",
 			{}
 		)

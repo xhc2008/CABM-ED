@@ -38,12 +38,11 @@ const EVALUATION_SCORES = {
     "SLEEPING_ONE": 0,
 }
 
-# 难度设置
+# 难度设置 - 降低深度避免卡顿
 const DIFFICULTY_SETTINGS = {
     1: { "depth": 1, "eval_func": "_evaluate_board_simple", "randomness": true },
     2: { "depth": 2, "eval_func": "_evaluate_board_simple", "randomness": false },
-    3: { "depth": 3, "eval_func": "_evaluate_board_advanced", "randomness": false },
-    4: { "depth": 4, "eval_func": "_evaluate_board_advanced", "randomness": false },
+    3: { "depth": 2, "eval_func": "_evaluate_board_advanced", "randomness": false },
 }
 
 ## 获取AI的下一步落子位置
@@ -112,31 +111,12 @@ func get_next_move(board_state: Array, board_size: int = DEFAULT_BOARD_SIZE, ai_
 		if score > best_score:
 			best_score = score
 			best_move = move
-		# 检查时间
-		if Time.get_ticks_msec() - start_time > 4800: # 留一点时间余量
+		# 检查时间 - 降低超时时间避免卡顿
+		if Time.get_ticks_msec() - start_time > 1000: # 1秒超时
 			print("AI timeout at depth ", settings.depth, ", returning best move found so far.")
 			break
 
-	# --- 难度 3, 4: 如果时间充裕，尝试更深一层 ---
-	if difficulty >= 3 and Time.get_ticks_msec() - start_time < 4000:
-		var deeper_best_score = -99999999
-		var deeper_best_move = null
-		for move in possible_moves:
-			board_state[move.row][move.col] = ai_player
-			if _check_win(move.row, move.col, ai_player, board_state, board_size):
-				board_state[move.row][move.col] = 0
-				return move
-			board_state[move.row][move.col] = 0
 
-			var score = _minimax(board_state, settings.depth, false, -99999999, 99999999, move.row, move.col, ai_player, human_player, settings.eval_func)
-			if score > deeper_best_score:
-				deeper_best_score = score
-				deeper_best_move = move
-			if Time.get_ticks_msec() - start_time > 4800:
-				break
-		if deeper_best_move: # 如果深一层搜索成功，更新结果
-			best_move = deeper_best_move
-			best_score = deeper_best_score
 
 	# --- 难度 2, 3, 4: 应用随机性 (仅对难度2) ---
 	if settings.randomness and best_move:
@@ -198,7 +178,7 @@ func _minimax(board: Array, depth: int, is_maximizing_player: bool, alpha: int, 
 				break # Alpha-Beta 剪枝
 		return min_eval
 
-# 获取可能的移动位置 (优化：只考虑有棋子附近的空位)
+# 获取可能的移动位置 (优化：只考虑有棋子附近的空位，限制数量)
 func _get_possible_moves(board: Array, board_size: int) -> Array:
 	var moves = []
 	var visited = {} # 使用字典避免重复添加
@@ -225,12 +205,19 @@ func _get_possible_moves(board: Array, board_size: int) -> Array:
 							if not visited.has(key):
 								moves.append({"row": nr2, "col": nc2})
 								visited[key] = true
-	# 如果棋盘很空，返回所有空位
+	
+	# 如果棋盘很空，返回中心附近的空位
 	if moves.size() == 0:
-		for r in range(board_size):
-			for c in range(board_size):
+		var center = board_size / 2
+		for r in range(max(0, center - 3), min(board_size, center + 4)):
+			for c in range(max(0, center - 3), min(board_size, center + 4)):
 				if board[r][c] == 0:
 					moves.append({"row": r, "col": c})
+	
+	# 限制候选移动数量，避免搜索空间过大
+	if moves.size() > 20:
+		moves.resize(20)
+	
 	return moves
 
 func _is_valid_pos(r: int, c: int, board_size: int) -> bool:
