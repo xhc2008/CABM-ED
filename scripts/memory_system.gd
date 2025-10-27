@@ -12,7 +12,7 @@ class MemoryItem:
 	
 	func _init(p_text: String = "", p_vector: Array = [], p_type: String = "conversation"):
 		text = p_text
-		vector = p_vector
+		vector = p_vector.duplicate()  # 强制复制，防止引用问题
 		timestamp = _get_local_datetime_string()
 		type = p_type
 	
@@ -74,12 +74,16 @@ var embedding_timeout: float = 30.0
 var vector_dim: int = 1024
 
 # 请求队列系统
+class EmbeddingRequest:
+	var text: String = ""
+	var completed: bool = false
+	var result: Array = []
+	
+	func _init(p_text: String):
+		text = p_text
+
 var request_queue: Array = []
 var is_processing_request: bool = false
-
-# 等待嵌入完成的信号
-signal embedding_completed(vector: Array)
-signal embedding_failed(error: String)
 
 func _ready():
 	# 创建HTTP请求节点
@@ -202,23 +206,21 @@ func get_embedding(text: String) -> Array:
 		print("警告: 嵌入模型API密钥未配置")
 		return []
 	
-	# 创建请求信息
-	var request_info = {
-		"text": text,
-		"api_key": api_key,
-		"signal_emitter": null
-	}
-	
-	# 添加到队列
-	request_queue.append(request_info)
+	# 创建独立的请求对象
+	var request = EmbeddingRequest.new(text)
+	request_queue.append({"request": request, "api_key": api_key})
 	
 	# 如果没有正在处理的请求，开始处理队列
 	if not is_processing_request:
 		_process_request_queue()
 	
-	# 等待这个请求完成
-	var result = await embedding_completed
-	return result
+	# 等待这个特定请求完成
+	while not request.completed:
+		await get_tree().process_frame
+	
+	return request.result
+
+var current_request: Dictionary = {}
 
 func _process_request_queue():
 	"""处理请求队列"""
@@ -227,36 +229,45 @@ func _process_request_queue():
 		return
 	
 	is_processing_request = true
-	var request_info = request_queue.pop_front()
+	current_request = request_queue.pop_front()
+	var request = current_request.request
+	var api_key = current_request.api_key
 	
 	var url = embedding_base_url.trim_suffix("/") + "/embeddings"
 	var headers = [
 		"Content-Type: application/json",
-		"Authorization: Bearer " + request_info.api_key
+		"Authorization: Bearer " + api_key
 	]
 	
 	var body = JSON.stringify({
 		"model": embedding_model,
-		"input": request_info.text
+		"input": request.text
 	})
 	
-	print("调用嵌入API (队列中还有 %d 个请求): %s" % [request_queue.size(), request_info.text.substr(0, 30)])
+	print("调用嵌入API (队列中还有 %d 个请求): %s" % [request_queue.size(), request.text.substr(0, 30)])
 	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, body)
 	
 	if error != OK:
 		print("嵌入请求失败: ", error)
-		embedding_completed.emit([])
+		request.completed = true
+		request.result = []
 		# 继续处理下一个请求
 		_process_request_queue()
 
 func _on_embedding_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""嵌入请求完成回调"""
+	var request = current_request.request if current_request.has("request") else null
+	
+	if not request:
+		print("警告: 没有当前请求")
+		_process_request_queue()
+		return
+	
 	if result != HTTPRequest.RESULT_SUCCESS:
 		print("嵌入请求失败: ", result)
-		embedding_failed.emit("请求失败")
-		embedding_completed.emit([])
-		# 继续处理下一个请求
+		request.completed = true
+		request.result = []
 		_process_request_queue()
 		return
 	
@@ -271,9 +282,8 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 			print("    2. API密钥是否有权限访问嵌入模型")
 			print("    3. Base URL是否正确")
 		
-		embedding_failed.emit("API错误: %d" % response_code)
-		embedding_completed.emit([])
-		# 继续处理下一个请求
+		request.completed = true
+		request.result = []
 		_process_request_queue()
 		return
 	
@@ -282,9 +292,8 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 	
 	if parse_result != OK:
 		print("解析嵌入响应失败")
-		embedding_failed.emit("解析失败")
-		embedding_completed.emit([])
-		# 继续处理下一个请求
+		request.completed = true
+		request.result = []
 		_process_request_queue()
 		return
 	
@@ -293,11 +302,12 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 	# 提取向量
 	if response.has("data") and response.data.size() > 0:
 		var embedding = response.data[0].get("embedding", [])
-		embedding_completed.emit(embedding)
+		request.completed = true
+		request.result = embedding.duplicate()
 	else:
 		print("嵌入响应格式错误")
-		embedding_failed.emit("响应格式错误")
-		embedding_completed.emit([])
+		request.completed = true
+		request.result = []
 	
 	# 继续处理下一个请求
 	_process_request_queue()
@@ -432,7 +442,7 @@ func save_to_file(file_path: String = "") -> void:
 			"type": item.type,
 			"metadata": item.metadata
 		})
-		vectors.append(item.vector)
+		vectors.append(item.vector.duplicate())  # 强制复制
 		metadata_list.append({
 			"timestamp": item.timestamp,
 			"type": item.type
@@ -496,7 +506,7 @@ func load_from_file(file_path: String = "") -> void:
 			var text_data = texts[i]
 			var item = MemoryItem.new()
 			item.text = text_data.get("text", "")
-			item.vector = vectors[i]
+			item.vector = vectors[i].duplicate()  # 强制复制
 			item.timestamp = text_data.get("timestamp", "")
 			item.type = text_data.get("type", "conversation")
 			item.metadata = text_data.get("metadata", {})

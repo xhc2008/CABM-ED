@@ -132,27 +132,38 @@ func _export_ai_logs(export_dir: String) -> Dictionary:
 
 func _export_godot_logs(export_dir: String) -> Dictionary:
 	"""导出Godot日志（stdout）"""
-	# Godot的日志通常在user://目录下的godot.log
+	# Godot的日志在不同平台有不同位置
 	var log_paths = [
-		"user://logs/godot.log",
-		OS.get_user_data_dir() + "/logs/godot.log"
+		"user://logs/godot.log",           # PC标准路径
+		"user://godot.log",                # 安卓可能的路径
+		OS.get_user_data_dir() + "/logs/godot.log",
+		OS.get_user_data_dir() + "/godot.log"
 	]
 	
 	var count = 0
+	var checked_paths = []
 	
 	for log_path in log_paths:
+		checked_paths.append(log_path)
 		if FileAccess.file_exists(log_path):
 			var source_file = FileAccess.open(log_path, FileAccess.READ)
 			if source_file == null:
+				print("无法读取日志: ", log_path)
 				continue
 			
 			var content = source_file.get_as_text()
 			source_file.close()
 			
 			var filename = log_path.get_file()
-			var dest_path = export_dir + "/" + filename
+			# 如果文件名重复，添加序号
+			var dest_filename = filename
+			if count > 0:
+				dest_filename = filename.get_basename() + "_" + str(count) + "." + filename.get_extension()
+			
+			var dest_path = export_dir + "/" + dest_filename
 			var dest_file = FileAccess.open(dest_path, FileAccess.WRITE)
 			if dest_file == null:
+				print("无法写入日志: ", dest_path)
 				continue
 			
 			dest_file.store_string(content)
@@ -161,15 +172,22 @@ func _export_godot_logs(export_dir: String) -> Dictionary:
 			print("Godot日志已导出: ", dest_path)
 			count += 1
 	
-	# 如果没有找到日志文件，创建一个包含当前输出的文件
+	# 如果没有找到日志文件，创建诊断信息文件
 	if count == 0:
-		var dest_path = export_dir + "/godot_output.txt"
+		var dest_path = export_dir + "/godot_log_info.txt"
 		var dest_file = FileAccess.open(dest_path, FileAccess.WRITE)
 		if dest_file:
-			dest_file.store_string("Godot日志文件未找到\n")
-			dest_file.store_string("用户数据目录: " + OS.get_user_data_dir() + "\n")
-			dest_file.store_string("导出时间: " + Time.get_datetime_string_from_system() + "\n")
+			dest_file.store_string("Godot日志文件未找到\n\n")
+			dest_file.store_string("系统信息:\n")
+			dest_file.store_string("- 操作系统: " + OS.get_name() + "\n")
+			dest_file.store_string("- 用户数据目录: " + OS.get_user_data_dir() + "\n")
+			dest_file.store_string("- 可执行文件路径: " + OS.get_executable_path() + "\n")
+			dest_file.store_string("- 导出时间: " + Time.get_datetime_string_from_system() + "\n\n")
+			dest_file.store_string("已检查的路径:\n")
+			for path in checked_paths:
+				dest_file.store_string("- " + path + "\n")
 			dest_file.close()
+			print("已创建诊断信息文件")
 			count = 1
 	
 	return {"success": count > 0, "count": count}

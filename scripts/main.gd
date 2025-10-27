@@ -29,6 +29,8 @@ var failure_message_tween: Tween = null
 var scene_switch_timer: Timer = null
 var pending_chat_timer: Timer = null
 
+
+
 func _ready():
 	# 检查并迁移旧日记数据
 	_check_and_migrate_diary()
@@ -99,6 +101,8 @@ func _input(event):
 	# 按 F12 打开存档调试面板
 	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
 		_show_save_debug_panel()
+	
+
 
 func _load_initial_scene() -> String:
 	"""从存档加载初始场景，如果没有或不合法则返回默认场景"""
@@ -186,6 +190,8 @@ func _setup_managers():
 	failure_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	failure_message_label.z_index = 100
 	add_child(failure_message_label)
+	
+
 
 func _setup_scene_switch_control():
 	"""初始化场景切换控制计时器"""
@@ -266,6 +272,8 @@ func _update_ui_layout():
 	
 	# 更新角色日记查看器 - 居中显示
 	_update_character_diary_viewer_layout()
+	
+
 	
 	# 如果动作菜单可见，更新其位置
 	if action_menu.visible:
@@ -898,6 +906,8 @@ func _show_save_debug_panel():
 		var debug_panel = debug_panel_scene.instantiate()
 		add_child(debug_panel)
 
+
+
 func _check_pending_offline_position_change():
 	"""检查并应用待处理的离线位置变化"""
 	if not has_node("/root/SaveManager"):
@@ -938,6 +948,8 @@ func _update_character_diary_viewer_layout():
 	var viewer_y = scene_rect.position.y + (scene_rect.size.y - character_diary_viewer.size.y) / 2
 	
 	character_diary_viewer.position = Vector2(viewer_x, viewer_y)
+
+
 
 func _update_character_diary_button_visibility():
 	"""更新角色日记按钮的显示状态（根据配置决定在哪些场景显示）"""
