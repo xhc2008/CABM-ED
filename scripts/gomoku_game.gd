@@ -41,6 +41,7 @@ var player_chat_messages: Dictionary = {
 
 var player_chat_tween: Tween = null
 var ai_chat_tween: Tween = null
+var last_move_pos: Vector2 = Vector2(-1, -1) # 最后一次落子位置
 
 @onready var board_container: Control = $BoardContainer
 @onready var back_button: Button = $BackButton
@@ -115,14 +116,23 @@ func _setup_difficulty_buttons():
 func _setup_videos():
 	"""设置角色视频"""
 	if ai_video:
-		var video_path = "res://assets/images/character/games/chess.mp4"
+		var video_path = "res://assets/images/games/gomoku/1.ogv"
 		if FileAccess.file_exists(video_path):
 			ai_video.stream = load(video_path)
 			ai_video.loop = true
-			ai_video.visible = false
+			ai_video.visible = true  # 全程显示
+			ai_video.play()  # 立即播放
 
 func _hide_chat_bubbles():
 	"""隐藏聊天气泡"""
+	# 停止所有正在运行的tween动画
+	if player_chat_tween and player_chat_tween.is_valid():
+		player_chat_tween.kill()
+		player_chat_tween = null
+	if ai_chat_tween and ai_chat_tween.is_valid():
+		ai_chat_tween.kill()
+		ai_chat_tween = null
+	
 	if player_chat_bubble:
 		player_chat_bubble.visible = false
 	if ai_chat_bubble:
@@ -159,16 +169,18 @@ func _show_player_chat(message: String):
 	player_chat_bubble.scale = Vector2(0.8, 0.8)
 	
 	player_chat_tween = create_tween()
+	# 显示动画（并行）
 	player_chat_tween.set_parallel(true)
 	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 1.0, 0.3)
 	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	player_chat_tween.chain()
-	player_chat_tween.tween_interval(2.5)
-	player_chat_tween.set_parallel(true)
+	# 等待显示完成后停留4秒
+	player_chat_tween.chain().tween_interval(4.0)
+	# 消失动画（并行）
+	player_chat_tween.chain().set_parallel(true)
 	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 0.0, 0.3)
 	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
-	player_chat_tween.chain()
-	player_chat_tween.tween_callback(func():
+	# 隐藏气泡
+	player_chat_tween.chain().tween_callback(func():
 		if player_chat_bubble:
 			player_chat_bubble.visible = false
 	)
@@ -204,16 +216,18 @@ func _show_ai_chat(message: String):
 	ai_chat_bubble.scale = Vector2(0.8, 0.8)
 	
 	ai_chat_tween = create_tween()
+	# 显示动画（并行）
 	ai_chat_tween.set_parallel(true)
 	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 1.0, 0.3)
 	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	ai_chat_tween.chain()
-	ai_chat_tween.tween_interval(2.5)
-	ai_chat_tween.set_parallel(true)
+	# 等待显示完成后停留4秒
+	ai_chat_tween.chain().tween_interval(4.0)
+	# 消失动画（并行）
+	ai_chat_tween.chain().set_parallel(true)
 	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 0.0, 0.3)
 	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
-	ai_chat_tween.chain()
-	ai_chat_tween.tween_callback(func():
+	# 隐藏气泡
+	ai_chat_tween.chain().tween_callback(func():
 		if ai_chat_bubble:
 			ai_chat_bubble.visible = false
 	)
@@ -241,6 +255,7 @@ func _init_board():
 	current_player = 1
 	player_first = true
 	total_moves = 0
+	last_move_pos = Vector2(-1, -1) # 重置最后落子位置
 
 func _draw_board():
 	if board_container:
@@ -277,6 +292,11 @@ func _on_board_draw():
 				board_container.draw_circle(pos, CELL_SIZE * 0.4, color)
 				if board[i][j] == 2:
 					board_container.draw_arc(pos, CELL_SIZE * 0.4, 0, TAU, 32, Color.BLACK, 2)
+				
+				# 标记最后一次落子位置
+				if i == last_move_pos.y and j == last_move_pos.x:
+					var marker_color = Color.RED if board[i][j] == 1 else Color.ORANGE_RED
+					board_container.draw_circle(pos, CELL_SIZE * 0.15, marker_color)
 
 func _on_board_input(event: InputEvent):
 	if game_over or current_player != 1:
@@ -306,16 +326,16 @@ func _start_game():
 	ai_first_button.visible = false
 	difficulty_buttons_container.visible = false
 	
-	# 显示角色视频
-	if ai_video and ai_video.stream:
-		ai_video.visible = true
-		ai_video.play()
+	# 视频已经在_setup_videos中设置为全程显示
 	
 	_update_game_info()
 
 func _place_stone(row: int, col: int, player: int):
 	board[row][col] = player
 	total_moves += 1
+	
+	# 记录最后一次落子位置
+	last_move_pos = Vector2(col, row)
 	
 	# 落子动画
 	_play_stone_animation(row, col, player)
@@ -580,10 +600,7 @@ func _on_restart_pressed():
 	ai_first_button.visible = true
 	difficulty_buttons_container.visible = true
 	
-	# 隐藏视频和聊天气泡
-	if ai_video:
-		ai_video.stop()
-		ai_video.visible = false
+	# 视频保持显示，只隐藏聊天气泡
 	_hide_chat_bubbles()
 	
 	_update_game_info()
@@ -606,6 +623,7 @@ func _on_ai_first_pressed():
 	# 直接在中心落子，不触发 _place_stone 的玩家切换逻辑
 	board[7][7] = 2
 	total_moves = 1
+	last_move_pos = Vector2(7, 7) # 记录AI先手的落子位置
 	_draw_board()
 	_update_game_info()
 	# 不切换玩家，保持 current_player = 1，让玩家继续
