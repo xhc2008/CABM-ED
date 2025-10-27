@@ -106,7 +106,7 @@
         "batch_size": 64
     },
     "memory": {
-        "max_memory_items": 10,
+        "max_memory_items": 12,
         "max_conversation_history": 16,
         "max_relationship_history": 2,
         "vector_db": {
