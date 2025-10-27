@@ -168,22 +168,38 @@ func _show_player_chat(message: String):
 	player_chat_bubble.modulate.a = 0.0
 	player_chat_bubble.scale = Vector2(0.8, 0.8)
 	
+	# 开始动画序列
+	_start_player_chat_animation()
+
+func _start_player_chat_animation():
+	# 显示动画
 	player_chat_tween = create_tween()
-	# 显示动画（并行）
 	player_chat_tween.set_parallel(true)
 	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 1.0, 0.3)
 	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	# 等待显示完成后停留4秒
-	player_chat_tween.chain().tween_interval(4.0)
-	# 消失动画（并行）
-	player_chat_tween.chain().set_parallel(true)
+	
+	# 使用回调来继续动画序列
+	player_chat_tween.finished.connect(_on_player_chat_show_finished, CONNECT_ONE_SHOT)
+
+func _on_player_chat_show_finished():
+	# 创建定时器等待4秒
+	var timer = get_tree().create_timer(3.0)
+	timer.timeout.connect(_on_player_chat_wait_finished, CONNECT_ONE_SHOT)
+
+func _on_player_chat_wait_finished():
+	# 消失动画
+	player_chat_tween = create_tween()
+	player_chat_tween.set_parallel(true)
 	player_chat_tween.tween_property(player_chat_bubble, "modulate:a", 0.0, 0.3)
 	player_chat_tween.tween_property(player_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
+	
+	# 使用回调来隐藏气泡
+	player_chat_tween.finished.connect(_on_player_chat_hide_finished, CONNECT_ONE_SHOT)
+
+func _on_player_chat_hide_finished():
 	# 隐藏气泡
-	player_chat_tween.chain().tween_callback(func():
-		if player_chat_bubble:
-			player_chat_bubble.visible = false
-	)
+	if player_chat_bubble:
+		player_chat_bubble.visible = false
 
 func _show_ai_chat(message: String):
 	"""显示AI聊天气泡"""
@@ -215,22 +231,38 @@ func _show_ai_chat(message: String):
 	ai_chat_bubble.modulate.a = 0.0
 	ai_chat_bubble.scale = Vector2(0.8, 0.8)
 	
+	# 开始动画序列
+	_start_ai_chat_animation()
+
+func _start_ai_chat_animation():
+	# 显示动画
 	ai_chat_tween = create_tween()
-	# 显示动画（并行）
 	ai_chat_tween.set_parallel(true)
 	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 1.0, 0.3)
 	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(1.0, 1.0), 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	# 等待显示完成后停留4秒
-	ai_chat_tween.chain().tween_interval(4.0)
-	# 消失动画（并行）
-	ai_chat_tween.chain().set_parallel(true)
+	
+	# 使用回调来继续动画序列
+	ai_chat_tween.finished.connect(_on_ai_chat_show_finished, CONNECT_ONE_SHOT)
+
+func _on_ai_chat_show_finished():
+	# 创建定时器等待4秒
+	var timer = get_tree().create_timer(3.0)
+	timer.timeout.connect(_on_ai_chat_wait_finished, CONNECT_ONE_SHOT)
+
+func _on_ai_chat_wait_finished():
+	# 消失动画
+	ai_chat_tween = create_tween()
+	ai_chat_tween.set_parallel(true)
 	ai_chat_tween.tween_property(ai_chat_bubble, "modulate:a", 0.0, 0.3)
 	ai_chat_tween.tween_property(ai_chat_bubble, "scale", Vector2(0.8, 0.8), 0.3)
+	
+	# 使用回调来隐藏气泡
+	ai_chat_tween.finished.connect(_on_ai_chat_hide_finished, CONNECT_ONE_SHOT)
+
+func _on_ai_chat_hide_finished():
 	# 隐藏气泡
-	ai_chat_tween.chain().tween_callback(func():
-		if ai_chat_bubble:
-			ai_chat_bubble.visible = false
-	)
+	if ai_chat_bubble:
+		ai_chat_bubble.visible = false
 
 func _on_difficulty_selected(difficulty: int):
 	"""选择难度"""
