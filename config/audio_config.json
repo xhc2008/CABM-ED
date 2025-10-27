@@ -84,6 +84,23 @@
         "rainy": "rain.mp3",
         "storm": "rain.mp3"
       }
+    },
+    "rooftop": {
+      "day": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "dusk": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      },
+      "night": {
+        "sunny": "",
+        "rainy": "rain.mp3",
+        "storm": "rain.mp3"
+      }
     }
   },
   "volume": {
