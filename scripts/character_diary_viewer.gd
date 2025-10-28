@@ -21,11 +21,22 @@ var current_records: Array = [] # 当前日期的所有记录
 var view_mode: String = "list" # "list" = 列表视图, "detail" = 详情视图
 var current_detail_record: Dictionary = {} # 当前查看的详细记录
 var back_button_container: HBoxContainer = null # 返回按钮容器
+var saved_scroll_position: int = 0 # 保存的滚动位置（用于从详情返回列表时恢复）
+
+# 触摸手势检测
+var touch_start_pos: Vector2 = Vector2.ZERO
+var touch_start_time: float = 0.0
+var is_dragging: bool = false
+const DRAG_THRESHOLD: float = 10.0 # 超过这个距离视为拖动
+const TAP_TIME_THRESHOLD: float = 0.3 # 点击时间阈值（秒）
 
 func _ready():
 	visible = false
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+	
+	# 自定义滚动条样式（加粗）
+	_setup_scrollbar_style()
 	
 	# 创建返回按钮容器
 	_create_back_button_container()
@@ -37,6 +48,69 @@ func _ready():
 		prev_date_button.pressed.connect(_on_prev_date_pressed)
 	if next_date_button:
 		next_date_button.pressed.connect(_on_next_date_pressed)
+
+func _setup_scrollbar_style():
+	"""设置滚动条样式（加粗）"""
+	if not scroll_container:
+		return
+	
+	# 为内容区域添加右侧 padding，为滚动条留出空间
+	# 需要将 content_vbox 包裹在 MarginContainer 中
+	if content_vbox and content_vbox.get_parent() == scroll_container:
+		# 创建 MarginContainer 包裹内容
+		var margin = MarginContainer.new()
+		margin.add_theme_constant_override("margin_right", 20)
+		
+		# 重新组织节点结构
+		scroll_container.remove_child(content_vbox)
+		scroll_container.add_child(margin)
+		margin.add_child(content_vbox)
+	
+	# 获取垂直滚动条
+	var v_scroll = scroll_container.get_v_scroll_bar()
+	if not v_scroll:
+		return
+	
+	# 创建滚动条滑块样式（加粗）
+	var grabber_style = StyleBoxFlat.new()
+	grabber_style.bg_color = Color(0.6, 0.6, 0.6, 0.8)
+	grabber_style.corner_radius_top_left = 6
+	grabber_style.corner_radius_top_right = 6
+	grabber_style.corner_radius_bottom_left = 6
+	grabber_style.corner_radius_bottom_right = 6
+	
+	# 滑块悬停样式
+	var grabber_hover_style = StyleBoxFlat.new()
+	grabber_hover_style.bg_color = Color(0.7, 0.7, 0.7, 0.9)
+	grabber_hover_style.corner_radius_top_left = 6
+	grabber_hover_style.corner_radius_top_right = 6
+	grabber_hover_style.corner_radius_bottom_left = 6
+	grabber_hover_style.corner_radius_bottom_right = 6
+	
+	# 滑块按下样式
+	var grabber_pressed_style = StyleBoxFlat.new()
+	grabber_pressed_style.bg_color = Color(0.8, 0.8, 0.8, 1.0)
+	grabber_pressed_style.corner_radius_top_left = 6
+	grabber_pressed_style.corner_radius_top_right = 6
+	grabber_pressed_style.corner_radius_bottom_left = 6
+	grabber_pressed_style.corner_radius_bottom_right = 6
+	
+	# 滚动条背景样式
+	var scroll_style = StyleBoxFlat.new()
+	scroll_style.bg_color = Color(0.2, 0.2, 0.2, 0.5)
+	scroll_style.corner_radius_top_left = 6
+	scroll_style.corner_radius_top_right = 6
+	scroll_style.corner_radius_bottom_left = 6
+	scroll_style.corner_radius_bottom_right = 6
+	
+	# 应用样式
+	v_scroll.add_theme_stylebox_override("grabber", grabber_style)
+	v_scroll.add_theme_stylebox_override("grabber_highlight", grabber_hover_style)
+	v_scroll.add_theme_stylebox_override("grabber_pressed", grabber_pressed_style)
+	v_scroll.add_theme_stylebox_override("scroll", scroll_style)
+	
+	# 设置滚动条宽度（加粗）
+	v_scroll.custom_minimum_size.x = 20
 
 func _create_back_button_container():
 	"""创建返回按钮容器（固定在ScrollContainer上方）"""
@@ -197,10 +271,10 @@ func _load_date_content(date_str: String):
 	# 显示所有记录
 	_display_records()
 	
-	# 滚动到顶部
+	# 滚动到底部（一级页面默认显示最新内容）
 	await get_tree().process_frame
 	if scroll_container:
-		scroll_container.scroll_vertical = 0
+		scroll_container.scroll_vertical = int(scroll_container.get_v_scroll_bar().max_value)
 
 func _display_records():
 	"""显示所有日记记录"""
@@ -308,24 +382,25 @@ func _add_diary_card(record: Dictionary):
 		
 		card_panel.add_child(card_vbox)
 		
-		# 创建可点击的按钮（透明覆盖层）
-		var click_button = Button.new()
-		click_button.flat = true
-		click_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		click_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card_panel.add_child(click_button)
+		# 使用Control代替Button，手动处理触摸事件以改善移动端滑动体验
+		var click_area = Control.new()
+		click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+		click_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		click_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		card_panel.add_child(click_area)
 		
-		# 点击事件
-		click_button.pressed.connect(_on_chat_card_clicked.bind(record))
+		# 手动处理触摸/点击事件
+		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, style_normal, click_area))
 		
-		# 鼠标悬停效果
-		click_button.mouse_entered.connect(func():
-			var style_hover = style_normal.duplicate()
-			style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
-			style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
-			card_panel.add_theme_stylebox_override("panel", style_hover)
+		# 鼠标悬停效果（仅桌面端）
+		click_area.mouse_entered.connect(func():
+			if not is_dragging:
+				var style_hover = style_normal.duplicate()
+				style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
+				style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
+				card_panel.add_theme_stylebox_override("panel", style_hover)
 		)
-		click_button.mouse_exited.connect(func():
+		click_area.mouse_exited.connect(func():
 			card_panel.add_theme_stylebox_override("panel", style_normal)
 		)
 	else:
@@ -362,8 +437,48 @@ func _add_diary_card(record: Dictionary):
 	
 	content_vbox.add_child(card_panel)
 
+func _on_card_gui_input(event: InputEvent, record: Dictionary, card_panel: PanelContainer, style_normal: StyleBoxFlat, click_area: Control):
+	"""处理卡片的触摸/点击事件，区分滑动和点击"""
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# 记录触摸开始位置和时间
+				touch_start_pos = event.global_position
+				touch_start_time = Time.get_ticks_msec() / 1000.0
+				is_dragging = false
+				# 确保可以捕获事件
+				click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+			else:
+				# 触摸结束，判断是点击还是拖动
+				var touch_end_time = Time.get_ticks_msec() / 1000.0
+				var touch_duration = touch_end_time - touch_start_time
+				var touch_distance = event.global_position.distance_to(touch_start_pos)
+				
+				# 只有移动距离小且时间短才算点击
+				if touch_distance < DRAG_THRESHOLD and touch_duration < TAP_TIME_THRESHOLD and not is_dragging:
+					_on_chat_card_clicked(record)
+				
+				# 重置状态
+				is_dragging = false
+				click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	elif event is InputEventMouseMotion:
+		if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			# 检测是否开始拖动
+			var distance = event.global_position.distance_to(touch_start_pos)
+			if distance > DRAG_THRESHOLD and not is_dragging:
+				is_dragging = true
+				# 恢复正常样式（取消悬停效果）
+				card_panel.add_theme_stylebox_override("panel", style_normal)
+				# 让事件穿透，允许ScrollContainer处理滚动
+				click_area.mouse_filter = Control.MOUSE_FILTER_PASS
+
 func _on_chat_card_clicked(record: Dictionary):
 	"""点击chat卡片，显示详细对话"""
+	# 保存当前滚动位置
+	if scroll_container:
+		saved_scroll_position = scroll_container.scroll_vertical
+	
 	current_detail_record = record
 	_display_detail_view()
 
@@ -494,10 +609,10 @@ func _on_back_to_list():
 	# 重新显示列表
 	_display_records()
 	
-	# 滚动到顶部
+	# 恢复之前保存的滚动位置
 	await get_tree().process_frame
 	if scroll_container:
-		scroll_container.scroll_vertical = 0
+		scroll_container.scroll_vertical = saved_scroll_position
 
 func _on_prev_date_pressed():
 	"""切换到前一天"""
