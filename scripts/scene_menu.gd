@@ -33,35 +33,49 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	call_button.pressed.connect(_on_call_button_pressed)
 	vbox.add_child(call_button)
 	
-	# 为每个场景（除当前场景外）创建按钮
-	for scene_id in scenes_config.keys():
-		if scene_id == current_scene:
+	# 获取当前场景的连通场景列表
+	var current_scene_data = scenes_config.get(current_scene, {})
+	var connected_scenes = current_scene_data.get("connect", [])
+	
+	# 只为连通的场景创建按钮
+	for scene_id in connected_scenes:
+		if not scenes_config.has(scene_id):
 			continue
 		
 		var scene_data = scenes_config[scene_id]
 		var button = Button.new()
-		button.text = "🏠 前往" + scene_data.get("name", scene_id)
+		
+		# 根据场景类型选择图标
+		var icon = _get_scene_icon(scene_data.get("class", ""))
+		button.text = icon + " 前往" + scene_data.get("name", scene_id)
 		button.pressed.connect(_on_scene_button_pressed.bind(scene_id))
 		
 		vbox.add_child(button)
 		scene_buttons.append(button)
-	
-	# 更新面板大小
-	await get_tree().process_frame
-	custom_minimum_size = vbox.size + Vector2(20, 20)
 
 func show_menu(at_position: Vector2):
+	# 先显示以便计算大小
+	visible = true
+	modulate.a = 0.0
+	scale = Vector2(0.8, 0.8)
+	
+	# 等待布局更新
+	await get_tree().process_frame
+	
+	# 手动计算所需高度
+	var button_count = 1 + scene_buttons.size()  # 呼唤按钮 + 场景按钮
+	var button_height = 40.0  # 按钮默认高度
+	var separation = 5.0  # 按钮间距
+	var total_height = button_count * button_height + (button_count - 1) * separation
+	
+	# 设置面板大小（宽度150，高度根据按钮数量计算）
+	var panel_width = 150.0
+	var margin = 20.0
+	custom_minimum_size = Vector2(panel_width, total_height + margin)
+	size = Vector2(panel_width, total_height + margin)
+	
 	# 设置菜单位置
 	position = at_position
-	
-	visible = true
-	
-	# 强制更新布局和尺寸
-	vbox.reset_size()
-	await get_tree().process_frame
-	custom_minimum_size = vbox.size + Vector2(20, 20)
-	reset_size()
-	
 	pivot_offset = size / 2.0
 	
 	# 展开动画
@@ -99,6 +113,16 @@ func _get_character_name() -> String:
 		var helpers = get_node("/root/EventHelpers")
 		return helpers.get_character_name()
 	return "角色"
+
+func _get_scene_icon(scene_class: String) -> String:
+	"""根据场景类型返回对应的图标"""
+	match scene_class:
+		"home":
+			return "🏠"
+		"outdoor":
+			return "🌳"
+		_:
+			return "📍"
 
 func _input(event):
 	# 如果菜单可见，且点击了菜单外的区域，则隐藏菜单

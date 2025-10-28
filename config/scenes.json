@@ -1,82 +1,49 @@
 {
+  "times": {
+    "day": "白天",
+    "dusk": "黄昏",
+    "night": "夜晚"
+  },
+  "weathers": {
+    "sunny": "晴天",
+    "rainy": "雨天"
+  },
   "scenes": {
     "livingroom": {
       "name": "客厅",
       "weight": 5,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "home",
+      "connect": ["bedroom", "kitchen", "bathroom", "studyroom","rooftop"]
     },
     "bedroom": {
       "name": "卧室",
       "weight": 3,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "home",
+      "connect": ["livingroom","bathroom","studyroom"]
     },
     "bathroom": {
       "name": "浴室",
       "weight": 1,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "home",
+      "connect": ["livingroom","bedroom","studyroom"]
     },
     "studyroom": {
       "name": "书房",
       "weight": 3,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "home",
+      "connect": ["livingroom","bedroom","bathroom"]
     },
     "kitchen": {
       "name": "厨房",
       "weight": 1,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "home",
+      "connect": ["livingroom"]
     },
     "rooftop": {
       "name": "天台",
       "weight": 1,
-      "times": {
-        "day": "白天",
-        "dusk": "黄昏",
-        "night": "夜晚"
-      },
-      "weathers": {
-        "sunny": "晴天",
-        "rainy": "雨天"
-      }
+      "class": "outdoor",
+      "connect": ["livingroom"]
     }
   }
 }

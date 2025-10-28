@@ -216,6 +216,7 @@ func _load_scenes_config():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var data = json.data
+			# 新格式：scenes 在 data.scenes 中
 			scenes_config = data.get("scenes", {})
 			print("场景配置已加载: ", scenes_config.keys())
 		else:

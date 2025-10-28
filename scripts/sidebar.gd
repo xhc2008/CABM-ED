@@ -247,6 +247,14 @@ func _load_scenes_config():
 			var data = json.data
 			if data.has("scenes"):
 				scenes = data["scenes"]
+				# 为每个场景添加通用的 times 和 weathers
+				var common_times = data.get("times", {})
+				var common_weathers = data.get("weathers", {})
+				for scene_id in scenes:
+					if not scenes[scene_id].has("times"):
+						scenes[scene_id]["times"] = common_times
+					if not scenes[scene_id].has("weathers"):
+						scenes[scene_id]["weathers"] = common_weathers
 
 func _build_scene_list():
 	# 清空现有列表（保留时钟和自动选项）
