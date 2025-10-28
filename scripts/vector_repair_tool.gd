@@ -132,7 +132,7 @@ func _needs_repair(items: Array, index: int) -> bool:
 			same_vector_count += 1
 			
 			# 如果与2个以上不同的记忆向量完全相同，判定为损坏
-			if same_vector_count >= 2:
+			if same_vector_count >= 1:
 				return true
 	
 	return false

@@ -30,7 +30,15 @@ var ai_chat_messages: Array = [
 	"我要认真了",
 	"这局很精彩",
 	"继续加油",
-	"好棋！"
+	"好棋！",
+	"⌯>ᴗo⌯ .ᐟ.ᐟ",
+	"(,,>᎑<,,)",
+	"(｡•ˇ‸ˇ•｡)",
+	"∑(O_O；)",
+	"(((╹д╹;)))",
+	"(,,>᎑<,,)",
+	"(*^ω^*)",
+	"(∠・ω＜)⌒☆"
 ]
 
 var player_chat_messages: Dictionary = {
@@ -391,8 +399,8 @@ func _place_stone(row: int, col: int, player: int):
 		# AI回合，延迟后再执行AI移动
 		await get_tree().create_timer(0.3).timeout
 		
-		# 有30%概率显示聊天气泡
-		if randf() < 0.3:
+		# 有50%概率显示聊天气泡
+		if randf() < 0.5:
 			var message = ai_chat_messages[randi() % ai_chat_messages.size()]
 			_show_ai_chat(message)
 		
