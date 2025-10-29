@@ -12,9 +12,20 @@ var is_first_load: bool = true # 标记是否是首次加载
 const CHAT_POSITION_RATIO = Vector2(0.5, 0.55) # 向下调整到0.5
 const CHAT_SCALE = 0.7
 
+# 表情叠加层（用于聊天状态）
+var expression_layer: TextureRect = null
+
 func _ready():
 	pressed.connect(_on_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	
+	# 创建表情叠加层
+	expression_layer = TextureRect.new()
+	expression_layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	expression_layer.stretch_mode = TextureRect.STRETCH_SCALE
+	expression_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
+	expression_layer.visible = false
+	add_child(expression_layer)
 
 func set_background_reference(bg: TextureRect):
 	background_node = bg
@@ -339,6 +350,9 @@ func end_chat():
 		return
 	
 	is_chatting = false
+	
+	# 隐藏表情层
+	expression_layer.visible = false
 	
 	# 断开AI服务信号
 	if has_node("/root/AIService"):
@@ -728,7 +742,7 @@ func _on_pressed():
 		character_clicked.emit(global_pos, char_size)
 
 func _load_chat_image_for_mood():
-	"""根据当前心情和服装加载聊天图片"""
+	"""根据当前心情和服装加载聊天图片（base.png + 表情层）"""
 	if not has_node("/root/SaveManager"):
 		_load_default_chat_image()
 		return
@@ -737,30 +751,65 @@ func _load_chat_image_for_mood():
 	var mood_name_en = save_mgr.get_mood()
 	var costume_id = save_mgr.get_costume_id()
 	
-	# 从mood_config.json获取图片文件名
-	var image_filename = _get_mood_image_filename(mood_name_en)
-	if image_filename.is_empty():
+	# 加载base.png作为底模
+	var base_image_path = "res://assets/images/character/%s/chat/base.png" % costume_id
+	if not ResourceLoader.exists(base_image_path):
+		print("base.png不存在: ", base_image_path, " 使用旧方式")
 		_load_default_chat_image()
 		return
 	
-	var chat_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
-	if ResourceLoader.exists(chat_image_path):
-		texture_normal = load(chat_image_path)
-		custom_minimum_size = texture_normal.get_size()
-		size = texture_normal.get_size()
-		print("加载心情图片: ", chat_image_path)
+	texture_normal = load(base_image_path)
+	custom_minimum_size = texture_normal.get_size()
+	size = texture_normal.get_size()
+	
+	# 从mood_config.json获取表情图片文件名
+	var image_filename = _get_mood_image_filename(mood_name_en)
+	if image_filename.is_empty():
+		# 没有表情，只显示base
+		expression_layer.visible = false
+		print("加载base图片: ", base_image_path)
+		return
+	
+	# 加载表情图片到叠加层
+	var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
+	if ResourceLoader.exists(expression_image_path):
+		expression_layer.texture = load(expression_image_path)
+		expression_layer.size = texture_normal.get_size()
+		expression_layer.position = Vector2.ZERO
+		expression_layer.visible = true
+		print("加载base图片: ", base_image_path, " + 表情图片: ", expression_image_path)
 	else:
-		print("心情图片不存在: ", chat_image_path, " 使用默认图片")
-		_load_default_chat_image()
+		print("表情图片不存在: ", expression_image_path, " 只显示base")
+		expression_layer.visible = false
 
 func _load_default_chat_image():
-	"""加载默认聊天图片"""
+	"""加载默认聊天图片（base.png + normal.png）"""
 	var costume_id = _get_costume_id()
-	var chat_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
-	if ResourceLoader.exists(chat_image_path):
-		texture_normal = load(chat_image_path)
+	
+	# 加载base.png作为底模
+	var base_image_path = "res://assets/images/character/%s/chat/base.png" % costume_id
+	if ResourceLoader.exists(base_image_path):
+		texture_normal = load(base_image_path)
 		custom_minimum_size = texture_normal.get_size()
 		size = texture_normal.get_size()
+		
+		# 加载normal.png作为表情层
+		var normal_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
+		if ResourceLoader.exists(normal_image_path):
+			expression_layer.texture = load(normal_image_path)
+			expression_layer.size = texture_normal.get_size()
+			expression_layer.position = Vector2.ZERO
+			expression_layer.visible = true
+		else:
+			expression_layer.visible = false
+	else:
+		# 如果没有base.png，回退到旧方式
+		var chat_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
+		if ResourceLoader.exists(chat_image_path):
+			texture_normal = load(chat_image_path)
+			custom_minimum_size = texture_normal.get_size()
+			size = texture_normal.get_size()
+			expression_layer.visible = false
 
 func _get_mood_image_filename(mood_name_en: String) -> String:
 	"""根据心情英文名获取图片文件名"""
@@ -787,7 +836,7 @@ func _get_mood_image_filename(mood_name_en: String) -> String:
 	return ""
 
 func _on_mood_changed(fields: Dictionary):
-	"""心情变化时切换图片"""
+	"""心情变化时切换表情图片（只更新表情层）"""
 	if not is_chatting:
 		return
 	
@@ -803,20 +852,22 @@ func _on_mood_changed(fields: Dictionary):
 	# 获取图片文件名
 	var image_filename = _get_mood_image_filename(mood_name_en)
 	if image_filename.is_empty():
+		# 没有表情，隐藏表情层
+		expression_layer.visible = false
 		return
 	
 	# 获取当前服装ID
 	var costume_id = _get_costume_id()
 	
-	# 加载新图片
-	var chat_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
-	if ResourceLoader.exists(chat_image_path):
-		texture_normal = load(chat_image_path)
-		custom_minimum_size = texture_normal.get_size()
-		size = texture_normal.get_size()
-		print("切换心情图片: ", chat_image_path)
+	# 只更新表情层
+	var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
+	if ResourceLoader.exists(expression_image_path):
+		expression_layer.texture = load(expression_image_path)
+		expression_layer.visible = true
+		print("切换表情图片: ", expression_image_path)
 	else:
-		print("心情图片不存在: ", chat_image_path)
+		print("表情图片不存在: ", expression_image_path)
+		expression_layer.visible = false
 
 func _get_mood_name_en_by_id(mood_id: int) -> String:
 	"""根据mood ID获取英文名称"""
@@ -851,7 +902,7 @@ func _get_costume_id() -> String:
 
 func reload_with_new_costume():
 	"""换装后重新加载角色"""
-	# 如果正在聊天，重新加载聊天图片
+	# 如果正在聊天，重新加载聊天图片（包括base和表情层）
 	if is_chatting:
 		_load_chat_image_for_mood()
 		return
