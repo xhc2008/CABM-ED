@@ -253,6 +253,15 @@ func set_character_preset(preset: Dictionary):
 	save_data.character_data.current_preset = preset.duplicate(true)
 	_auto_save()
 
+func get_costume_id() -> String:
+	"""获取当前服装ID"""
+	return save_data.character_data.get("costume_id", "default")
+
+func set_costume_id(costume_id: String):
+	"""设置当前服装ID"""
+	save_data.character_data.costume_id = costume_id
+	_auto_save()
+
 func get_affection() -> int:
 	return save_data.character_data.get("affection", 0)
 

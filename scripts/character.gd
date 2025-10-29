@@ -109,7 +109,9 @@ func load_character_for_scene(scene_id: String):
 			var save_mgr = get_node("/root/SaveManager")
 			# 设置标记，表示这是首次初始化
 			save_mgr.set_meta("is_first_scene_init", true)
-			save_mgr.set_character_scene(scene_id)
+			# 直接设置数据，不触发信号
+			save_mgr.save_data.character_data.current_scene = scene_id
+			save_mgr._auto_save()
 		character_scene = scene_id
 	
 	if character_scene != scene_id:
@@ -126,8 +128,9 @@ func load_character_for_scene(scene_id: String):
 	
 	current_scene = scene_id
 	
-	# 加载预设配置
-	var config_path = "res://config/character_presets.json"
+	# 获取当前服装ID并加载对应的预设配置
+	var costume_id = _get_costume_id()
+	var config_path = "res://config/character_presets/%s.json" % costume_id
 	if not FileAccess.file_exists(config_path):
 		print("角色配置文件不存在")
 		return
@@ -170,8 +173,8 @@ func load_character_for_scene(scene_id: String):
 		original_preset = presets[randi() % presets.size()]
 		print("随机选择角色预设")
 	
-	# 加载角色图片
-	var image_path = "res://assets/images/character/%s/%s" % [scene_id, original_preset.image]
+	# 加载角色图片（使用之前获取的costume_id）
+	var image_path = "res://assets/images/character/%s/%s/%s" % [costume_id, scene_id, original_preset.image]
 	if ResourceLoader.exists(image_path):
 		texture_normal = load(image_path)
 		
@@ -416,8 +419,11 @@ func _reload_same_preset():
 		load_character_for_scene(current_scene)
 		return
 	
+	# 获取当前服装ID
+	var costume_id = _get_costume_id()
+	
 	# 加载角色图片
-	var image_path = "res://assets/images/character/%s/%s" % [current_scene, original_preset.image]
+	var image_path = "res://assets/images/character/%s/%s/%s" % [costume_id, current_scene, original_preset.image]
 	if ResourceLoader.exists(image_path):
 		texture_normal = load(image_path)
 		custom_minimum_size = texture_normal.get_size()
@@ -447,7 +453,8 @@ func _reload_same_preset():
 
 func _get_random_other_scene() -> String:
 	"""根据权重获取一个随机的其他场景"""
-	var presets_path = "res://config/character_presets.json"
+	var costume_id = _get_costume_id()
+	var presets_path = "res://config/character_presets/%s.json" % costume_id
 	if not FileAccess.file_exists(presets_path):
 		return ""
 	
@@ -461,13 +468,19 @@ func _get_random_other_scene() -> String:
 	
 	var presets_config = json.data
 	
+	# 定义非场景字段（需要过滤掉）
+	var non_scene_fields = ["id", "name", "description"]
+	
 	# 加载场景权重配置
 	var scenes_path = "res://config/scenes.json"
 	if not FileAccess.file_exists(scenes_path):
 		# 如果没有场景配置，使用旧的均匀随机方式
 		var available_scenes = []
 		for scene_id in presets_config:
-			if scene_id != current_scene and presets_config[scene_id].size() > 0:
+			# 跳过非场景字段
+			if scene_id in non_scene_fields:
+				continue
+			if scene_id != current_scene and presets_config[scene_id] is Array and presets_config[scene_id].size() > 0:
 				available_scenes.append(scene_id)
 		if available_scenes.is_empty():
 			return ""
@@ -490,7 +503,10 @@ func _get_random_other_scene() -> String:
 	var total_weight = 0
 	
 	for scene_id in presets_config:
-		if scene_id != current_scene and presets_config[scene_id].size() > 0:
+		# 跳过非场景字段
+		if scene_id in non_scene_fields:
+			continue
+		if scene_id != current_scene and presets_config[scene_id] is Array and presets_config[scene_id].size() > 0:
 			var weight = 1 # 默认权重
 			if scenes_config.scenes.has(scene_id) and scenes_config.scenes[scene_id].has("weight"):
 				weight = scenes_config.scenes[scene_id].weight
@@ -652,8 +668,9 @@ func _move_to_scene(new_scene: String, show_notification: bool = true):
 	_update_preset_for_scene(new_scene)
 
 func _is_valid_scene(scene_id: String) -> bool:
-	"""验证场景ID是否合法（存在于character_presets.json中且有预设）"""
-	var config_path = "res://config/character_presets.json"
+	"""验证场景ID是否合法（存在于当前服装的配置中且有预设）"""
+	var costume_id = _get_costume_id()
+	var config_path = "res://config/character_presets/%s.json" % costume_id
 	if not FileAccess.file_exists(config_path):
 		return false
 	
@@ -666,11 +683,12 @@ func _is_valid_scene(scene_id: String) -> bool:
 		return false
 	
 	var config = json.data
-	return config.has(scene_id) and config[scene_id].size() > 0
+	return config.has(scene_id) and config[scene_id] is Array and config[scene_id].size() > 0
 
 func _update_preset_for_scene(scene_id: String):
 	"""为指定场景更新随机预设"""
-	var config_path = "res://config/character_presets.json"
+	var costume_id = _get_costume_id()
+	var config_path = "res://config/character_presets/%s.json" % costume_id
 	if not FileAccess.file_exists(config_path):
 		return
 	
@@ -683,7 +701,14 @@ func _update_preset_for_scene(scene_id: String):
 		return
 	
 	var config = json.data
-	if not config.has(scene_id) or config[scene_id].size() == 0:
+	if not config.has(scene_id):
+		return
+	
+	# 确保是数组类型
+	if not config[scene_id] is Array:
+		return
+	
+	if config[scene_id].size() == 0:
 		return
 	
 	var presets = config[scene_id]
@@ -703,13 +728,14 @@ func _on_pressed():
 		character_clicked.emit(global_pos, char_size)
 
 func _load_chat_image_for_mood():
-	"""根据当前心情加载聊天图片"""
+	"""根据当前心情和服装加载聊天图片"""
 	if not has_node("/root/SaveManager"):
 		_load_default_chat_image()
 		return
 	
 	var save_mgr = get_node("/root/SaveManager")
 	var mood_name_en = save_mgr.get_mood()
+	var costume_id = save_mgr.get_costume_id()
 	
 	# 从mood_config.json获取图片文件名
 	var image_filename = _get_mood_image_filename(mood_name_en)
@@ -717,7 +743,7 @@ func _load_chat_image_for_mood():
 		_load_default_chat_image()
 		return
 	
-	var chat_image_path = "res://assets/images/character/chat/" + image_filename
+	var chat_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
 	if ResourceLoader.exists(chat_image_path):
 		texture_normal = load(chat_image_path)
 		custom_minimum_size = texture_normal.get_size()
@@ -729,7 +755,8 @@ func _load_chat_image_for_mood():
 
 func _load_default_chat_image():
 	"""加载默认聊天图片"""
-	var chat_image_path = "res://assets/images/character/chat/normal.png"
+	var costume_id = _get_costume_id()
+	var chat_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
 	if ResourceLoader.exists(chat_image_path):
 		texture_normal = load(chat_image_path)
 		custom_minimum_size = texture_normal.get_size()
@@ -778,8 +805,11 @@ func _on_mood_changed(fields: Dictionary):
 	if image_filename.is_empty():
 		return
 	
+	# 获取当前服装ID
+	var costume_id = _get_costume_id()
+	
 	# 加载新图片
-	var chat_image_path = "res://assets/images/character/chat/" + image_filename
+	var chat_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
 	if ResourceLoader.exists(chat_image_path):
 		texture_normal = load(chat_image_path)
 		custom_minimum_size = texture_normal.get_size()
@@ -811,3 +841,31 @@ func _get_mood_name_en_by_id(mood_id: int) -> String:
 			return mood.name_en
 	
 	return ""
+
+func _get_costume_id() -> String:
+	"""获取当前服装ID"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_costume_id()
+	return "default"
+
+func reload_with_new_costume():
+	"""换装后重新加载角色"""
+	# 如果正在聊天，重新加载聊天图片
+	if is_chatting:
+		_load_chat_image_for_mood()
+	else:
+		# 检查角色是否在当前场景
+		var character_scene = _get_character_scene()
+		if character_scene == current_scene:
+			# 角色在当前场景，换装后需要重新随机选择预设位置（不同服装有不同的预设）
+			# 清空当前预设，强制重新选择
+			original_preset = {}
+			# 重新加载场景角色（会随机选择新服装的预设）
+			load_character_for_scene(current_scene)
+		else:
+			# 角色不在当前场景，只更新存档中的预设（为角色所在场景生成新预设）
+			print("角色不在当前场景 (在%s，当前%s)，更新存档中的预设并保持隐藏" % [character_scene, current_scene])
+			_update_preset_for_scene(character_scene)
+			# 确保角色保持隐藏
+			visible = false

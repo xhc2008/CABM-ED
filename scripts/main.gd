@@ -11,6 +11,7 @@ extends Control
 @onready var audio_manager = $AudioManager
 @onready var character_diary_button = $CharacterDiaryButton if has_node("CharacterDiaryButton") else null
 @onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
+var costume_button = null
 
 var current_scene: String = ""
 var current_weather: String = ""
@@ -34,6 +35,9 @@ var pending_chat_timer: Timer = null
 func _ready():
 	# 检查并迁移旧日记数据
 	_check_and_migrate_diary()
+	
+	# 创建换装按钮（如果场景中不存在）
+	_setup_costume_button()
 	
 	# 初始化管理器
 	_setup_managers()
@@ -123,14 +127,20 @@ func _load_initial_scene() -> String:
 	return "livingroom"
 
 func _is_valid_scene(scene_id: String) -> bool:
-	"""验证场景ID是否合法（同时存在于scenes.json和character_presets.json中）"""
+	"""验证场景ID是否合法（同时存在于scenes.json和当前服装的配置中）"""
 	# 检查scenes.json
 	if not scenes_config.has(scene_id):
 		print("场景验证失败: '%s' 不在 scenes.json 中" % scene_id)
 		return false
 	
-	# 检查character_presets.json
-	var presets_path = "res://config/character_presets.json"
+	# 获取当前服装ID
+	var costume_id = "default"
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		costume_id = save_mgr.get_costume_id()
+	
+	# 检查当前服装的配置文件
+	var presets_path = "res://config/character_presets/%s.json" % costume_id
 	if not FileAccess.file_exists(presets_path):
 		print("场景验证失败: character_presets.json 不存在")
 		return false
@@ -141,16 +151,21 @@ func _is_valid_scene(scene_id: String) -> bool:
 	
 	var json = JSON.new()
 	if json.parse(json_string) != OK:
-		print("场景验证失败: character_presets.json 解析错误")
+		print("场景验证失败: 服装配置 %s 解析错误" % costume_id)
 		return false
 	
 	var presets_config = json.data
 	if not presets_config.has(scene_id):
-		print("场景验证失败: '%s' 不在 character_presets.json 中" % scene_id)
+		print("场景验证失败: '%s' 不在服装 %s 的配置中" % [scene_id, costume_id])
+		return false
+	
+	# 确保是数组类型（场景配置）而不是字符串（id/name/description）
+	if not presets_config[scene_id] is Array:
+		print("场景验证失败: '%s' 在服装 %s 中不是有效的场景配置" % [scene_id, costume_id])
 		return false
 	
 	if presets_config[scene_id].size() == 0:
-		print("场景验证失败: '%s' 没有角色预设" % scene_id)
+		print("场景验证失败: '%s' 在服装 %s 中没有角色预设" % [scene_id, costume_id])
 		return false
 	
 	return true
@@ -178,6 +193,8 @@ func _setup_managers():
 		ui_mgr.register_element(right_click_area)
 		if character_diary_button:
 			ui_mgr.register_element(character_diary_button)
+		if costume_button:
+			ui_mgr.register_element(costume_button)
 	else:
 		print("警告: UIManager 未找到，请检查自动加载配置")
 	
@@ -273,6 +290,9 @@ func _update_ui_layout():
 	
 	# 更新角色日记查看器 - 居中显示
 	_update_character_diary_viewer_layout()
+	
+	# 更新换装按钮 - 固定在场景右下角
+	_update_costume_button_layout()
 	
 
 	
@@ -372,6 +392,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	# 场景变化后更新UI布局
 	await get_tree().process_frame
 	_update_ui_layout()
+	
+	# 更新换装按钮可见性
+	_update_costume_button_visibility()
 	
 	# 更新角色日记按钮显示状态
 	_update_character_diary_button_visibility()
@@ -1063,3 +1086,100 @@ func _move_character_to_current_scene():
 		
 		# 触发对话
 		_start_called_chat()
+
+
+func _update_costume_button_layout():
+	"""更新换装按钮布局"""
+	if costume_button == null:
+		return
+	
+	# 使用配置管理器计算位置
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		var element_size = costume_button.size
+		costume_button.position = mgr.calculate_element_position("costume_button", scene_rect, element_size)
+	else:
+		# 降级方案：使用默认位置（场景右下角）
+		var button_x = scene_rect.position.x + scene_rect.size.x - costume_button.size.x - 140
+		var button_y = scene_rect.position.y + scene_rect.size.y - costume_button.size.y - 130
+		costume_button.position = Vector2(button_x, button_y)
+
+func _update_costume_button_visibility():
+	"""更新换装按钮的显示状态（根据配置决定在哪些场景显示）"""
+	if costume_button == null:
+		return
+	
+	# 使用配置管理器检查是否应该显示
+	var should_show = false
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		should_show = mgr.should_show_in_scene("costume_button", current_scene) and mgr.is_element_enabled("costume_button")
+	else:
+		# 降级方案：只在bathroom场景显示
+		should_show = (current_scene == "bathroom")
+	
+	if should_show:
+		costume_button.enable()
+	else:
+		costume_button.disable()
+
+func _on_costume_selector_requested():
+	"""换装选择器被请求"""
+	# 创建换装选择器
+	var costume_selector_script = load("res://scripts/costume_selector.gd")
+	var costume_selector = Control.new()
+	costume_selector.set_script(costume_selector_script)
+	costume_selector.set_anchors_preset(Control.PRESET_FULL_RECT)
+	costume_selector.z_index = 200
+	
+	# 连接信号
+	costume_selector.costume_selected.connect(_on_costume_selected)
+	costume_selector.close_requested.connect(func(): costume_selector.queue_free())
+	
+	# 添加到场景
+	add_child(costume_selector)
+	
+	# 禁用UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").disable_all()
+
+func _on_costume_selected(costume_id: String):
+	"""服装被选择"""
+	print("选择服装: ", costume_id)
+	
+	# 保存服装ID
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_costume_id(costume_id)
+	
+	# 重新加载角色
+	character.reload_with_new_costume()
+	
+	# 恢复UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
+	
+	# 显示提示消息
+	_show_info_message("服装已更换")
+
+
+func _setup_costume_button():
+	"""设置换装按钮（如果场景中不存在则动态创建）"""
+	if has_node("CostumeButton"):
+		costume_button = get_node("CostumeButton")
+		print("使用场景中的 CostumeButton")
+	else:
+		# 动态创建换装按钮
+		var costume_button_scene = load("res://scenes/costume_button.tscn")
+		if costume_button_scene:
+			costume_button = costume_button_scene.instantiate()
+			costume_button.name = "CostumeButton"
+			add_child(costume_button)
+			print("动态创建 CostumeButton")
+		else:
+			print("警告: 无法加载 costume_button.tscn")
+			return
+	
+	# 连接信号
+	if costume_button:
+		costume_button.costume_selector_requested.connect(_on_costume_selector_requested)

@@ -16,6 +16,23 @@
         "bedroom"
       ],
       "enabled": true
+    },
+    "costume_button": {
+      "name": "换装入口",
+      "type": "click_area",
+      "size": {
+        "width": 200,
+        "height": 300
+      },
+      "position": {
+        "anchor": "bottom_left",
+        "offset_x": 240,
+        "offset_y": -230
+      },
+      "scenes": [
+        "bathroom"
+      ],
+      "enabled": true
     }
   },
   "position_anchors": {

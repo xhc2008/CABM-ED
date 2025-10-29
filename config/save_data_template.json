@@ -9,6 +9,7 @@
         "energy": 100,
         "trust_level": 0,
         "current_scene": "",
+        "costume_id": "default",
         "current_preset": {
           "des": "",
           "image": "",
