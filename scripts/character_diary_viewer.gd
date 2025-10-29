@@ -54,17 +54,18 @@ func _setup_scrollbar_style():
 	if not scroll_container:
 		return
 	
-	# 为内容区域添加右侧 padding，为滚动条留出空间
-	# 需要将 content_vbox 包裹在 MarginContainer 中
+	# 为内容添加右侧边距，避免被滚动条遮挡
 	if content_vbox and content_vbox.get_parent() == scroll_container:
 		# 创建 MarginContainer 包裹内容
-		var margin = MarginContainer.new()
-		margin.add_theme_constant_override("margin_right", 20)
+		var content_margin = MarginContainer.new()
+		content_margin.add_theme_constant_override("margin_right", 25)
+		content_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		
 		# 重新组织节点结构
 		scroll_container.remove_child(content_vbox)
-		scroll_container.add_child(margin)
-		margin.add_child(content_vbox)
+		scroll_container.add_child(content_margin)
+		content_margin.add_child(content_vbox)
 	
 	# 获取垂直滚动条
 	var v_scroll = scroll_container.get_v_scroll_bar()
