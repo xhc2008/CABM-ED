@@ -21,13 +21,13 @@
       "name": "换装入口",
       "type": "click_area",
       "size": {
-        "width": 200,
-        "height": 300
+        "width": 230,
+        "height": 230
       },
       "position": {
         "anchor": "bottom_left",
-        "offset_x": 240,
-        "offset_y": -230
+        "offset_x": 350,
+        "offset_y": -350
       },
       "scenes": [
         "bathroom"

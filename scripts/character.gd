@@ -110,6 +110,9 @@ func _update_position_and_scale_from_preset():
 	print("实际背景大小: ", actual_bg_size, " 偏移: ", bg_offset, " 缩放: ", bg_scale, " 角色position: ", position)
 
 func load_character_for_scene(scene_id: String):
+	# 始终更新current_scene为用户当前所在场景（无论角色是否在该场景）
+	current_scene = scene_id
+	
 	# 检查角色是否应该在这个场景显示
 	var character_scene = _get_character_scene()
 	
@@ -136,8 +139,6 @@ func load_character_for_scene(scene_id: String):
 		print("错误: background_node 为空，无法加载角色")
 		visible = false
 		return
-	
-	current_scene = scene_id
 	
 	# 获取当前服装ID并加载对应的预设配置
 	var costume_id = _get_costume_id()
@@ -900,6 +901,11 @@ func _get_costume_id() -> String:
 		return save_mgr.get_costume_id()
 	return "default"
 
+func _ensure_hidden():
+	"""确保角色保持隐藏状态（用于延迟调用）"""
+	visible = false
+	modulate.a = 0.0
+
 func reload_with_new_costume():
 	"""换装后重新加载角色"""
 	# 如果正在聊天，重新加载聊天图片（包括base和表情层）
@@ -920,6 +926,10 @@ func reload_with_new_costume():
 	else:
 		# 角色不在当前场景，只更新存档中的预设（为角色所在场景生成新预设）
 		print("换装: 角色在 %s，当前在 %s，更新预设并保持隐藏" % [character_scene, current_scene])
-		_update_preset_for_scene(character_scene)
-		# 确保角色保持隐藏（不调用load_character_for_scene，避免任何显示逻辑）
+		# 立即隐藏角色
 		visible = false
+		modulate.a = 0.0
+		# 更新预设（为角色所在场景生成新预设）
+		_update_preset_for_scene(character_scene)
+		# 使用call_deferred确保在所有操作完成后角色仍然隐藏
+		call_deferred("_ensure_hidden")
