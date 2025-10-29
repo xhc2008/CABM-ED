@@ -447,6 +447,13 @@ func _call_summary_api_with_data(conversation_text: String, conversation_data: A
 	
 	logger.log_api_request("SUMMARY_REQUEST", body, json_body)
 	
+	# 如果http_request正在处理请求，先取消它
+	if http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		print("检测到http_request正在忙碌，取消当前请求")
+		http_request.cancel_request()
+		# 等待一帧确保取消完成
+		await get_tree().process_frame
+	
 	http_request.set_meta("request_type", "summary")
 	http_request.set_meta("request_body", body)
 	http_request.set_meta("messages", messages)
@@ -753,6 +760,13 @@ func _call_relationship_api():
 	var json_body = JSON.stringify(body)
 	
 	logger.log_api_request("RELATIONSHIP_REQUEST", body, json_body)
+	
+	# 如果http_request正在处理请求，先取消它
+	if http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		print("检测到http_request正在忙碌，取消当前请求")
+		http_request.cancel_request()
+		# 等待一帧确保取消完成
+		await get_tree().process_frame
 	
 	http_request.set_meta("request_type", "relationship")
 	http_request.set_meta("request_body", body)
