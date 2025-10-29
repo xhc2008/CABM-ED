@@ -854,18 +854,21 @@ func reload_with_new_costume():
 	# 如果正在聊天，重新加载聊天图片
 	if is_chatting:
 		_load_chat_image_for_mood()
+		return
+	
+	# 检查角色是否在当前场景
+	var character_scene = _get_character_scene()
+	
+	if character_scene == current_scene:
+		# 角色在当前场景，换装后需要重新随机选择预设位置（不同服装有不同的预设）
+		print("换装: 角色在当前场景，重新加载并使用新服装预设")
+		# 清空当前预设，强制重新选择
+		original_preset = {}
+		# 重新加载场景角色（会随机选择新服装的预设）
+		load_character_for_scene(current_scene)
 	else:
-		# 检查角色是否在当前场景
-		var character_scene = _get_character_scene()
-		if character_scene == current_scene:
-			# 角色在当前场景，换装后需要重新随机选择预设位置（不同服装有不同的预设）
-			# 清空当前预设，强制重新选择
-			original_preset = {}
-			# 重新加载场景角色（会随机选择新服装的预设）
-			load_character_for_scene(current_scene)
-		else:
-			# 角色不在当前场景，只更新存档中的预设（为角色所在场景生成新预设）
-			print("角色不在当前场景 (在%s，当前%s)，更新存档中的预设并保持隐藏" % [character_scene, current_scene])
-			_update_preset_for_scene(character_scene)
-			# 确保角色保持隐藏
-			visible = false
+		# 角色不在当前场景，只更新存档中的预设（为角色所在场景生成新预设）
+		print("换装: 角色在 %s，当前在 %s，更新预设并保持隐藏" % [character_scene, current_scene])
+		_update_preset_for_scene(character_scene)
+		# 确保角色保持隐藏（不调用load_character_for_scene，避免任何显示逻辑）
+		visible = false
