@@ -25,6 +25,12 @@ var is_first_message: bool = true
 var last_conversation_time: float = 0.0 # 上次对话结束时间（Unix时间戳）
 var temp_conversation_file: String = "user://temp_conversation.json" # 临时对话文件路径
 
+# 总结重试机制
+var summary_retry_count: int = 0
+var max_summary_retries: int = 3
+var summary_retry_delay: float = 2.0 # 重试延迟（秒）
+var pending_summary_data: Dictionary = {} # 待总结的数据
+
 # 公共访问器（向后兼容）
 var api_key: String:
 	get:
@@ -317,30 +323,21 @@ func end_chat():
 	var conversation_copy = current_conversation.duplicate(true)
 	var conversation_text = _flatten_conversation_from_data(conversation_copy)
 	
-	# 清除前50%的上下文（向下取整），保留后50%（向上取整）
-	# 这样下次 start_chat 时可以直接使用全部 current_conversation
-	# 如果有对话记录，至少保留1条
-	var total_count = current_conversation.size()
-	var keep_count = max(1, int(ceil(total_count * 0.5))) if total_count > 0 else 0
-	var clear_count = total_count - keep_count
+	# 保存待总结的数据（用于重试和断点恢复）
+	pending_summary_data = {
+		"conversation_copy": conversation_copy,
+		"conversation_text": conversation_text,
+		"original_count": current_conversation.size(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
 	
-	if clear_count > 0:
-		for i in range(clear_count):
-			current_conversation.pop_front()
-		print("清除了 %d 条上下文，保留 %d 条" % [clear_count, current_conversation.size()])
-	else:
-		print("对话记录太少，不清除上下文，保留 %d 条" % current_conversation.size())
-	
-	# 记录对话结束时间
-	last_conversation_time = Time.get_unix_time_from_system()
-	
-	# 重置为第一条消息状态，以便下次对话开始时检查超时清理
-	is_first_message = true
-	
-	# 更新临时文件
+	# 先保存完整对话到临时文件（包含待总结标记）
 	_save_temp_conversation()
 	
-	# 使用拷贝的完整对话进行总结
+	# 重置重试计数
+	summary_retry_count = 0
+	
+	# 调用总结API
 	_call_summary_api_with_data(conversation_text, conversation_copy)
 
 func get_goto_field() -> int:
@@ -469,7 +466,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	var request_type = http_request.get_meta("request_type", "")
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
-		chat_error.emit("请求失败: " + str(result))
+		var error_msg = "请求失败: " + str(result)
+		print(error_msg)
+		chat_error.emit(error_msg)
+		
+		# 如果是总结请求失败，尝试重试
+		if request_type == "summary":
+			_handle_summary_failure(error_msg)
 		return
 	
 	if response_code != 200:
@@ -480,12 +483,21 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		
 		var request_body = http_request.get_meta("request_body", {})
 		logger.log_api_error(response_code, error_text, request_body)
+		
+		# 如果是总结请求失败，尝试重试
+		if request_type == "summary":
+			_handle_summary_failure(error_msg)
 		return
 	
 	var response_text = body.get_string_from_utf8()
 	var json = JSON.new()
 	if json.parse(response_text) != OK:
-		push_error("响应解析失败")
+		var error_msg = "响应解析失败"
+		push_error(error_msg)
+		
+		# 如果是总结请求失败，尝试重试
+		if request_type == "summary":
+			_handle_summary_failure(error_msg)
 		return
 	
 	if request_type == "summary":
@@ -497,6 +509,7 @@ func _handle_summary_response(response: Dictionary):
 	"""处理总结响应"""
 	if not response.has("choices") or response.choices.is_empty():
 		push_error("总结响应格式错误")
+		_handle_summary_failure("总结响应格式错误")
 		return
 	
 	var message = response.choices[0].message
@@ -517,7 +530,14 @@ func _handle_summary_response(response: Dictionary):
 				timestamp = conversation_data[i].timestamp
 				break
 	
-	_save_memory_and_diary(summary, conversation_text, timestamp)
+	await _save_memory_and_diary(summary, conversation_text, timestamp)
+	
+	# 总结成功后才清除上下文
+	_clear_conversation_context()
+	
+	# 清除待总结数据
+	pending_summary_data.clear()
+	summary_retry_count = 0
 	
 	# 总结完成后删除临时文件
 	_delete_temp_conversation()
@@ -843,7 +863,9 @@ func _save_temp_conversation():
 	var data = {
 		"conversation": current_conversation,
 		"last_time": last_conversation_time,
-		"is_first_message": is_first_message
+		"is_first_message": is_first_message,
+		"pending_summary": pending_summary_data,
+		"summary_retry_count": summary_retry_count
 	}
 	
 	var file = FileAccess.open(temp_conversation_file, FileAccess.WRITE)
@@ -884,6 +906,28 @@ func _check_and_recover_interrupted_conversation():
 	
 	print("检测到未完成的对话，开始断点恢复...")
 	
+	# 检查是否有待总结的数据
+	var pending_summary = temp_data.get("pending_summary", {})
+	if not pending_summary.is_empty():
+		print("检测到待总结的数据，恢复总结流程...")
+		
+		# 恢复对话数据
+		current_conversation = temp_data.get("conversation", [])
+		pending_summary_data = pending_summary
+		summary_retry_count = temp_data.get("summary_retry_count", 0)
+		
+		var conv_text = pending_summary.get("conversation_text", "")
+		var conv_copy = pending_summary.get("conversation_copy", [])
+		
+		if not conv_copy.is_empty():
+			print("恢复的对话包含 %d 条记录，继续总结..." % conv_copy.size())
+			_call_summary_api_with_data(conv_text, conv_copy)
+		else:
+			print("警告: 待总结数据为空，删除临时文件")
+			_delete_temp_conversation()
+		return
+	
+	# 旧版本兼容：如果没有pending_summary，使用旧逻辑
 	var recovered_conversation = temp_data.get("conversation", [])
 	if recovered_conversation.is_empty():
 		_delete_temp_conversation()
@@ -893,6 +937,16 @@ func _check_and_recover_interrupted_conversation():
 	var conversation_text = _flatten_conversation_from_data(recovered_conversation)
 	
 	print("恢复的对话包含 %d 条记录，开始总结..." % recovered_conversation.size())
+	
+	# 设置待总结数据
+	pending_summary_data = {
+		"conversation_copy": recovered_conversation,
+		"conversation_text": conversation_text,
+		"original_count": recovered_conversation.size(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	current_conversation = recovered_conversation
+	summary_retry_count = 0
 	
 	# 直接调用总结API，使用恢复的对话数据
 	_call_summary_api_with_data(conversation_text, recovered_conversation)
@@ -970,3 +1024,70 @@ func _get_timezone_offset() -> int:
 		hour_diff += 24
 	
 	return hour_diff * 3600
+
+func _handle_summary_failure(error_msg: String):
+	"""处理总结失败，尝试重试"""
+	summary_retry_count += 1
+	
+	if summary_retry_count <= max_summary_retries:
+		print("总结失败（%s），%d秒后进行第%d次重试..." % [error_msg, summary_retry_delay, summary_retry_count])
+		
+		# 更新临时文件（保存重试计数）
+		_save_temp_conversation()
+		
+		# 延迟后重试
+		await get_tree().create_timer(summary_retry_delay).timeout
+		
+		if not pending_summary_data.is_empty():
+			var conversation_text = pending_summary_data.get("conversation_text", "")
+			var conversation_copy = pending_summary_data.get("conversation_copy", [])
+			
+			if not conversation_copy.is_empty():
+				print("开始第%d次重试总结..." % summary_retry_count)
+				_call_summary_api_with_data(conversation_text, conversation_copy)
+			else:
+				push_error("待总结数据为空，无法重试")
+				_clear_conversation_context()
+				_delete_temp_conversation()
+		else:
+			push_error("待总结数据丢失，无法重试")
+			_clear_conversation_context()
+			_delete_temp_conversation()
+	else:
+		push_error("总结失败，已达到最大重试次数（%d次），放弃总结" % max_summary_retries)
+		
+		# 即使总结失败，也要清除上下文避免内存泄漏
+		_clear_conversation_context()
+		
+		# 清除待总结数据
+		pending_summary_data.clear()
+		summary_retry_count = 0
+		
+		# 删除临时文件
+		_delete_temp_conversation()
+		
+		chat_error.emit("总结失败: " + error_msg)
+
+func _clear_conversation_context():
+	"""清除对话上下文（保留后50%）"""
+	if pending_summary_data.is_empty():
+		return
+	
+	var original_count = pending_summary_data.get("original_count", current_conversation.size())
+	
+	# 清除前50%的上下文（向下取整），保留后50%（向上取整）
+	var keep_count = max(1, int(ceil(original_count * 0.5))) if original_count > 0 else 0
+	var clear_count = original_count - keep_count
+	
+	if clear_count > 0 and current_conversation.size() >= original_count:
+		for i in range(clear_count):
+			current_conversation.pop_front()
+		print("清除了 %d 条上下文，保留 %d 条" % [clear_count, current_conversation.size()])
+	else:
+		print("对话记录太少或已被清除，保留 %d 条" % current_conversation.size())
+	
+	# 记录对话结束时间
+	last_conversation_time = Time.get_unix_time_from_system()
+	
+	# 重置为第一条消息状态
+	is_first_message = true
