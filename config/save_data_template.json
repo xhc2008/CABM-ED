@@ -44,6 +44,10 @@
         "memory": [],
         "accumulated_summary_count": 0,
         "relationship_history": []
+      },
+      "inventory_data": {
+        "inventory": [],
+        "warehouse": []
       }
     }
   },

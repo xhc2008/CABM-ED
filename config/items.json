@@ -1,0 +1,65 @@
+{
+  "items": {
+    "CMR-951": {
+      "name": "九五式-改",
+      "type": "weapon",
+      "description": "你最熟悉的武器，它是████████████████████",
+      "icon":"CRM-951.png",
+      "weight": 1.2,
+      "max_stack": 1,
+      "damage": 25,
+      "ammo_type": "5.8mm",
+      "magazine_size": 15,
+      "fire_rate": 0.3
+    },
+    "UMP45": {
+      "name": "UMP45",
+      "type": "weapon",
+      "description": "让敌人的心电图和她一样平",
+      "icon":"UMP45.png",
+      "weight": 1.2,
+      "max_stack": 1,
+      "damage": 25,
+      "ammo_type": ".45",
+      "magazine_size": 15,
+      "fire_rate": 0.3
+    },
+    "5.8mm_ammo": {
+      "name": "5.8mm子弹",
+      "type": "ammo",
+      "description": "Ammunition for 5.8mm firearms",
+      "icon":"5.8mm.png",
+      "weight": 0.02,
+      "max_stack": 64,
+      "caliber": "9mm"
+    },
+    ".45_ammo": {
+      "name": ".45子弹",
+      "type": "ammo",
+      "description": "Ammunition for .45 firearms",
+      "icon":".45.png",
+      "weight": 0.03,
+      "max_stack": 64,
+      "caliber": "9mm"
+    },
+    "9mm_ammo": {
+      "name": "9mm子弹",
+      "type": "ammo",
+      "description": "Ammunition for 9mm firearms",
+      "icon":"9mm.png",
+      "weight": 0.02,
+      "max_stack": 64,
+      "caliber": "9mm"
+    },
+    "medkit_small": {
+      "name": "Small Medkit",
+      "type": "medical",
+      "description": "Restores 50 health",
+      "icon":"UMP45.png",
+      "weight": 0.8,
+      "max_stack": 3,
+      "heal_amount": 50,
+      "use_time": 3.0
+    }
+  }
+}

@@ -102,6 +102,9 @@ func _load_template():
 			is_auto_save_enabled = settings.get("auto_save", true)
 			auto_save_interval = settings.get("auto_save_interval", 300.0)
 			enable_instant_save = settings.get("instant_save", true)
+	
+	# 延迟加载背包数据
+	call_deferred("_load_inventory_data")
 
 func _setup_auto_save_timer():
 	"""设置自动保存定时器"""
@@ -129,6 +132,10 @@ func save_game(slot: int = 1, update_play_time: bool = true) -> bool:
 		update_play_time: 是否更新最后游玩时间（默认true）
 	"""
 	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
+	
+	# 保存背包数据
+	if has_node("/root/InventoryManager"):
+		save_data.inventory_data = get_node("/root/InventoryManager").get_storage_data()
 	
 	# 更新时间戳
 	var now = Time.get_datetime_string_from_system()
@@ -383,3 +390,21 @@ func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:
 			result[key] = overlay[key]
 	
 	return result
+
+# === 背包数据方法 ===
+
+func _load_inventory_data():
+	"""加载背包数据到InventoryManager"""
+	if has_node("/root/InventoryManager"):
+		if save_data.has("inventory_data"):
+			get_node("/root/InventoryManager").load_storage_data(save_data.inventory_data)
+
+func save_inventory_data():
+	"""保存背包数据"""
+	if has_node("/root/InventoryManager"):
+		save_data.inventory_data = get_node("/root/InventoryManager").get_storage_data()
+		_auto_save()
+
+func get_inventory_data() -> Dictionary:
+	"""获取背包数据"""
+	return save_data.get("inventory_data", {"inventory": [], "warehouse": []})

@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=13 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
+[ext_resource type="PackedScene" path="res://scenes/inventory_demo.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
 
 [node name="Main" type="Control"]
@@ -214,12 +215,12 @@ layout_mode = 2
 text = "🎮 游戏"
 
 [node name="GameSubmenu" type="Panel" parent="ActionMenu"]
+z_index = 1
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 0
 offset_left = 130.0
 offset_right = 250.0
 offset_bottom = 60.0
-z_index = 1
 
 [node name="MarginContainer" type="MarginContainer" parent="ActionMenu/GameSubmenu"]
 layout_mode = 1
@@ -282,3 +283,6 @@ layout_mode = 0
 
 [node name="CharacterDiaryViewer" parent="." instance=ExtResource("13_m1sh3")]
 layout_mode = 0
+
+[node name="InventoryDemo" parent="." instance=ExtResource("12_o6pr8")]
+layout_mode = 1

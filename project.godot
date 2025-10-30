@@ -15,7 +15,7 @@ window/keyboard_mode=1
 [application]
 
 config/name="CABM-ED"
-run/main_scene="res://scenes/game_launcher.tscn"
+run/main_scene="uid://c8yqvxm7qwxqj"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 boot_splash/show_image=false
 boot_splash/fullsize=false
@@ -35,6 +35,7 @@ EventHelpers="*res://scripts/event_helpers.gd"
 EventManager="*res://scripts/event_manager.gd"
 UIManager="*res://scripts/ui_manager.gd"
 InteractiveElementManager="*res://scripts/interactive_element_manager.gd"
+InventoryManager="*res://scripts/inventory_manager.gd"
 
 [display]
 
