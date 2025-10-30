@@ -78,6 +78,10 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 	# 从存档系统读取用户称呼
 	var user_address = save_mgr.get_user_address()
 	
+	# 加载角色预设配置，获取prompt字段
+	var character_preset = _load_character_preset()
+	var character_prompt = character_preset.get("prompt", "")
+	
 	# 准备所有占位符的替换字典
 	var replacements = {
 		"{character_name}": character_name,
@@ -94,7 +98,8 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 		"{interaction_level}": interaction_level,
 		"{current_mood}": current_mood,
 		"{current_time}": current_time,
-		"{scenes}": scenes_list
+		"{scenes}": scenes_list,
+		"{character_prompt}": character_prompt
 	}
 	
 	# 检查使用哪种配置方式
@@ -217,6 +222,25 @@ func _load_app_config() -> Dictionary:
 	"""加载应用配置"""
 	var config_path = "res://config/app_config.json"
 	if not FileAccess.file_exists(config_path):
+		return {}
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) == OK:
+		return json.data
+	return {}
+
+func _load_character_preset() -> Dictionary:
+	"""加载当前服装的角色预设配置"""
+	var save_mgr = get_node("/root/SaveManager")
+	var costume_id = save_mgr.get_costume_id()
+	
+	var config_path = "res://config/character_presets/%s.json" % costume_id
+	if not FileAccess.file_exists(config_path):
+		print("PromptBuilder: 角色预设配置文件不存在: %s" % config_path)
 		return {}
 	
 	var file = FileAccess.open(config_path, FileAccess.READ)
