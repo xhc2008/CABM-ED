@@ -1,126 +1,131 @@
 {
-  "background_music": {
-    "livingroom": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "bedroom": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "bathroom": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "studyroom": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "kitchen": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "rooftop": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    },
-    "shop": {
-      "day": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "dusk": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      },
-      "night": {
-        "sunny": "",
-        "rainy": "rain.mp3",
-        "storm": "rain.mp3"
-      }
-    }
-  },
-  "volume": {
-    "background_music": 0.3
-  }
+	"ambient_sounds": {
+		"_comment": "氛围音配置，独立于背景音乐播放，会根据天气自动播放（如雨声）"
+	},
+	"background_music": {
+		"bathroom": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"bedroom": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"kitchen": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"livingroom": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"rooftop": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"shop": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		},
+		"studyroom": {
+			"day": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"dusk": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			},
+			"night": {
+				"rainy": "",
+				"storm": "",
+				"sunny": ""
+			}
+		}
+	},
+	"last_custom_bgm": "user://custom_bgm/红线(Chinese ver_).ogg",
+	"volume": {
+		"ambient": 0.850000003360143,
+		"background_music": 0.200000009339955
+	}
 }

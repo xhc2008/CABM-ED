@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=15 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
@@ -12,6 +12,8 @@
 [ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
+[ext_resource type="PackedScene" path="res://scenes/music_button.tscn" id="14_music_button"]
+[ext_resource type="PackedScene" path="res://scenes/music_player_panel.tscn" id="15_music_panel"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -40,6 +42,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 0
 
 [node name="Character" type="TextureButton" parent="Background"]
 layout_mode = 1
@@ -291,3 +294,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="MusicButton" parent="." instance=ExtResource("14_music_button")]
+
+[node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]

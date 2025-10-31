@@ -11,6 +11,8 @@ extends Control
 @onready var audio_manager = $AudioManager
 @onready var character_diary_button = $CharacterDiaryButton if has_node("CharacterDiaryButton") else null
 @onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
+@onready var music_button = $MusicButton if has_node("MusicButton") else null
+@onready var music_player_panel = $MusicPlayerPanel if has_node("MusicPlayerPanel") else null
 var costume_button = null
 
 var current_scene: String = ""
@@ -195,6 +197,8 @@ func _setup_managers():
 			ui_mgr.register_element(character_diary_button)
 		if costume_button:
 			ui_mgr.register_element(costume_button)
+		if music_button:
+			ui_mgr.register_element(music_button)
 	else:
 		print("警告: UIManager 未找到，请检查自动加载配置")
 	
@@ -294,7 +298,8 @@ func _update_ui_layout():
 	# 更新换装按钮 - 固定在场景右下角
 	_update_costume_button_layout()
 	
-
+	# 更新音乐按钮 - 固定在场景指定位置
+	_update_music_button_layout()
 	
 	# 如果动作菜单可见，更新其位置
 	if action_menu.visible:
@@ -398,6 +403,9 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	
 	# 更新角色日记按钮显示状态
 	_update_character_diary_button_visibility()
+	
+	# 更新音乐按钮显示状态
+	_update_music_button_visibility()
 	
 	# 切换背景音乐
 	audio_manager.play_background_music(scene_id, time_id, weather_id)
@@ -1104,6 +1112,22 @@ func _update_costume_button_layout():
 		var button_y = scene_rect.position.y + scene_rect.size.y - costume_button.size.y - 130
 		costume_button.position = Vector2(button_x, button_y)
 
+func _update_music_button_layout():
+	"""更新音乐按钮布局"""
+	if music_button == null:
+		return
+	
+	# 使用配置管理器计算位置
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		var element_size = music_button.custom_minimum_size
+		music_button.position = mgr.calculate_element_position("music_button", scene_rect, element_size)
+	else:
+		# 降级方案：使用默认位置（场景左下角，在日记按钮旁边）
+		var button_x = scene_rect.position.x + 160
+		var button_y = scene_rect.position.y + scene_rect.size.y - 150
+		music_button.position = Vector2(button_x, button_y)
+
 func _update_costume_button_visibility():
 	"""更新换装按钮的显示状态（根据配置决定在哪些场景显示）"""
 	if costume_button == null:
@@ -1122,6 +1146,25 @@ func _update_costume_button_visibility():
 		costume_button.enable()
 	else:
 		costume_button.disable()
+
+func _update_music_button_visibility():
+	"""更新音乐按钮的显示状态（根据配置决定在哪些场景显示）"""
+	if music_button == null:
+		return
+	
+	# 使用配置管理器检查是否应该显示
+	var should_show = false
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		should_show = mgr.should_show_in_scene("music_button", current_scene) and mgr.is_element_enabled("music_button")
+	else:
+		# 降级方案：只在studyroom场景显示
+		should_show = (current_scene == "studyroom")
+	
+	if should_show:
+		music_button.enable()
+	else:
+		music_button.disable()
 
 func _on_costume_selector_requested():
 	"""换装选择器被请求"""

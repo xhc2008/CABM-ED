@@ -33,6 +33,23 @@
         "bathroom"
       ],
       "enabled": true
+    },
+    "music_button": {
+      "name": "音乐播放器入口",
+      "type": "click_area",
+      "size": {
+        "width": 200,
+        "height": 150
+      },
+      "position": {
+        "anchor": "bottom_left",
+        "offset_x": 160,
+        "offset_y": -150
+      },
+      "scenes": [
+        "studyroom"
+      ],
+      "enabled": true
     }
   },
   "position_anchors": {
