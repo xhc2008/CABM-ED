@@ -140,9 +140,9 @@ func _refresh_music_list():
 			item.button_pressed = true
 			selected_music_item = item
 			# 添加视觉高亮
-			item.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))  # 绿色
+			item.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3)) # 绿色
 			item.add_theme_color_override("font_pressed_color", Color(0.3, 1.0, 0.3))
-			item.text = "▶ " + item.text  # 添加播放图标
+			item.text = "▶ " + item.text # 添加播放图标
 		
 		music_list.add_child(item)
 
@@ -355,7 +355,7 @@ func _load_builtin_bgm_list(base_path: String):
 	
 	for file_name in builtin_bgm_files:
 		var full_path = base_path + file_name
-		# 验证文件是否存在
+		# 使用ResourceLoader检查资源是否存在（打包后兼容）
 		if ResourceLoader.exists(full_path):
 			bgm_files.append({
 				"name": file_name,
@@ -366,17 +366,6 @@ func _load_builtin_bgm_list(base_path: String):
 			print("[OK] 加载内置BGM: ", file_name)
 		else:
 			print("[WARN] 内置BGM不存在: ", full_path)
-			# 尝试不同的路径格式
-			var alt_path = full_path + ".import"
-			if FileAccess.file_exists(alt_path):
-				print("[INFO] 找到.import文件，资源应该存在")
-				# 即使ResourceLoader找不到，也添加到列表
-				bgm_files.append({
-					"name": file_name,
-					"path": full_path,
-					"is_custom": false
-				})
-				loaded_count += 1
 	
 	print("[INFO] 预定义BGM加载完成: ", loaded_count, "/", builtin_bgm_files.size())
 

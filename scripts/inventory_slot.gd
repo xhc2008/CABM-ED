@@ -41,7 +41,7 @@ func update_display():
 		var item_config = InventoryManager.get_item_config(item_data.item_id)
 		if item_config.has("icon"):
 			var icon_path = "res://assets/images/items/" + item_config.icon
-			if FileAccess.file_exists(icon_path):
+			if ResourceLoader.exists(icon_path):
 				icon_texture.texture = load(icon_path)
 			else:
 				icon_texture.texture = null

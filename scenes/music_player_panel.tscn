@@ -38,7 +38,7 @@ layout_mode = 2
 [node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "🎵 背景音乐播放器"
+text = "🎵 音乐播放器"
 horizontal_alignment = 1
 
 [node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/TopBar"]
