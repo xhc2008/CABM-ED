@@ -123,9 +123,9 @@
 			}
 		}
 	},
-	"last_custom_bgm": "user://custom_bgm/红线(Chinese ver_).ogg",
+	"last_custom_bgm": "res://assets/audio/BGM/木漏れ日の縁側.mp3",
 	"volume": {
 		"ambient": 0.850000003360143,
-		"background_music": 0.200000009339955
+		"background_music": 0.230000011424483
 	}
 }

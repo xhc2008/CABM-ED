@@ -27,35 +27,85 @@ func _ready():
 	_load_audio_config()
 
 func _load_audio_config():
-	"""加载音频配置文件"""
-	var config_path = "res://config/audio_config.json"
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			audio_config = json.data
-			print("音频配置已加载")
+	"""加载音频配置文件（混合策略：默认配置从res://，用户配置从user://）"""
+	# 1. 先加载默认配置（res://，只读，包含场景音乐和氛围音配置）
+	var default_config_path = "res://config/audio_config.json"
+	if FileAccess.file_exists(default_config_path):
+		var file = FileAccess.open(default_config_path, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			file.close()
 			
-			# 设置音量
-			if audio_config.has("volume"):
-				var bgm_volume = audio_config["volume"].get("background_music", 0.5)
-				var ambient_volume = audio_config["volume"].get("ambient", 0.3)
-				bgm_player.volume_db = linear_to_db(bgm_volume)
-				ambient_player.volume_db = linear_to_db(ambient_volume)
-			
-			# 加载上次播放的自定义BGM
-			if audio_config.has("last_custom_bgm") and audio_config["last_custom_bgm"] != "":
-				var last_bgm = audio_config["last_custom_bgm"]
-				if FileAccess.file_exists(last_bgm) or ResourceLoader.exists(last_bgm):
-					play_custom_bgm(last_bgm)
-					print("恢复上次播放的BGM: ", last_bgm)
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				audio_config = json.data
+				print("✅ 默认音频配置已加载")
+			else:
+				print("❌ 解析默认音频配置失败")
+				audio_config = _get_default_config()
 		else:
-			print("解析音频配置失败")
+			print("❌ 无法打开默认音频配置")
+			audio_config = _get_default_config()
 	else:
-		print("音频配置文件不存在")
+		print("⚠️ 默认音频配置文件不存在，使用内置默认值")
+		audio_config = _get_default_config()
+	
+	# 2. 加载用户配置（user://，可写，包含音量和自定义BGM设置）
+	var user_config_path = "user://audio_settings.json"
+	if FileAccess.file_exists(user_config_path):
+		var file = FileAccess.open(user_config_path, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			file.close()
+			
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				var user_config = json.data
+				print("✅ 用户音频设置已加载")
+				
+				# 合并用户配置（覆盖默认配置）
+				if user_config.has("volume"):
+					audio_config["volume"] = user_config["volume"]
+				if user_config.has("last_custom_bgm"):
+					audio_config["last_custom_bgm"] = user_config["last_custom_bgm"]
+			else:
+				print("❌ 解析用户音频设置失败")
+	else:
+		print("ℹ️ 用户音频设置不存在，将使用默认值")
+	
+	# 3. 应用音量设置
+	if audio_config.has("volume"):
+		var bgm_volume = audio_config["volume"].get("background_music", 0.5)
+		var ambient_volume = audio_config["volume"].get("ambient", 0.3)
+		bgm_player.volume_db = linear_to_db(bgm_volume)
+		ambient_player.volume_db = linear_to_db(ambient_volume)
+		print("🔊 音量设置: BGM=%.0f%%, 氛围音=%.0f%%" % [bgm_volume * 100, ambient_volume * 100])
+	
+	# 4. 恢复上次播放的自定义BGM
+	if audio_config.has("last_custom_bgm") and audio_config["last_custom_bgm"] != "":
+		var last_bgm = audio_config["last_custom_bgm"]
+		if FileAccess.file_exists(last_bgm) or ResourceLoader.exists(last_bgm):
+			# 延迟播放，等待场景加载完成
+			await get_tree().create_timer(0.5).timeout
+			play_custom_bgm(last_bgm)
+			print("🎵 恢复上次播放的BGM: ", last_bgm)
+		else:
+			print("⚠️ 上次播放的BGM文件不存在: ", last_bgm)
+			# 清除无效的BGM路径
+			audio_config["last_custom_bgm"] = ""
+			_save_user_config()
+
+func _get_default_config() -> Dictionary:
+	"""获取默认配置（当配置文件不存在时使用）"""
+	return {
+		"background_music": {},
+		"ambient_sounds": {},
+		"volume": {
+			"background_music": 0.3,
+			"ambient": 0.3
+		},
+		"last_custom_bgm": ""
+	}
 
 func play_background_music(scene_id: String, time_id: String, weather_id: String):
 	"""根据场景、时间和天气播放背景音乐和氛围音"""
@@ -275,31 +325,39 @@ func stop_ambient_sound():
 		print("停止环境音")
 
 func _save_volume_config():
-	"""保存音量配置"""
+	"""保存音量配置到用户目录"""
 	if not audio_config.has("volume"):
 		audio_config["volume"] = {}
 	
 	audio_config["volume"]["background_music"] = get_bgm_volume()
 	audio_config["volume"]["ambient"] = get_ambient_volume()
 	
-	# 保存到文件
-	var config_path = "res://config/audio_config.json"
-	var file = FileAccess.open(config_path, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(audio_config, "\t"))
-		file.close()
-		print("音量配置已保存")
+	_save_user_config()
 
 func _save_last_bgm(bgm_path: String):
-	"""保存上次播放的BGM"""
+	"""保存上次播放的BGM到用户目录"""
 	audio_config["last_custom_bgm"] = bgm_path
+	_save_user_config()
+
+func _save_user_config():
+	"""保存用户配置到user://（可写目录）"""
+	var user_config = {
+		"volume": audio_config.get("volume", {
+			"background_music": 0.3,
+			"ambient": 0.3
+		}),
+		"last_custom_bgm": audio_config.get("last_custom_bgm", "")
+	}
 	
-	var config_path = "res://config/audio_config.json"
+	var config_path = "user://audio_settings.json"
 	var file = FileAccess.open(config_path, FileAccess.WRITE)
 	if file:
-		file.store_string(JSON.stringify(audio_config, "\t"))
+		file.store_string(JSON.stringify(user_config, "\t"))
 		file.close()
-		print("BGM配置已保存")
+		print("💾 用户音频设置已保存到: ", config_path)
+	else:
+		push_error("❌ 无法保存用户音频设置")
+		print("错误代码: ", FileAccess.get_open_error())
 
 func _play_ambient_for_scene(scene_id: String, time_id: String, weather_id: String):
 	"""根据场景、时间和天气播放氛围音"""

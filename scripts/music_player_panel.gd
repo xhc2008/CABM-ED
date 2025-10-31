@@ -47,6 +47,8 @@ func show_panel():
 	show()
 	_refresh_music_list()
 	_load_volume_settings()
+	# 初始化删除按钮状态
+	_update_delete_button_state(null)
 
 func _on_close_pressed():
 	"""关闭按钮"""
@@ -137,6 +139,12 @@ func _on_music_item_pressed(item: Button, music_data: Dictionary):
 	
 	selected_music_item = item if item.button_pressed else null
 	
+	# 更新删除按钮状态
+	if item.button_pressed:
+		_update_delete_button_state(music_data)
+	else:
+		_update_delete_button_state(null)
+	
 	# 播放选中的音乐
 	if item.button_pressed and audio_manager:
 		audio_manager.play_custom_bgm(music_data.path)
@@ -156,6 +164,19 @@ func _on_music_item_pressed(item: Button, music_data: Dictionary):
 		# 移除播放图标
 		if item.text.begins_with("▶ "):
 			item.text = item.text.substr(2)
+
+func _update_delete_button_state(music_data):
+	"""更新删除按钮的启用/禁用状态"""
+	if delete_button:
+		if music_data and music_data.is_custom:
+			delete_button.disabled = false
+			delete_button.tooltip_text = "删除选中的自定义音乐"
+		else:
+			delete_button.disabled = true
+			if music_data:
+				delete_button.tooltip_text = "无法删除内置音乐"
+			else:
+				delete_button.tooltip_text = "请先选择要删除的音乐"
 
 func _on_upload_pressed():
 	"""上传按钮"""
@@ -234,23 +255,69 @@ func _copy_file_to_custom(source_path: String):
 		push_error("❌ 文件复制失败: ", dest_path)
 
 func _on_delete_pressed():
-	"""删除按钮"""
+	"""删除按钮（仅删除自定义音乐）"""
 	if not selected_music_item:
+		print("⚠️ 未选中任何音乐")
 		return
 	
+	# 获取按钮文本（移除可能的播放图标）
+	var button_text = selected_music_item.text
+	if button_text.begins_with("▶ "):
+		button_text = button_text.substr(2)
+	
 	# 找到对应的音乐数据
+	var found_music = null
 	for music_data in bgm_files:
-		if selected_music_item.text.begins_with(music_data.name):
-			if music_data.is_custom:
-				# 删除文件
-				var dir = DirAccess.open(custom_bgm_path)
-				if dir:
-					dir.remove(music_data.name)
-					print("已删除音频文件: ", music_data.name)
-					_load_music_list()
-			else:
-				print("无法删除内置音乐")
+		var music_name = music_data.name
+		if music_data.is_custom:
+			music_name += " [自定义]"
+		
+		if button_text == music_name or button_text.begins_with(music_data.name):
+			found_music = music_data
 			break
+	
+	if not found_music:
+		print("⚠️ 未找到对应的音乐文件")
+		return
+	
+	# 检查是否为自定义音乐
+	if not found_music.is_custom:
+		print("⚠️ 无法删除内置音乐")
+		_show_message("无法删除内置音乐")
+		return
+	
+	# 检查是否正在播放，如果是则停止
+	if audio_manager:
+		var current_bgm = audio_manager.get_current_bgm_path()
+		if current_bgm == found_music.path:
+			# 停止播放
+			audio_manager.stop_custom_bgm()
+			print("⏹️ 已停止播放: ", found_music.name)
+	
+	# 删除文件
+	var dir = DirAccess.open(custom_bgm_path)
+	if dir:
+		var error = dir.remove(found_music.name)
+		if error == OK:
+			print("✅ 已删除音频文件: ", found_music.name)
+			_show_message("已删除: " + found_music.name)
+			
+			# 清除选中状态
+			selected_music_item = null
+			
+			# 重新加载列表
+			_load_music_list()
+		else:
+			push_error("❌ 删除文件失败: " + found_music.name + " (错误代码: " + str(error) + ")")
+			_show_message("删除失败")
+	else:
+		push_error("❌ 无法打开自定义BGM目录")
+		_show_message("删除失败")
+
+func _show_message(message: String):
+	"""显示临时消息（可以扩展为弹窗或提示）"""
+	print("💬 ", message)
+	# TODO: 可以添加UI提示标签
 
 func _load_volume_settings():
 	"""加载音量设置"""
