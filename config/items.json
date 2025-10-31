@@ -60,6 +60,14 @@
       "max_stack": 3,
       "heal_amount": 50,
       "use_time": 3.0
+    },
+    "note": {
+      "name": "开发者注",
+      "type": "special",
+      "description": "背包及相关功能尚未实现，敬请期待",
+      "icon":"note.png",
+      "weight": 3355036,
+      "max_stack": 1
     }
   }
 }

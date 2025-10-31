@@ -395,9 +395,53 @@ func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:
 
 func _load_inventory_data():
 	"""加载背包数据到InventoryManager"""
-	if has_node("/root/InventoryManager"):
-		if save_data.has("inventory_data"):
-			get_node("/root/InventoryManager").load_storage_data(save_data.inventory_data)
+	print("[SaveManager] 开始加载背包数据...")
+	
+	if not has_node("/root/InventoryManager"):
+		print("[SaveManager] InventoryManager 未找到，延迟重试...")
+		await get_tree().create_timer(0.1).timeout
+		if not has_node("/root/InventoryManager"):
+			print("[SaveManager] 错误: InventoryManager 仍未加载")
+			return
+	
+	var inventory_mgr = get_node("/root/InventoryManager")
+	print("[SaveManager] InventoryManager 已找到")
+	
+	# 检查是否需要初始化仓库物品
+	# 1. inventory_data 字段不存在
+	# 2. inventory_data 存在但仓库为空
+	var needs_init = false
+	
+	if not save_data.has("inventory_data"):
+		needs_init = true
+		print("[SaveManager] inventory_data 字段不存在，需要初始化")
+	else:
+		# 检查仓库是否为空
+		var inv_data = save_data.inventory_data
+		var warehouse_empty = true
+		
+		if inv_data.has("warehouse") and inv_data.warehouse is Array:
+			for item in inv_data.warehouse:
+				if item != null:
+					warehouse_empty = false
+					break
+		
+		if warehouse_empty:
+			needs_init = true
+			print("[SaveManager] 仓库为空，需要初始化")
+		else:
+			print("[SaveManager] 仓库已有物品，跳过初始化")
+	
+	print("[SaveManager] 是否需要初始化: ", needs_init)
+	
+	if save_data.has("inventory_data"):
+		print("[SaveManager] 加载现有背包数据...")
+		inventory_mgr.load_storage_data(save_data.inventory_data)
+	
+	# 首次进入或旧版本更新时，添加初始物品到仓库
+	if needs_init:
+		print("[SaveManager] 开始添加初始物品...")
+		_add_initial_items_to_warehouse()
 
 func save_inventory_data():
 	"""保存背包数据"""
@@ -408,3 +452,42 @@ func save_inventory_data():
 func get_inventory_data() -> Dictionary:
 	"""获取背包数据"""
 	return save_data.get("inventory_data", {"inventory": [], "warehouse": []})
+
+func _add_initial_items_to_warehouse():
+	"""添加初始物品到仓库"""
+	print("[SaveManager] _add_initial_items_to_warehouse 被调用")
+	
+	if not has_node("/root/InventoryManager"):
+		print("[SaveManager] 错误: InventoryManager 未找到")
+		return
+	
+	var inventory_mgr = get_node("/root/InventoryManager")
+	print("[SaveManager] InventoryManager 已获取")
+	
+	# 定义初始物品列表 [物品ID, 数量]
+	var initial_items = [
+		["note", 1],
+		["CMR-951", 1],
+		["5.8mm_ammo", 64],
+		["UMP45", 1],
+		[".45_ammo", 64],
+		
+	]
+	
+	print("[SaveManager] 准备添加 ", initial_items.size(), " 种初始物品")
+	
+	# 添加物品到仓库
+	for item_data in initial_items:
+		var item_id = item_data[0]
+		var count = item_data[1]
+		print("[SaveManager] 尝试添加: ", item_id, " x", count)
+		var success = inventory_mgr.add_item_to_warehouse(item_id, count)
+		if success:
+			print("[SaveManager] ✓ 已添加初始物品到仓库: ", item_id, " x", count)
+		else:
+			print("[SaveManager] ✗ 警告: 无法添加初始物品: ", item_id)
+	
+	# 保存仓库数据
+	print("[SaveManager] 保存仓库数据...")
+	save_inventory_data()
+	print("[SaveManager] ✓ 初始物品已添加到仓库并保存")
