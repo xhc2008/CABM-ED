@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
-[ext_resource type="PackedScene" path="res://scenes/inventory_demo.tscn" id="12_o6pr8"]
+[ext_resource type="PackedScene" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
 
 [node name="Main" type="Control"]
@@ -284,5 +284,10 @@ layout_mode = 0
 [node name="CharacterDiaryViewer" parent="." instance=ExtResource("13_m1sh3")]
 layout_mode = 0
 
-[node name="InventoryDemo" parent="." instance=ExtResource("12_o6pr8")]
-layout_mode = 0
+[node name="InventoryButton" parent="." instance=ExtResource("12_o6pr8")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
