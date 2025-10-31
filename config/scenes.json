@@ -13,7 +13,7 @@
       "name": "客厅",
       "weight": 5,
       "class": "home",
-      "connect": ["bedroom", "kitchen", "bathroom", "studyroom","rooftop"]
+      "connect": ["bedroom", "kitchen", "bathroom", "studyroom","rooftop","shop"]
     },
     "bedroom": {
       "name": "卧室",
@@ -41,6 +41,12 @@
     },
     "rooftop": {
       "name": "天台",
+      "weight": 1,
+      "class": "outdoor",
+      "connect": ["livingroom"]
+    },
+    "shop": {
+      "name": "超市",
       "weight": 1,
       "class": "outdoor",
       "connect": ["livingroom"]
