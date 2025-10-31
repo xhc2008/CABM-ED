@@ -7,5 +7,6 @@ offset_left = 10.0
 offset_top = 10.0
 offset_right = 110.0
 offset_bottom = 50.0
+focus_mode = 0
 text = "背包"
 script = ExtResource("1")

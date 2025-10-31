@@ -285,4 +285,4 @@ layout_mode = 0
 layout_mode = 0
 
 [node name="InventoryDemo" parent="." instance=ExtResource("12_o6pr8")]
-layout_mode = 1
+layout_mode = 0
