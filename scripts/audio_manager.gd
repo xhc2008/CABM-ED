@@ -39,15 +39,15 @@ func _load_audio_config():
 			var json = JSON.new()
 			if json.parse(json_string) == OK:
 				audio_config = json.data
-				print("✅ 默认音频配置已加载")
+				print("[OK] 默认音频配置已加载")
 			else:
-				print("❌ 解析默认音频配置失败")
+				print("[ERROR] 解析默认音频配置失败")
 				audio_config = _get_default_config()
 		else:
-			print("❌ 无法打开默认音频配置")
+			print("[ERROR] 无法打开默认音频配置")
 			audio_config = _get_default_config()
 	else:
-		print("⚠️ 默认音频配置文件不存在，使用内置默认值")
+		print("[WARN] 默认音频配置文件不存在，使用内置默认值")
 		audio_config = _get_default_config()
 	
 	# 2. 加载用户配置（user://，可写，包含音量和自定义BGM设置）
