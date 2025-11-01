@@ -16,6 +16,8 @@ windows.release.x86_64 = "res://addons/cosine_calculator/bin/libcosine_calculato
 #linux.release.x86_64 = "res://addons/cosine_calculator/bin/libcosine_calculator.linux.template_release.x86_64.so"
 #linux.debug.arm64 = "res://addons/cosine_calculator/bin/libcosine_calculator.linux.template_debug.arm64.so"
 #linux.release.arm64 = "res://addons/cosine_calculator/bin/libcosine_calculator.linux.template_release.arm64.so"
+#linux.debug.loongarch64 = "res://addons/cosine_calculator/bin/libcosine_calculator.linux.template_debug.loongarch64.so"
+#linux.release.loongarch64 = "res://addons/cosine_calculator/bin/libcosine_calculator.linux.template_release.loongarch64.so"
 # Android ARM64 配置（临时使用 Debug 版本）
 android.debug.arm64 = "res://addons/cosine_calculator/bin/libcosine_calculator.android.template_debug.arm64.so"
 android.release.arm64 = "res://addons/cosine_calculator/bin/libcosine_calculator.android.template_debug.arm64.so"
