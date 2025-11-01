@@ -16,7 +16,7 @@ window/keyboard_mode=1
 
 config/name="CABM-ED"
 run/main_scene="res://scenes/game_launcher.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.5", "C#", "GL Compatibility")
 boot_splash/show_image=false
 boot_splash/fullsize=false
 boot_splash/use_filter=false
@@ -46,6 +46,10 @@ window/stretch/aspect="expand"
 window/ios/hide_home_indicator=false
 window/ios/hide_status_bar=false
 window/ios/suppress_ui_gesture=false
+
+[dotnet]
+
+project/assembly_name="CABM-ED"
 
 [gui]
 

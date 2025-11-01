@@ -100,7 +100,7 @@ func _load_cosine_calculator():
 		cosine_calculator = ClassDB.instantiate("CosineCalculator")
 		print("✓ 余弦计算插件加载成功（C++高性能模式）")
 	else:
-		print("ℹ 余弦计算插件未编译，使用GDScript实现（性能较低但功能完整）")
+		print("ℹ 余弦计算插件未编译，使用C#实现")
 		print("  提示：如需高性能，请编译C++插件：cd addons/cosine_calculator && scons")
 
 func initialize(p_config: Dictionary, p_db_name: String = "default"):
@@ -354,7 +354,7 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 	similarities.sort_custom(func(a, b): return a.similarity > b.similarity)
 	
 	# 返回top_k个结果
-	var results = []
+	var results: Array[Variant] = []
 	for i in range(min(top_k, similarities.size())):
 		results.append({
 			"text": similarities[i].item.text,
@@ -373,26 +373,10 @@ func _calculate_similarity(vec1: Array, vec2: Array) -> float:
 		return _calculate_similarity_gdscript(vec1, vec2)
 
 func _calculate_similarity_gdscript(vec1: Array, vec2: Array) -> float:
-	"""GDScript实现的余弦相似度（降级方案）"""
-	if vec1.size() != vec2.size() or vec1.size() == 0:
-		return 0.0
-	
-	var dot = 0.0
-	var mag1 = 0.0
-	var mag2 = 0.0
-	
-	for i in range(vec1.size()):
-		dot += vec1[i] * vec2[i]
-		mag1 += vec1[i] * vec1[i]
-		mag2 += vec2[i] * vec2[i]
-	
-	mag1 = sqrt(mag1)
-	mag2 = sqrt(mag2)
-	
-	if mag1 == 0.0 or mag2 == 0.0:
-		return 0.0
-	
-	return dot / (mag1 * mag2)
+	"""C#实现的余弦相似度（降级方案）"""
+	var ConsineSimilarityCSharp = load("res://scripts/utils/CosineSimilarity.cs")
+	var calculator = ConsineSimilarityCSharp.new()
+	return calculator.Calculate(vec1, vec2)
 
 func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> String:
 	"""获取相关记忆并格式化为提示词
