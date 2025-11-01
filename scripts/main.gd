@@ -13,6 +13,7 @@ extends Control
 @onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
 @onready var music_button = $MusicButton if has_node("MusicButton") else null
 @onready var music_player_panel = $MusicPlayerPanel if has_node("MusicPlayerPanel") else null
+@onready var explore_button = $ExploreButton if has_node("ExploreButton") else null
 var costume_button = null
 
 var current_scene: String = ""
@@ -76,6 +77,10 @@ func _ready():
 		character_diary_button.diary_selected.connect(_on_character_diary_selected)
 	if character_diary_viewer:
 		character_diary_viewer.diary_closed.connect(_on_character_diary_closed)
+	
+	# 连接探索按钮
+	if explore_button:
+		explore_button.pressed.connect(_on_explore_button_pressed)
 	
 	# 监听窗口大小变化
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -1237,3 +1242,8 @@ func _setup_costume_button():
 	# 连接信号
 	if costume_button:
 		costume_button.costume_selector_requested.connect(_on_costume_selector_requested)
+
+func _on_explore_button_pressed():
+	"""探索按钮被点击"""
+	print("进入探索模式")
+	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")

@@ -298,3 +298,10 @@ grow_vertical = 2
 [node name="MusicButton" parent="." instance=ExtResource("14_music_button")]
 
 [node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]
+[node name="ExploreButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 80.0
+offset_right = 140.0
+offset_bottom = 120.0
+text = "🗺️ 探索模式"
