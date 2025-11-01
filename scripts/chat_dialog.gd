@@ -552,20 +552,64 @@ func _check_and_handle_goto() -> String:
 		return "immediate"
 
 func _is_valid_scene(scene_id: String) -> bool:
-	var config_path = "res://config/character_presets.json"
-	if not FileAccess.file_exists(config_path):
+	"""验证场景ID是否合法（同时存在于scenes.json和当前服装的配置中）"""
+	# 检查scenes.json
+	var scenes_path = "res://config/scenes.json"
+	if not FileAccess.file_exists(scenes_path):
+		print("ChatDialog: scenes.json 不存在")
 		return false
 	
-	var file = FileAccess.open(config_path, FileAccess.READ)
+	var scenes_file = FileAccess.open(scenes_path, FileAccess.READ)
+	var scenes_json_string = scenes_file.get_as_text()
+	scenes_file.close()
+	
+	var scenes_json = JSON.new()
+	if scenes_json.parse(scenes_json_string) != OK:
+		print("ChatDialog: scenes.json 解析失败")
+		return false
+	
+	var scenes_data = scenes_json.data
+	if not scenes_data.has("scenes") or not scenes_data.scenes.has(scene_id):
+		print("ChatDialog: 场景 '%s' 不在 scenes.json 中" % scene_id)
+		return false
+	
+	# 获取当前服装ID
+	var costume_id = "default"
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		costume_id = save_mgr.get_costume_id()
+	
+	# 检查当前服装的配置文件
+	var presets_path = "res://config/character_presets/%s.json" % costume_id
+	if not FileAccess.file_exists(presets_path):
+		print("ChatDialog: 服装配置 %s.json 不存在" % costume_id)
+		return false
+	
+	var file = FileAccess.open(presets_path, FileAccess.READ)
 	var json_string = file.get_as_text()
 	file.close()
 	
 	var json = JSON.new()
 	if json.parse(json_string) != OK:
+		print("ChatDialog: 服装配置 %s 解析错误" % costume_id)
 		return false
 	
-	var config = json.data
-	return config.has(scene_id) and config[scene_id].size() > 0
+	var presets_config = json.data
+	if not presets_config.has(scene_id):
+		print("ChatDialog: 场景 '%s' 不在服装 %s 的配置中" % [scene_id, costume_id])
+		return false
+	
+	# 确保是数组类型（场景配置）而不是字符串（id/name/description）
+	if not presets_config[scene_id] is Array:
+		print("ChatDialog: 场景 '%s' 在服装 %s 中不是有效的场景配置" % [scene_id, costume_id])
+		return false
+	
+	if presets_config[scene_id].size() == 0:
+		print("ChatDialog: 场景 '%s' 在服装 %s 中没有角色预设" % [scene_id, costume_id])
+		return false
+	
+	print("ChatDialog: 场景 '%s' 验证通过" % scene_id)
+	return true
 
 func _is_goto_on_cooldown() -> bool:
 	var current_time = Time.get_ticks_msec() / 1000.0
