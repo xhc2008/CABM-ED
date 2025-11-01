@@ -1177,7 +1177,7 @@ func _on_costume_selector_requested():
 	
 	# 连接信号
 	costume_selector.costume_selected.connect(_on_costume_selected)
-	costume_selector.close_requested.connect(func(): costume_selector.queue_free())
+	costume_selector.close_requested.connect(_on_costume_selector_closed.bind(costume_selector))
 	
 	# 添加到场景
 	add_child(costume_selector)
@@ -1204,6 +1204,17 @@ func _on_costume_selected(costume_id: String):
 	
 	# 显示提示消息
 	_show_info_message("服装已更换")
+
+func _on_costume_selector_closed(costume_selector: Control):
+	"""换装选择器关闭"""
+	print("换装选择器关闭")
+	
+	# 删除换装选择器
+	costume_selector.queue_free()
+	
+	# 恢复UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
 
 
 func _setup_costume_button():

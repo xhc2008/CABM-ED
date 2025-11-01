@@ -21,11 +21,11 @@ func _ready():
 func _load_items_config():
 	"""加载物品配置"""
 	var config_path = "res://config/items.json"
-	if not FileAccess.file_exists(config_path):
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if not file:
 		print("警告: 物品配置文件不存在")
 		return
 	
-	var file = FileAccess.open(config_path, FileAccess.READ)
 	var json_string = file.get_as_text()
 	file.close()
 	

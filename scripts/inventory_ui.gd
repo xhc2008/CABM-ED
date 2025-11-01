@@ -136,13 +136,13 @@ func _show_item_info(item_data: Dictionary):
 	# 显示图标
 	if item_config.has("icon"):
 		var icon_path = "res://assets/images/items/" + item_config.icon
-		if FileAccess.file_exists(icon_path):
+		if ResourceLoader.exists(icon_path):
 			item_icon.texture = load(icon_path)
 		else:
 			item_icon.texture = null
 	
 	# 显示详细属性
-	var details = "\n\n属性:\n"
+	var details = "\n\n属性\n"
 	details += "类型: " + item_config.get("type", "未知") + "\n"
 	details += "数量: " + str(item_data.count) + "\n"
 	

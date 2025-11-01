@@ -25,7 +25,7 @@ func _create_ui():
 	var panel = Panel.new()
 	panel.custom_minimum_size = Vector2(600, 500)
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = -panel.custom_minimum_size / 2
+	panel.position = - panel.custom_minimum_size / 2
 	add_child(panel)
 	
 	var margin = MarginContainer.new()
@@ -46,6 +46,14 @@ func _create_ui():
 	title_label.add_theme_font_size_override("font_size", 24)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_label)
+	
+	# 免责声明
+	var disclaimer_label = Label.new()
+	disclaimer_label.text = "默认以外的服装均为玩家制作，与开发者无关"
+	disclaimer_label.add_theme_font_size_override("font_size", 12)
+	disclaimer_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	disclaimer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(disclaimer_label)
 	
 	# 服装列表（滚动容器）
 	var scroll = ScrollContainer.new()
