@@ -511,17 +511,32 @@ func _on_upload_pressed():
 		print("[INFO] 检测到安卓系统，正在请求存储权限...")
 		_request_android_permissions()
 		permissions_requested = true
-		# 给用户一点时间查看权限对话框
 		await get_tree().create_timer(0.5).timeout
 	
 	file_dialog.clear_filters()
 	file_dialog.add_filter("*.mp3, *.ogg, *.wav", "音频文件")
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILES
 	
-	# 在安卓上，确保使用正确的访问模式
+	# 在安卓上设置常见的音乐目录
 	if OS.get_name() == "Android":
-		file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		# 尝试设置到常见的音乐目录
+		var music_paths = [
+			"/storage/emulated/0/Music",
+			"/storage/emulated/0/Download",
+			"/sdcard/Music",
+			"/sdcard/Download",
+			OS.get_system_dir(OS.SYSTEM_DIR_MUSIC),
+			OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
+		]
+		
+		for path in music_paths:
+			if DirAccess.dir_exists_absolute(path):
+				file_dialog.current_dir = path
+				print("[INFO] 设置文件选择器路径: ", path)
+				break
+		
 		print("[INFO] 打开文件选择器（安卓模式）")
+		print("[INFO] 如果看不到文件，请尝试点击左上角菜单切换到其他文件夹")
 	
 	file_dialog.popup_centered(Vector2(800, 600))
 
@@ -532,10 +547,6 @@ func _request_android_permissions():
 	
 	print("[INFO] 正在请求安卓存储权限...")
 	print("[INFO] 请在弹出的对话框中允许访问音频文件")
-	
-	# Godot 会自动请求在 export_presets.cfg 中配置的权限
-	# Android 13+ (API 33+) 需要 READ_MEDIA_AUDIO
-	# Android 6-12 (API 23-32) 需要 READ_EXTERNAL_STORAGE
 	OS.request_permissions()
 
 func _on_files_selected(paths: PackedStringArray):
