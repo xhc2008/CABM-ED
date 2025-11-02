@@ -8,10 +8,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -250.0
-offset_right = 300.0
-offset_bottom = 250.0
+offset_left = -400.0
+offset_top = -300.0
+offset_right = 400.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
@@ -50,32 +50,83 @@ text = "关闭"
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="切换音乐" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+[node name="切换音乐" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐"]
+[node name="SceneListPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-size_flags_vertical = 3
 
-[node name="MusicList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/ScrollContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/SceneListPanel"]
+layout_mode = 2
+
+[node name="SceneList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/SceneListPanel/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
 
-[node name="BottomBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐"]
+[node name="MusicPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/MusicPanel"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/MusicPanel/VBoxContainer"]
+layout_mode = 2
+text = "提示信息"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/MusicPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MusicList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/MusicPanel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="UploadButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/BottomBar"]
+[node name="PlayModePanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer"]
 layout_mode = 2
-size_flags_horizontal = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer/PlayModePanel"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer/PlayModePanel/VBoxContainer"]
+layout_mode = 2
+text = "播放模式"
+horizontal_alignment = 1
+
+[node name="EditButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer"]
+layout_mode = 2
+text = "编辑"
+
+[node name="UploadButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer"]
+layout_mode = 2
 text = "上传音乐"
 
-[node name="DeleteButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/BottomBar"]
+[node name="DeleteButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/切换音乐/HBoxContainer/RightPanel/VBoxContainer"]
 layout_mode = 2
-size_flags_horizontal = 3
 text = "删除选中"
+visible = false
 
 [node name="音量调节" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
 visible = false

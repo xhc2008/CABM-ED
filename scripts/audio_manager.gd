@@ -11,8 +11,20 @@ var audio_config: Dictionary = {}
 var current_scene: String = ""
 var current_time: String = ""
 var current_weather: String = ""
-var is_playing_custom_bgm: bool = false
+var user_locked_bgm: bool = false  # 用户是否手动锁定了BGM（在音乐面板点击音乐时设置）
 var current_bgm_path: String = "" # 当前播放的BGM路径
+
+# BGM播放模式
+enum PlayMode {
+	SINGLE_LOOP,    # 单曲循环
+	SEQUENTIAL,     # 顺序播放
+	RANDOM          # 随机播放
+}
+
+var current_play_mode: PlayMode = PlayMode.SEQUENTIAL
+var current_playlist: Array = [] # 当前播放列表
+var current_track_index: int = 0 # 当前播放的曲目索引
+var played_tracks: Array = [] # 已播放的曲目（用于随机模式）
 
 func _ready():
 	# 创建背景音乐播放器
@@ -81,19 +93,42 @@ func _load_audio_config():
 		ambient_player.volume_db = linear_to_db(ambient_volume)
 		print("🔊 音量设置: BGM=%.0f%%, 氛围音=%.0f%%" % [bgm_volume * 100, ambient_volume * 100])
 	
-	# 4. 恢复上次播放的自定义BGM
-	if audio_config.has("last_custom_bgm") and audio_config["last_custom_bgm"] != "":
-		var last_bgm = audio_config["last_custom_bgm"]
-		if FileAccess.file_exists(last_bgm) or ResourceLoader.exists(last_bgm):
-			# 延迟播放，等待场景加载完成
-			await get_tree().create_timer(0.5).timeout
-			play_custom_bgm(last_bgm)
-			print("🎵 恢复上次播放的BGM: ", last_bgm)
+	# 4. 恢复上次播放的BGM播放列表（从SaveManager获取）
+	call_deferred("_restore_bgm_playlist")
+
+func _restore_bgm_playlist():
+	"""恢复BGM播放列表"""
+	# 等待SaveManager加载完成
+	await get_tree().create_timer(0.5).timeout
+	
+	if not has_node("/root/SaveManager"):
+		print("⚠️ SaveManager未找到，跳过恢复播放列表")
+		return
+	
+	var save_manager = get_node("/root/SaveManager")
+	var bgm_config = save_manager.get_bgm_config()
+	
+	if bgm_config.has("all"):
+		var all_config = bgm_config["all"]
+		var enabled_music = all_config.get("enabled_music", [])
+		var play_mode = all_config.get("play_mode", PlayMode.SEQUENTIAL)
+		
+		if not enabled_music.is_empty():
+			# 验证文件是否存在
+			var valid_music = []
+			for music_path in enabled_music:
+				if FileAccess.file_exists(music_path) or ResourceLoader.exists(music_path):
+					valid_music.append(music_path)
+			
+			if not valid_music.is_empty():
+				print("🎵 恢复播放列表: ", valid_music.size(), "首音乐")
+				play_playlist(valid_music, play_mode, 0, false)  # mark_as_custom = false，这是场景配置
+			else:
+				print("⚠️ 播放列表中没有有效的音乐文件")
 		else:
-			print("⚠️ 上次播放的BGM文件不存在: ", last_bgm)
-			# 清除无效的BGM路径
-			audio_config["last_custom_bgm"] = ""
-			_save_user_config()
+			print("ℹ️ 播放列表为空，跳过恢复")
+	else:
+		print("ℹ️ 未找到BGM配置，跳过恢复")
 
 func _get_default_config() -> Dictionary:
 	"""获取默认配置（当配置文件不存在时使用）"""
@@ -109,42 +144,35 @@ func _get_default_config() -> Dictionary:
 
 func play_background_music(scene_id: String, time_id: String, weather_id: String):
 	"""根据场景、时间和天气播放背景音乐和氛围音"""
+	# 记录旧场景
+	var old_scene = current_scene
+	
 	# 更新当前状态
 	current_scene = scene_id
 	current_time = time_id
 	current_weather = weather_id
 	
-	# 如果正在播放自定义BGM，不自动切换BGM，但仍然播放氛围音
-	if not is_playing_custom_bgm:
-		# 检查是否需要切换音乐
-		var should_switch = (current_bgm_path == "" or not bgm_player.playing)
-		
-		if should_switch:
-			# 获取音频路径
-			var audio_path = _get_audio_path(scene_id, time_id, weather_id)
-			
-			if audio_path.is_empty():
-				print("未找到BGM配置: ", scene_id, "/", time_id, "/", weather_id)
-				stop_background_music()
-			else:
-				# 检查音频文件是否存在
-				if not ResourceLoader.exists(audio_path):
-					print("BGM文件不存在: ", audio_path)
-					stop_background_music()
-				else:
-					# 加载并播放音频
-					var audio_stream = load(audio_path)
-					if audio_stream:
-						bgm_player.stream = audio_stream
-						bgm_player.play()
-						current_bgm_path = audio_path
-						print("播放背景音乐: ", audio_path)
-						
-						# 连接播放结束信号以实现循环
-						if not bgm_player.finished.is_connected(_on_bgm_finished):
-							bgm_player.finished.connect(_on_bgm_finished)
-					else:
-						print("加载BGM失败: ", audio_path)
+	# 如果用户手动锁定了BGM，不自动切换
+	if user_locked_bgm:
+		print("🎵 用户已锁定BGM，场景切换不改变音乐")
+		# 但仍然播放氛围音
+		_play_ambient_for_scene(scene_id, time_id, weather_id)
+		return
+	
+	# 获取场景的BGM配置
+	var scene_bgm_config = _get_scene_bgm_config(scene_id)
+	var old_scene_bgm_config = _get_scene_bgm_config(old_scene) if old_scene != "" else {}
+	
+	# 检查是否两个场景都沿用默认（配置为空）
+	var both_use_default = scene_bgm_config.is_empty() and old_scene_bgm_config.is_empty()
+	
+	if both_use_default and current_playlist.size() > 0:
+		# 两个场景都沿用默认，继续播放当前音乐，不切换
+		print("🎵 场景切换：两个场景都沿用默认配置，继续播放")
+	else:
+		# 应用场景的BGM配置
+		print("🎵 场景切换：应用场景BGM配置 (", scene_id, ")")
+		_apply_scene_bgm_config(scene_bgm_config)
 	
 	# 播放氛围音（独立于BGM）
 	_play_ambient_for_scene(scene_id, time_id, weather_id)
@@ -182,10 +210,27 @@ func _get_audio_path(scene_id: String, time_id: String, weather_id: String) -> S
 	return "res://assets/audio/" + filename
 
 func _on_bgm_finished():
-	"""背景音乐播放完毕，循环播放"""
-	if bgm_player.stream:
-		bgm_player.play()
-		print("循环播放背景音乐")
+	"""背景音乐播放完毕，根据播放模式处理"""
+	if current_playlist.is_empty():
+		# 播放列表为空，直接循环
+		if bgm_player.stream:
+			bgm_player.play()
+			print("循环播放背景音乐")
+		return
+	
+	match current_play_mode:
+		PlayMode.SINGLE_LOOP:
+			# 单曲循环
+			bgm_player.play()
+			print("单曲循环: ", current_bgm_path)
+		
+		PlayMode.SEQUENTIAL:
+			# 顺序播放下一首
+			_play_next_track()
+		
+		PlayMode.RANDOM:
+			# 随机播放
+			_play_random_track()
 
 func stop_background_music():
 	"""停止背景音乐"""
@@ -212,7 +257,40 @@ func get_ambient_volume() -> float:
 	return db_to_linear(ambient_player.volume_db)
 
 func play_custom_bgm(file_path: String):
-	"""播放自定义BGM（跨平台兼容）"""
+	"""播放自定义BGM（跨平台兼容）- 已废弃，使用play_playlist代替"""
+	# 这个函数保留是为了兼容性，实际上应该使用play_playlist
+	var playlist = [file_path]
+	play_playlist(playlist, PlayMode.SINGLE_LOOP, 0, true)  # 锁定BGM
+
+func play_playlist(playlist: Array, play_mode: PlayMode = PlayMode.SEQUENTIAL, start_index: int = 0, lock_bgm: bool = true):
+	"""播放播放列表
+	
+	参数:
+		playlist: 音乐文件路径数组
+		play_mode: 播放模式
+		start_index: 起始曲目索引
+		lock_bgm: 是否锁定BGM（默认true，表示用户手动选择；false表示场景自动播放）
+	"""
+	if playlist.is_empty():
+		print("播放列表为空")
+		return
+	
+	current_playlist = playlist.duplicate()
+	current_play_mode = play_mode
+	current_track_index = start_index
+	played_tracks.clear()
+	user_locked_bgm = lock_bgm  # 根据参数决定是否锁定BGM
+	
+	# 播放指定的起始曲目
+	# 即使是随机模式，也先播放用户点击的音乐
+	if play_mode == PlayMode.RANDOM:
+		# 标记该曲目已播放
+		played_tracks.append(start_index)
+	
+	_load_and_play_bgm(current_playlist[current_track_index])
+
+func _load_and_play_bgm(file_path: String) -> bool:
+	"""加载并播放BGM"""
 	var audio_stream = null
 	var ext = file_path.get_extension().to_lower()
 	
@@ -220,75 +298,116 @@ func play_custom_bgm(file_path: String):
 	if ext in ["aac", "m4a"]:
 		push_warning("AAC/M4A格式不被Godot原生支持，请转换为OGG或MP3格式")
 		print("⚠️ 不支持的音频格式: ", ext)
-		print("建议使用FFmpeg转换: ffmpeg -i input.", ext, " -c:a libvorbis -q:a 5 output.ogg")
-		return
+		return false
 	
 	# 尝试加载音频文件
 	if file_path.begins_with("res://"):
-		# 资源路径（打包在游戏内）
 		if ResourceLoader.exists(file_path):
 			audio_stream = load(file_path)
+			# 为内置资源设置循环属性
+			if audio_stream:
+				if audio_stream is AudioStreamMP3:
+					audio_stream.loop = (current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1)
+				elif audio_stream is AudioStreamOggVorbis:
+					audio_stream.loop = (current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1)
+				elif audio_stream is AudioStreamWAV:
+					if current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1:
+						audio_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+					else:
+						audio_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
 	else:
-		# 用户路径（user://）- 跨平台兼容
 		if FileAccess.file_exists(file_path):
-			# 根据文件扩展名加载
 			if ext == "mp3":
-				# MP3需要手动加载数据
 				audio_stream = AudioStreamMP3.new()
 				var file = FileAccess.open(file_path, FileAccess.READ)
 				if file:
 					audio_stream.data = file.get_buffer(file.get_length())
 					file.close()
-					# 设置循环
-					audio_stream.loop = true
+					# 根据播放模式设置循环
+					audio_stream.loop = (current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1)
 				else:
 					print("❌ 无法打开MP3文件: ", file_path)
-					return
+					return false
 			elif ext == "ogg":
-				# OGG推荐格式，跨平台支持最好
 				audio_stream = AudioStreamOggVorbis.load_from_file(file_path)
 				if audio_stream:
-					# 设置循环
-					audio_stream.loop = true
+					audio_stream.loop = (current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1)
 			elif ext == "wav":
-				# WAV需要手动加载
 				var file = FileAccess.open(file_path, FileAccess.READ)
 				if file:
 					var wav_data = file.get_buffer(file.get_length())
 					file.close()
-					
-					# 创建AudioStreamWAV并加载数据
 					audio_stream = AudioStreamWAV.new()
 					audio_stream.data = wav_data
-					audio_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+					if current_play_mode == PlayMode.SINGLE_LOOP and current_playlist.size() == 1:
+						audio_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+					else:
+						audio_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
 				else:
 					print("❌ 无法打开WAV文件: ", file_path)
-					return
+					return false
 		else:
 			print("❌ 文件不存在: ", file_path)
-			return
+			return false
 	
 	if audio_stream:
 		bgm_player.stream = audio_stream
 		bgm_player.play()
-		is_playing_custom_bgm = true
 		current_bgm_path = file_path
-		print("✅ 播放自定义BGM: ", file_path)
+		print("✅ 播放BGM: ", file_path)
 		
-		# 连接播放结束信号以实现循环（对于不支持内置循环的格式）
 		if not bgm_player.finished.is_connected(_on_bgm_finished):
 			bgm_player.finished.connect(_on_bgm_finished)
 		
-		# 保存到配置
-		_save_last_bgm(file_path)
+		return true
 	else:
-		push_error("❌ 加载自定义BGM失败: " + file_path)
-		print("支持的格式: OGG (推荐), MP3, WAV")
+		push_error("❌ 加载BGM失败: " + file_path)
+		return false
+
+func _play_next_track():
+	"""播放下一首（顺序模式）"""
+	if current_playlist.is_empty():
+		return
+	
+	current_track_index = (current_track_index + 1) % current_playlist.size()
+	_load_and_play_bgm(current_playlist[current_track_index])
+	print("顺序播放下一首: ", current_track_index + 1, "/", current_playlist.size())
+
+func _play_random_track():
+	"""播放随机曲目"""
+	if current_playlist.is_empty():
+		return
+	
+	# 如果所有曲目都播放过，重置已播放列表
+	if played_tracks.size() >= current_playlist.size():
+		played_tracks.clear()
+	
+	# 找到未播放的曲目
+	var available_indices = []
+	for i in range(current_playlist.size()):
+		if not played_tracks.has(i):
+			available_indices.append(i)
+	
+	if available_indices.is_empty():
+		# 所有曲目都播放过，重新开始
+		played_tracks.clear()
+		available_indices = range(current_playlist.size())
+	
+	# 随机选择一首
+	var random_index = available_indices[randi() % available_indices.size()]
+	current_track_index = random_index
+	played_tracks.append(random_index)
+	
+	_load_and_play_bgm(current_playlist[current_track_index])
+	print("随机播放: ", current_track_index + 1, "/", current_playlist.size())
 
 func stop_custom_bgm():
-	"""停止自定义BGM，恢复场景音乐"""
-	is_playing_custom_bgm = false
+	"""停止用户锁定的BGM，恢复场景音乐"""
+	user_locked_bgm = false
 	current_bgm_path = ""
+	current_playlist.clear()
+	current_track_index = 0
+	played_tracks.clear()
 	stop_background_music()
 	
 	# 清除保存的BGM
@@ -297,6 +416,15 @@ func stop_custom_bgm():
 	# 重新播放场景音乐
 	if not current_scene.is_empty():
 		play_background_music(current_scene, current_time, current_weather)
+
+func set_play_mode(mode: PlayMode):
+	"""设置播放模式"""
+	current_play_mode = mode
+	print("播放模式已设置为: ", ["单曲循环", "顺序播放", "随机播放"][mode])
+
+func get_play_mode() -> PlayMode:
+	"""获取当前播放模式"""
+	return current_play_mode
 
 func play_ambient_sound(file_path: String, loop: bool = true):
 	"""播放环境音"""
@@ -358,6 +486,82 @@ func _save_user_config():
 	else:
 		push_error("❌ 无法保存用户音频设置")
 		print("错误代码: ", FileAccess.get_open_error())
+
+func _get_scene_bgm_config(scene_id: String) -> Dictionary:
+	"""获取场景的BGM配置（从SaveManager）"""
+	if scene_id == "" or not has_node("/root/SaveManager"):
+		return {}
+	
+	var save_manager = get_node("/root/SaveManager")
+	var bgm_config = save_manager.get_bgm_config()
+	
+	# 检查场景是否有配置
+	if bgm_config.has(scene_id):
+		var scene_config = bgm_config[scene_id]
+		var enabled_music = scene_config.get("enabled_music", [])
+		
+		# 如果场景有音乐列表，返回配置
+		if not enabled_music.is_empty():
+			return scene_config
+	
+	# 场景没有配置，返回空字典（表示沿用默认）
+	return {}
+
+func _apply_scene_bgm_config(scene_config: Dictionary):
+	"""应用场景的BGM配置"""
+	var enabled_music = []
+	var play_mode = PlayMode.SEQUENTIAL
+	
+	if scene_config.is_empty():
+		# 场景没有配置，使用"全部"场景的配置
+		if has_node("/root/SaveManager"):
+			var save_manager = get_node("/root/SaveManager")
+			var bgm_config = save_manager.get_bgm_config()
+			
+			if bgm_config.has("all"):
+				var all_config = bgm_config["all"]
+				enabled_music = all_config.get("enabled_music", [])
+				play_mode = all_config.get("play_mode", PlayMode.SEQUENTIAL)
+	else:
+		# 使用场景自己的配置
+		enabled_music = scene_config.get("enabled_music", [])
+		play_mode = scene_config.get("play_mode", PlayMode.SEQUENTIAL)
+	
+	# 验证音乐文件是否存在
+	var valid_music = []
+	for music_path in enabled_music:
+		if FileAccess.file_exists(music_path) or ResourceLoader.exists(music_path):
+			valid_music.append(music_path)
+	
+	if valid_music.is_empty():
+		print("⚠️ 场景没有有效的音乐文件，停止播放")
+		stop_background_music()
+		current_playlist.clear()
+		return
+	
+	# 检查新的播放列表是否与当前相同
+	var playlist_changed = (valid_music != current_playlist)
+	var mode_changed = (play_mode != current_play_mode)
+	
+	if not playlist_changed and not mode_changed:
+		# 播放列表和模式都没变，继续播放当前音乐
+		print("🎵 播放列表和模式未变化，继续播放")
+		return
+	
+	# 检查当前播放的音乐是否在新列表中
+	var current_in_new_list = valid_music.has(current_bgm_path)
+	
+	if current_in_new_list and bgm_player.playing:
+		# 当前音乐在新列表中且正在播放
+		# 更新播放列表和模式，但不重新播放
+		current_playlist = valid_music
+		current_play_mode = play_mode
+		current_track_index = valid_music.find(current_bgm_path)
+		print("🎵 更新播放列表，继续播放当前音乐: ", current_bgm_path)
+	else:
+		# 当前音乐不在新列表中，或没有在播放，开始播放新列表
+		print("🎵 切换到新的播放列表")
+		play_playlist(valid_music, play_mode, 0, false)  # 不锁定BGM
 
 func _play_ambient_for_scene(scene_id: String, time_id: String, weather_id: String):
 	"""根据场景、时间和天气播放氛围音"""

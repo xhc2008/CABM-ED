@@ -103,6 +103,10 @@ func _load_template():
 			auto_save_interval = settings.get("auto_save_interval", 300.0)
 			enable_instant_save = settings.get("instant_save", true)
 	
+	# 确保BGM配置存在
+	if not save_data.has("bgm_config"):
+		save_data.bgm_config = {}
+	
 	# 延迟加载背包数据
 	call_deferred("_load_inventory_data")
 
@@ -348,6 +352,17 @@ func increment_chat_count():
 
 func add_play_time(seconds: float):
 	save_data.user_data.total_play_time += seconds
+	_auto_save()
+
+# === BGM配置方法 ===
+
+func get_bgm_config() -> Dictionary:
+	"""获取BGM配置"""
+	return save_data.get("bgm_config", {})
+
+func set_bgm_config(config: Dictionary):
+	"""设置BGM配置"""
+	save_data.bgm_config = config.duplicate(true)
 	_auto_save()
 
 # === 内部方法 ===
