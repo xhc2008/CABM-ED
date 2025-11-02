@@ -1,14 +1,44 @@
-[gd_scene load_steps=5 format=3 uid="uid://explore_scene_001"]
+[gd_scene load_steps=16 format=4 uid="uid://xryce8fidbr2"]
 
-[ext_resource type="Script" path="res://scripts/explore/explore_scene.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/explore/explore_player.gd" id="2"]
-[ext_resource type="Texture2D" path="res://assets/images/explore/player.png" id="3"]
+[ext_resource type="Script" uid="uid://b8cknwvcbauvs" path="res://scripts/explore/explore_scene.gd" id="1"]
+[ext_resource type="Script" uid="uid://5f1breooo4f6" path="res://scripts/explore/explore_player.gd" id="2"]
+[ext_resource type="Texture2D" uid="uid://clsgq5q70wod8" path="res://assets/images/explore/player.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://c0b1c1511v74g" path="res://assets/images/explore/device2.png" id="4_6l21x"]
+[ext_resource type="Texture2D" uid="uid://bmtou0aqwne2r" path="res://assets/images/explore/device.png" id="5_hol5y"]
+[ext_resource type="Texture2D" uid="uid://b6ckd5f6ftlb0" path="res://assets/images/explore/not_polished_andesite.png" id="6_oon1s"]
+[ext_resource type="Texture2D" uid="uid://cppp0ojrevyq" path="res://assets/images/explore/white_stained_glass.png" id="7_ntjpi"]
+
+[sub_resource type="RectangleShape2D" id="wall_shape"]
+size = Vector2(40, 400)
 
 [sub_resource type="CircleShape2D" id="player_collision"]
 radius = 20.0
 
-[sub_resource type="RectangleShape2D" id="wall_shape"]
-size = Vector2(40, 400)
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_6l21x"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_wc8on"]
+texture = ExtResource("4_6l21x")
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_el338"]
+texture = ExtResource("5_hol5y")
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_aek2h"]
+texture = ExtResource("6_oon1s")
+0:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ubpvu"]
+texture = ExtResource("7_ntjpi")
+0:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_hv5yx"]
+physics_layer_0/collision_layer = 1
+physics_layer_0/physics_material = SubResource("PhysicsMaterial_6l21x")
+sources/1 = SubResource("TileSetAtlasSource_wc8on")
+sources/2 = SubResource("TileSetAtlasSource_el338")
+sources/3 = SubResource("TileSetAtlasSource_aek2h")
+sources/4 = SubResource("TileSetAtlasSource_ubpvu")
 
 [node name="ExploreScene" type="Node2D"]
 script = ExtResource("1")
@@ -59,8 +89,8 @@ offset_bottom = 20.0
 color = Color(0.4, 0.3, 0.2, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TemporaryWalls/WallTop"]
-shape = SubResource("wall_shape")
 rotation = 1.5708
+shape = SubResource("wall_shape")
 
 [node name="WallBottom" type="StaticBody2D" parent="TemporaryWalls"]
 position = Vector2(640, 570)
@@ -73,8 +103,8 @@ offset_bottom = 20.0
 color = Color(0.4, 0.3, 0.2, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TemporaryWalls/WallBottom"]
-shape = SubResource("wall_shape")
 rotation = 1.5708
+shape = SubResource("wall_shape")
 
 [node name="Decoration" type="Node2D" parent="."]
 
@@ -103,7 +133,6 @@ texture = ExtResource("3")
 shape = SubResource("player_collision")
 
 [node name="Camera2D" type="Camera2D" parent="Player"]
-enabled = true
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -121,5 +150,9 @@ offset_right = 300.0
 offset_bottom = 150.0
 text = "WASD - 移动
 鼠标 - 朝向"
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
+tile_map_data = PackedByteArray("AAAVAAoAAwAAAAAAAAAWAAoAAwAAAAAAAAAVAAkAAwAAAAAAAAAWAAkAAwAAAAAAAAAXAAkAAwAAAAAAAAAYAAkAAwAAAAAAAAAYAAoAAwAAAAAAAAAXAAoAAwAAAAAAAAAWAAgAAwAAAAAAAAAXAAgAAwAAAAAAAAAYAAgAAwAAAAAAAAAUAAoAAwAAAAAAAAAUAAkAAwAAAAAAAAAYAAsAAwAAAAAAAAAXAAsAAwAAAAAAAAAWAAsAAwAAAAAAAAAVAAsAAwAAAAAAAAAUAAsAAwAAAAAAAAAVAAgAAwAAAAAAAAAZAAoAAwAAAAAAAAAZAAsAAwAAAAAAAAAaAAkAAwAAAAAAAAAbAAkAAwAAAAAAAAAcAAoAAwAAAAAAAAAdAAsAAwAAAAAAAAAeAAsAAwAAAAAAAAAfAAwAAwAAAAAAAAAeAAwAAwAAAAAAAAAdAAwAAwAAAAAAAAAdAA0AAwAAAAAAAAAcAA0AAwAAAAAAAAAcAAwAAwAAAAAAAAAcAAsAAwAAAAAAAAAbAAsAAwAAAAAAAAAcAA4AAwAAAAAAAAAcAA8AAwAAAAAAAAAcABAAAwAAAAAAAAAcABEAAwAAAAAAAAAbAAwAAwAAAAAAAAAdAA4AAwAAAAAAAAAeAA8AAwAAAAAAAAAfAA8AAwAAAAAAAAAgAA8AAwAAAAAAAAAhAA8AAwAAAAAAAAAhABAAAwAAAAAAAAAgABAAAwAAAAAAAAAfABAAAwAAAAAAAAAeAA4AAwAAAAAAAAAfAA4AAwAAAAAAAAAgAA4AAwAAAAAAAAA=")
+tile_set = SubResource("TileSet_hv5yx")
 
 [connection signal="pressed" from="UI/ExitButton" to="." method="_on_exit_button_pressed"]
