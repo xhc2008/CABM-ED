@@ -374,6 +374,16 @@ func _on_event_completed(event_name: String, result):
 			await get_tree().create_timer(0.5).timeout
 			_on_end_button_pressed()
 		elif result.message == "chat_idle_timeout":
+			# 输入模式下长时间无操作，确保UI状态正确后再结束
+			if history_manager.is_history_visible:
+				await history_manager.hide_history()
+			elif not is_input_mode:
+				# 如果不在输入模式（例如在回复模式），先恢复到输入模式
+				waiting_for_continue = false
+				continue_indicator.visible = false
+				await ui_manager.transition_to_input_mode()
+			
+			await get_tree().create_timer(0.3).timeout
 			_on_end_button_pressed()
 
 func _on_send_button_pressed():
