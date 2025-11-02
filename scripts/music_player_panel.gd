@@ -30,6 +30,7 @@ var bgm_files: Array = [] # 所有BGM文件
 var custom_bgm_path = "user://custom_bgm/"
 var bgm_config: Dictionary = {} # BGM配置
 var selected_music_path: String = "" # 当前选中的音乐路径（用于删除）
+var permissions_requested: bool = false # 是否已请求过权限
 
 func _ready():
 	# 获取管理器
@@ -76,7 +77,7 @@ func show_panel():
 	
 	show()
 	_refresh_scene_list()
-	_update_ui_for_scene()  # 更新按钮显示
+	_update_ui_for_scene() # 更新按钮显示
 	_refresh_music_list()
 	_load_volume_settings()
 
@@ -350,10 +351,10 @@ func _create_music_item(music_data: Dictionary, is_playing: bool) -> Button:
 		# 检查是否是当前选中的音乐
 		if music_data.path == selected_music_path:
 			item.button_pressed = true
-			item.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))  # 红色表示将被删除
+			item.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3)) # 红色表示将被删除
 	elif is_playing:
 		item.text = "▶ " + item.text
-		item.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))  # 绿色表示播放中
+		item.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3)) # 绿色表示播放中
 	
 	item.pressed.connect(_on_music_item_pressed.bind(music_data))
 	
@@ -375,9 +376,9 @@ func _on_music_item_pressed(music_data: Dictionary):
 	if is_delete_mode:
 		# 切换选中状态
 		if selected_music_path == music_data.path:
-			selected_music_path = ""  # 取消选中
+			selected_music_path = "" # 取消选中
 		else:
-			selected_music_path = music_data.path  # 选中
+			selected_music_path = music_data.path # 选中
 		_refresh_music_list()
 		return
 	
@@ -505,10 +506,37 @@ func _exit_edit_mode():
 
 func _on_upload_pressed():
 	"""上传按钮"""
+	# 在安卓上请求存储权限
+	if OS.get_name() == "Android" and not permissions_requested:
+		print("[INFO] 检测到安卓系统，正在请求存储权限...")
+		_request_android_permissions()
+		permissions_requested = true
+		# 给用户一点时间查看权限对话框
+		await get_tree().create_timer(0.5).timeout
+	
 	file_dialog.clear_filters()
 	file_dialog.add_filter("*.mp3, *.ogg, *.wav", "音频文件")
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILES
+	
+	# 在安卓上，确保使用正确的访问模式
+	if OS.get_name() == "Android":
+		file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		print("[INFO] 打开文件选择器（安卓模式）")
+	
 	file_dialog.popup_centered(Vector2(800, 600))
+
+func _request_android_permissions():
+	"""请求安卓存储权限"""
+	if not OS.has_feature("android"):
+		return
+	
+	print("[INFO] 正在请求安卓存储权限...")
+	print("[INFO] 请在弹出的对话框中允许访问音频文件")
+	
+	# Godot 会自动请求在 export_presets.cfg 中配置的权限
+	# Android 13+ (API 33+) 需要 READ_MEDIA_AUDIO
+	# Android 6-12 (API 23-32) 需要 READ_EXTERNAL_STORAGE
+	OS.request_permissions()
 
 func _on_files_selected(paths: PackedStringArray):
 	"""文件选择完成（仅在"全部"场景使用）"""
@@ -570,7 +598,7 @@ func _on_delete_pressed():
 		# 进入删除模式
 		is_delete_mode = true
 		delete_button.text = "确认删除"
-		upload_button.disabled = true  # 禁用上传按钮
+		upload_button.disabled = true # 禁用上传按钮
 		_refresh_music_list()
 		print("进入删除模式，请选择要删除的音乐")
 		return
@@ -618,10 +646,10 @@ func _on_delete_pressed():
 		var error = dir.remove(file_name)
 		if error == OK:
 			print("已删除音频文件: ", file_name)
-			selected_music_path = ""  # 清除选中状态
-			_load_music_list()  # 重新加载音乐列表
-			_save_bgm_config()  # 保存配置
-			_exit_delete_mode()  # 退出删除模式
+			selected_music_path = "" # 清除选中状态
+			_load_music_list() # 重新加载音乐列表
+			_save_bgm_config() # 保存配置
+			_exit_delete_mode() # 退出删除模式
 		else:
 			print("删除文件失败 (错误代码: ", error, ")")
 	else:
