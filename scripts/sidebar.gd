@@ -317,6 +317,13 @@ func _build_scene_list():
 	var separator2 = HSeparator.new()
 	scene_list.add_child(separator2)
 	
+	# 实验性玩法部分
+	_setup_experimental_section()
+	
+	# 分隔线
+	var separator_exp = HSeparator.new()
+	scene_list.add_child(separator_exp)
+	
 	# 天气按钮组
 	if scene_data.has("weathers"):
 		var weather_label = Label.new()
@@ -678,3 +685,23 @@ func _get_character_name() -> String:
 	
 	var config = json.data
 	return config.get("character_name", "角色")
+
+func _setup_experimental_section():
+	"""设置实验性玩法部分"""
+	# 标题
+	var exp_label = Label.new()
+	exp_label.text = "实验性玩法（没做）"
+	exp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	exp_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	scene_list.add_child(exp_label)
+	
+	# 探索模式按钮
+	var explore_button = Button.new()
+	explore_button.text = "🗺️ 探索模式"
+	explore_button.pressed.connect(_on_explore_button_pressed)
+	scene_list.add_child(explore_button)
+
+func _on_explore_button_pressed():
+	"""探索按钮被点击"""
+	print("进入探索模式")
+	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
