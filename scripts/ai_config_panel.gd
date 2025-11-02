@@ -96,6 +96,11 @@ var selected_template: String = "standard" # 默认选择标准模板
 
 var repair_tool: Node = null
 
+# 回复设置
+var response_verbal_button: CheckBox
+var response_narrative_button: CheckBox
+var response_status_label: Label
+
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
 	quick_template_free.pressed.connect(_on_template_selected.bind("free"))
@@ -116,6 +121,9 @@ func _ready():
 	repair_tool.repair_progress.connect(_on_repair_progress)
 	repair_tool.repair_completed.connect(_on_repair_completed)
 	
+	# 创建回复设置选项卡
+	_setup_response_settings_tab()
+	
 	# 为模板按钮添加样式
 	_style_template_buttons()
 	
@@ -128,6 +136,7 @@ func _ready():
 	# 加载现有配置
 	_load_existing_config()
 	_load_voice_settings()
+	_load_response_settings()
 
 func _style_template_buttons():
 	"""为模板按钮添加边框样式"""
@@ -1033,3 +1042,152 @@ func _on_repair_completed(success: bool, message: String):
 	repair_button.text = "重新修复"
 	repair_check_button.disabled = false
 	close_button.disabled = false
+
+# === 回复设置相关 ===
+
+func _setup_response_settings_tab():
+	"""创建回复设置选项卡"""
+	# 创建选项卡
+	var response_tab = MarginContainer.new()
+	response_tab.name = "回复设置"
+	response_tab.add_theme_constant_override("margin_left", 10)
+	response_tab.add_theme_constant_override("margin_top", 10)
+	response_tab.add_theme_constant_override("margin_right", 10)
+	response_tab.add_theme_constant_override("margin_bottom", 10)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 15)
+	response_tab.add_child(vbox)
+	
+	# 标题
+	var title_label = Label.new()
+	title_label.text = "选择回复模式"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_label)
+	
+	# 按钮组
+	var button_group = ButtonGroup.new()
+	
+	# 语言表达模式
+	var verbal_container = VBoxContainer.new()
+	verbal_container.add_theme_constant_override("separation", 5)
+	
+	response_verbal_button = CheckBox.new()
+	response_verbal_button.text = "语言表达"
+	response_verbal_button.button_group = button_group
+	response_verbal_button.toggled.connect(_on_response_mode_changed.bind("verbal"))
+	verbal_container.add_child(response_verbal_button)
+	
+	var verbal_desc = Label.new()
+	verbal_desc.text = "简洁的对话，保持自然交流风格"
+	verbal_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	verbal_desc.add_theme_font_size_override("font_size", 12)
+	verbal_container.add_child(verbal_desc)
+	
+	vbox.add_child(verbal_container)
+	
+	# 分隔线
+	var separator = HSeparator.new()
+	vbox.add_child(separator)
+	
+	# 情景叙事模式
+	var narrative_container = VBoxContainer.new()
+	narrative_container.add_theme_constant_override("separation", 5)
+	
+	response_narrative_button = CheckBox.new()
+	response_narrative_button.text = "情景叙事"
+	response_narrative_button.button_group = button_group
+	response_narrative_button.toggled.connect(_on_response_mode_changed.bind("narrative"))
+	narrative_container.add_child(response_narrative_button)
+	
+	var narrative_desc = Label.new()
+	narrative_desc.text = "详细的叙述，包含动作、神态、心理活动等"
+	narrative_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	narrative_desc.add_theme_font_size_override("font_size", 12)
+	narrative_container.add_child(narrative_desc)
+	
+	vbox.add_child(narrative_container)
+	
+	# 状态标签
+	response_status_label = Label.new()
+	response_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	response_status_label.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(response_status_label)
+	
+	# 添加到TabContainer（在"语音设置"之后）
+	tab_container.add_child(response_tab)
+	# 将回复设置移到第二个位置（快速配置之后）
+	tab_container.move_child(response_tab, 2)
+
+func _load_response_settings():
+	"""加载回复设置"""
+	var config_path = "user://ai_keys.json"
+	
+	var response_mode = "verbal" # 默认为语言表达
+	
+	if FileAccess.file_exists(config_path):
+		var file = FileAccess.open(config_path, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			file.close()
+			
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				var config = json.data
+				response_mode = config.get("response_mode", "verbal")
+	
+	# 设置按钮状态
+	if response_mode == "narrative":
+		response_narrative_button.button_pressed = true
+		response_status_label.text = "当前: 情景叙事模式"
+	else:
+		response_verbal_button.button_pressed = true
+		response_status_label.text = "当前: 语言表达模式"
+	
+	response_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+
+func _on_response_mode_changed(enabled: bool, mode: String):
+	"""回复模式改变"""
+	if not enabled:
+		return
+	
+	# 保存设置
+	if _save_response_mode(mode):
+		if mode == "narrative":
+			response_status_label.text = "✓ 已切换到情景叙事模式"
+		else:
+			response_status_label.text = "✓ 已切换到语言表达模式"
+		response_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+	else:
+		response_status_label.text = "✗ 保存失败"
+		response_status_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+
+func _save_response_mode(mode: String) -> bool:
+	"""保存回复模式到配置文件"""
+	var config_path = "user://ai_keys.json"
+	
+	# 读取现有配置
+	var config = {}
+	if FileAccess.file_exists(config_path):
+		var read_file = FileAccess.open(config_path, FileAccess.READ)
+		if read_file:
+			var json_string = read_file.get_as_text()
+			read_file.close()
+			
+			var json = JSON.new()
+			if json.parse(json_string) == OK:
+				config = json.data
+	
+	# 更新回复模式
+	config["response_mode"] = mode
+	
+	# 保存配置
+	var write_file = FileAccess.open(config_path, FileAccess.WRITE)
+	if write_file == null:
+		return false
+	
+	write_file.store_string(JSON.stringify(config, "\t"))
+	write_file.close()
+	
+	print("回复模式已保存: ", mode)
+	return true

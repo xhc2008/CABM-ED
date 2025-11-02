@@ -82,6 +82,9 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 	var character_preset = _load_character_preset()
 	var character_prompt = character_preset.get("prompt", "")
 	
+	# 获取回复风格
+	var response_style = _get_response_style()
+	
 	# 准备所有占位符的替换字典
 	var replacements = {
 		"{character_name}": character_name,
@@ -99,7 +102,8 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 		"{current_mood}": current_mood,
 		"{current_time}": current_time,
 		"{scenes}": scenes_list,
-		"{character_prompt}": character_prompt
+		"{character_prompt}": character_prompt,
+		"{response_style}": response_style
 	}
 	
 	# 检查使用哪种配置方式
@@ -631,3 +635,39 @@ func _get_recent_context_for_query() -> String:
 		recent_turns.append(turn.user + " " + turn.assistant)
 	
 	return " ".join(recent_turns)
+
+func _get_response_style() -> String:
+	"""获取回复风格文本"""
+	# 从用户配置加载回复模式
+	var response_mode = _load_response_mode()
+	
+	# 从ai_config.json获取对应的风格文本
+	var response_styles = config.chat_model.response_style
+	
+	if response_mode == "narrative" and response_styles.has("narrative"):
+		return response_styles.narrative
+	elif response_mode == "verbal" and response_styles.has("verbal"):
+		return response_styles.verbal
+	
+	return "请警告用户不要修改配置文件" 
+
+func _load_response_mode() -> String:
+	"""从用户配置加载回复模式"""
+	var config_path = "user://ai_keys.json"
+	
+	if not FileAccess.file_exists(config_path):
+		return "verbal" # 默认为语言表达模式
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if file == null:
+		return "verbal"
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "verbal"
+	
+	var user_config = json.data
+	return user_config.get("response_mode", "verbal")
