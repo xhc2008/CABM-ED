@@ -289,7 +289,7 @@ func _refresh_music_list():
 		# 非编辑模式
 		if selected_scene != "all" and enabled_music.is_empty():
 			# 场景没有音乐：只显示提示，不显示列表
-			hint_label.text = "该场景未配置音乐，沿用\"全部\"场景的设置\n点击\"编辑\"按钮可为该场景单独配置音乐"
+			hint_label.text = "该场景未配置音乐，默认沿用全部音乐\n点击\"编辑\"按钮可为该场景单独配置音乐"
 			hint_label.show()
 		else:
 			# 场景有音乐：隐藏提示，显示音乐列表

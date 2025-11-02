@@ -64,7 +64,7 @@ func _create_options_panel():
 	
 	# 背景音乐按钮
 	music_button = Button.new()
-	music_button.text = "🎵 背景音乐"
+	music_button.text = "🎵 音乐播放器"
 	music_button.pressed.connect(_on_music_button_pressed)
 	vbox.add_child(music_button)
 	
