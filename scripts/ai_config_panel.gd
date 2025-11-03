@@ -942,6 +942,18 @@ func _export_save_archive():
 
 func _export_save_android(filename: String):
 	"""Android平台导出存档"""
+	# 请求存储权限
+	var perm_helper = load("res://scripts/android_permissions.gd").new()
+	add_child(perm_helper)
+	
+	var has_permission = await perm_helper.request_storage_permission()
+	perm_helper.queue_free()
+	
+	if not has_permission:
+		_update_save_export_status("✗ 需要存储权限才能导出", Color(1.0, 0.3, 0.3))
+		save_export_button.disabled = false
+		return
+	
 	var documents_path = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
 	if documents_path.is_empty():
 		documents_path = "/storage/emulated/0/Documents"

@@ -30,12 +30,13 @@ var bgm_files: Array = [] # 所有BGM文件
 var custom_bgm_path = "user://custom_bgm/"
 var bgm_config: Dictionary = {} # BGM配置
 var selected_music_path: String = "" # 当前选中的音乐路径（用于删除）
-var permissions_requested: bool = false # 是否已请求过权限
+var android_permissions # Android权限管理器
 
 func _ready():
 	# 获取管理器
 	audio_manager = get_node("/root/Main/AudioManager")
 	save_manager = get_node("/root/SaveManager")
+	android_permissions = get_node("/root/AndroidPermissions") if has_node("/root/AndroidPermissions") else null
 	
 	# 获取切换音乐选项卡的节点
 	var music_tab = $MarginContainer/VBoxContainer/TabContainer.get_node("切换音乐")
@@ -507,11 +508,10 @@ func _exit_edit_mode():
 func _on_upload_pressed():
 	"""上传按钮"""
 	# 在安卓上请求存储权限
-	if OS.get_name() == "Android" and not permissions_requested:
-		print("[INFO] 检测到安卓系统，正在请求存储权限...")
-		_request_android_permissions()
-		permissions_requested = true
-		await get_tree().create_timer(0.5).timeout
+	if OS.get_name() == "Android" and android_permissions:
+		var has_permission = await android_permissions.request_storage_permission()
+		if not has_permission:
+			print("[WARN] 未获得存储权限，可能无法访问文件")
 	
 	file_dialog.clear_filters()
 	file_dialog.add_filter("*.mp3, *.ogg, *.wav", "音频文件")
@@ -539,15 +539,6 @@ func _on_upload_pressed():
 		print("[INFO] 如果看不到文件，请尝试点击左上角菜单切换到其他文件夹")
 	
 	file_dialog.popup_centered(Vector2(800, 600))
-
-func _request_android_permissions():
-	"""请求安卓存储权限"""
-	if not OS.has_feature("android"):
-		return
-	
-	print("[INFO] 正在请求安卓存储权限...")
-	print("[INFO] 请在弹出的对话框中允许访问音频文件")
-	OS.request_permissions()
 
 func _on_files_selected(paths: PackedStringArray):
 	"""文件选择完成（仅在"全部"场景使用）"""

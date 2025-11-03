@@ -513,7 +513,7 @@ func _setup_ai_settings(container: VBoxContainer):
 	"""设置 AI 配置区域"""
 	# AI 配置按钮
 	var ai_config_button = Button.new()
-	ai_config_button.text = "AI 配置"
+	ai_config_button.text = "配置选项"
 	ai_config_button.pressed.connect(_on_ai_config_pressed)
 	container.add_child(ai_config_button)
 	

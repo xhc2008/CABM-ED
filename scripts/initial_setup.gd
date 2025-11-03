@@ -170,6 +170,18 @@ func _create_initial_save(user_name: String, character_name: String):
 
 func _on_import_pressed():
 	"""导入存档按钮被点击"""
+	# Android平台需要请求权限
+	if OS.get_name() == "Android":
+		var perm_helper = load("res://scripts/android_permissions.gd").new()
+		add_child(perm_helper)
+		
+		var has_permission = await perm_helper.request_storage_permission()
+		perm_helper.queue_free()
+		
+		if not has_permission:
+			_show_message("需要存储权限才能导入存档", Color(1.0, 0.3, 0.3))
+			return
+	
 	var file_dialog = FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
