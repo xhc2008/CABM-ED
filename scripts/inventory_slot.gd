@@ -42,6 +42,8 @@ func update_display():
 		if item_config.has("icon"):
 			var icon_path = "res://assets/images/items/" + item_config.icon
 			if ResourceLoader.exists(icon_path):
+				# 设置纹理过滤模式为最近邻，保持像素风格
+				icon_texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 				icon_texture.texture = load(icon_path)
 			else:
 				icon_texture.texture = null

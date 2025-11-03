@@ -137,6 +137,8 @@ func _show_item_info(item_data: Dictionary):
 	if item_config.has("icon"):
 		var icon_path = "res://assets/images/items/" + item_config.icon
 		if ResourceLoader.exists(icon_path):
+			# 设置纹理过滤模式为最近邻，保持像素风格
+			item_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			item_icon.texture = load(icon_path)
 		else:
 			item_icon.texture = null
