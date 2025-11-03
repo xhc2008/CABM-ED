@@ -110,6 +110,11 @@ func _update_position_and_scale_from_preset():
 	print("实际背景大小: ", actual_bg_size, " 偏移: ", bg_offset, " 缩放: ", bg_scale, " 角色position: ", position)
 
 func load_character_for_scene(scene_id: String):
+	# 如果正在聊天或正在进入聊天状态，忽略场景加载请求
+	if is_chatting:
+		print("角色正在聊天，忽略场景加载请求")
+		return
+	
 	# 始终更新current_scene为用户当前所在场景（无论角色是否在该场景）
 	current_scene = scene_id
 	
@@ -266,7 +271,9 @@ func start_chat():
 	if is_chatting:
 		return
 	
+	# 立即设置聊天状态，防止被其他操作打断
 	is_chatting = true
+	print("开始聊天，锁定角色状态")
 	
 	# 消失动画
 	var fade_tween = create_tween()
@@ -350,10 +357,12 @@ func end_chat():
 	if not is_chatting:
 		return
 	
+	print("结束聊天，解锁角色状态")
 	is_chatting = false
 	
 	# 隐藏表情层
-	expression_layer.visible = false
+	if expression_layer:
+		expression_layer.visible = false
 	
 	# 断开AI服务信号
 	if has_node("/root/AIService"):
@@ -759,7 +768,14 @@ func _load_chat_image_for_mood():
 		_load_default_chat_image()
 		return
 	
-	texture_normal = load(base_image_path)
+	# 确保纹理加载成功
+	var base_texture = load(base_image_path)
+	if base_texture == null:
+		print("base.png加载失败: ", base_image_path)
+		_load_default_chat_image()
+		return
+	
+	texture_normal = base_texture
 	custom_minimum_size = texture_normal.get_size()
 	size = texture_normal.get_size()
 	
@@ -767,21 +783,28 @@ func _load_chat_image_for_mood():
 	var image_filename = _get_mood_image_filename(mood_name_en)
 	if image_filename.is_empty():
 		# 没有表情，只显示base
-		expression_layer.visible = false
+		if expression_layer:
+			expression_layer.visible = false
 		print("加载base图片: ", base_image_path)
 		return
 	
 	# 加载表情图片到叠加层
 	var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
-	if ResourceLoader.exists(expression_image_path):
-		expression_layer.texture = load(expression_image_path)
-		expression_layer.size = texture_normal.get_size()
-		expression_layer.position = Vector2.ZERO
-		expression_layer.visible = true
-		print("加载base图片: ", base_image_path, " + 表情图片: ", expression_image_path)
+	if ResourceLoader.exists(expression_image_path) and expression_layer:
+		var expression_texture = load(expression_image_path)
+		if expression_texture:
+			expression_layer.texture = expression_texture
+			expression_layer.size = texture_normal.get_size()
+			expression_layer.position = Vector2.ZERO
+			expression_layer.visible = true
+			print("加载base图片: ", base_image_path, " + 表情图片: ", expression_image_path)
+		else:
+			print("表情图片加载失败: ", expression_image_path)
+			expression_layer.visible = false
 	else:
 		print("表情图片不存在: ", expression_image_path, " 只显示base")
-		expression_layer.visible = false
+		if expression_layer:
+			expression_layer.visible = false
 
 func _load_default_chat_image():
 	"""加载默认聊天图片（base.png + normal.png）"""

@@ -415,6 +415,11 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 	audio_manager.play_background_music(scene_id, time_id, weather_id)
 
 func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
+	# 如果正在聊天，忽略场景切换请求（防止冲突）
+	if chat_dialog.visible or character.is_chatting:
+		print("正在聊天，忽略场景切换请求")
+		return
+	
 	# 记录旧场景
 	var old_scene = current_scene
 	
@@ -459,6 +464,11 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 			_try_scene_interaction("leave_scene")
 
 func _on_scene_menu_selected(scene_id: String):
+	# 如果正在聊天，忽略场景切换请求（防止冲突）
+	if chat_dialog.visible or character.is_chatting:
+		print("正在聊天，忽略场景切换请求")
+		return
+	
 	# 记录旧场景
 	var old_scene = current_scene
 	
@@ -678,6 +688,11 @@ func _get_scene_name(scene_id: String) -> String:
 func _on_right_area_input(event: InputEvent):
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			# 如果正在聊天，忽略点击（防止在聊天时切换场景）
+			if chat_dialog.visible or character.is_chatting:
+				print("正在聊天，忽略场景切换点击")
+				return
+			
 			# 检查是否在场景切换锁定期间
 			if scene_switch_timer and not scene_switch_timer.is_stopped():
 				print("场景切换锁定中，忽略点击")

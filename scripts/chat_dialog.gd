@@ -235,6 +235,11 @@ func show_dialog(mode: String = "passive"):
 	mode: "passive" = 用户先说（输入模式）, "active" = 角色先说（回复模式）, 
 		  "called" = 被呼唤来到场景（角色先说）, "called_here" = 被呼唤但已在场景（角色先说）
 	"""
+	# 如果已经可见，忽略重复调用
+	if visible:
+		print("聊天对话框已显示，忽略重复调用")
+		return
+	
 	visible = true
 	pivot_offset = size / 2.0
 	
@@ -277,6 +282,11 @@ func _setup_reply_mode():
 	custom_minimum_size.y = 200.0
 
 func hide_dialog():
+	# 如果已经隐藏，忽略重复调用
+	if not visible:
+		print("聊天对话框已隐藏，忽略重复调用")
+		return
+	
 	pivot_offset = size / 2.0
 	
 	typing_manager.stop()
