@@ -2,7 +2,7 @@
   "items": {
     "CMR-951": {
       "name": "九五式-改",
-      "type": "weapon",
+      "type": "武器",
       "description": "你最熟悉的武器，它是████████████████████",
       "icon": "CRM-951.png",
       "weight": 3.5,
@@ -14,7 +14,7 @@
     },
     "UMP45": {
       "name": "UMP45",
-      "type": "weapon",
+      "type": "武器",
       "description": "让敌人的心电图和她一样平",
       "icon": "UMP45.png",
       "weight": 2.3,
@@ -26,7 +26,7 @@
     },
     "VSS-SF": {
       "name": "VSS-改",
-      "type": "weapon",
+      "type": "武器",
       "description": "消音极好的狙击步枪，是她████████████████",
       "icon": "VSS-SF.png",
       "weight": 2.5,
@@ -38,7 +38,7 @@
     },
     "5.8mm_ammo": {
       "name": "5.8mm子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for 5.8mm firearms",
       "icon": "5.8mm.png",
       "weight": 0.02,
@@ -47,7 +47,7 @@
     },
     ".45_ammo": {
       "name": ".45子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for .45 firearms",
       "icon": ".45.png",
       "weight": 0.03,
@@ -56,7 +56,7 @@
     },
     "9mm_ammo": {
       "name": "9mm子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for 9mm firearms",
       "icon": "9mm.png",
       "weight": 0.02,
@@ -65,7 +65,7 @@
     },
     "medkit_small": {
       "name": "Small Medkit",
-      "type": "medical",
+      "type": "消耗品",
       "description": "Restores 50 health",
       "icon": "UMP45.png",
       "weight": 0.8,
@@ -75,11 +75,37 @@
     },
     "note": {
       "name": "开发者注",
-      "type": "special",
+      "type": "特殊",
       "description": "背包及相关功能尚未实现，敬请期待",
       "icon": "note.png",
-      "weight": 3355036,
+      "weight": 0,
+      "max_stack": 1
+    },
+    "apple": {
+      "name": "苹果",
+      "type": "食材",
+      "description": "能做金苹果嘛……？",
+      "icon": "apple.png",
+      "weight": 0.2,
+      "max_stack": 64
+    },
+    "beef": {
+      "name": "牛肉",
+      "type": "食材",
+      "description": "牛肉",
+      "icon": "beef.png",
+      "weight": 0.5,
+      "max_stack": 64
+    },
+    "amethyst": {
+      "name": "紫水晶",
+      "type": "收集物",
+      "description": "",
+      "icon": "amethyst.png",
+      "weight": 0.4,
       "max_stack": 1
     }
   }
 }
+
+  
