@@ -88,6 +88,10 @@ func _ready():
 	# 从侧边栏获取当前的时间和天气设置（可能已经被自动时间调整过）
 	var initial_weather = sidebar.current_weather_id
 	var initial_time = sidebar.current_time_id
+	
+	# 先恢复存档中的播放列表（在场景加载和BGM播放之前）
+	audio_manager.restore_bgm_playlist_sync()
+	
 	load_scene(initial_scene, initial_weather, initial_time)
 	
 	# 同步 sidebar 的当前场景，避免天气/时间变化时切换到错误的场景
@@ -100,7 +104,7 @@ func _ready():
 	# 检查是否有待应用的离线位置变化
 	_check_pending_offline_position_change()
 	
-	# 播放背景音乐
+	# 播放背景音乐（此时会检查播放列表是否已存在，如果存在则不会覆盖）
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
 
 func _input(event):

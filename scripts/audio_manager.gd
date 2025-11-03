@@ -94,13 +94,11 @@ func _load_audio_config():
 		print("🔊 音量设置: BGM=%.0f%%, 氛围音=%.0f%%" % [bgm_volume * 100, ambient_volume * 100])
 	
 	# 4. 恢复上次播放的BGM播放列表（从SaveManager获取）
-	call_deferred("_restore_bgm_playlist")
+	# 注意：不使用call_deferred，而是在play_background_music之前同步恢复
+	# 这样可以确保场景切换时不会覆盖存档中的播放列表
 
-func _restore_bgm_playlist():
-	"""恢复BGM播放列表"""
-	# 等待SaveManager加载完成
-	await get_tree().create_timer(0.5).timeout
-	
+func restore_bgm_playlist_sync():
+	"""同步恢复BGM播放列表（在场景加载前调用）"""
 	if not has_node("/root/SaveManager"):
 		print("⚠️ SaveManager未找到，跳过恢复播放列表")
 		return
@@ -155,6 +153,14 @@ func play_background_music(scene_id: String, time_id: String, weather_id: String
 	# 如果用户手动锁定了BGM，不自动切换
 	if user_locked_bgm:
 		print("🎵 用户已锁定BGM，场景切换不改变音乐")
+		# 但仍然播放氛围音
+		_play_ambient_for_scene(scene_id, time_id, weather_id)
+		return
+	
+	# 如果是首次调用（old_scene为空）且播放列表已存在（从存档恢复的）
+	# 则不应用场景配置，保持存档中的播放列表
+	if old_scene == "" and current_playlist.size() > 0:
+		print("🎵 首次加载：保持存档中的播放列表")
 		# 但仍然播放氛围音
 		_play_ambient_for_scene(scene_id, time_id, weather_id)
 		return
