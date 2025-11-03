@@ -8,6 +8,7 @@ extends Control
 @onready var start_button: Button = $SetupContainer/StartButton
 @onready var skip_api_label: Label = $SetupContainer/APIKeyContainer/SkipLabel
 @onready var notice_label: Label = $SetupContainer/NoticeLabel
+@onready var import_button: Button = $ImportButton
 
 func _ready():
 	# 设置默认值
@@ -19,6 +20,7 @@ func _ready():
 	
 	# 连接信号
 	start_button.pressed.connect(_on_start_pressed)
+	import_button.pressed.connect(_on_import_pressed)
 	
 	# 设置提示文本
 	skip_api_label.text = "（非硅基流动的密钥请在进入游戏后手动配置）"
@@ -165,6 +167,129 @@ func _create_initial_save(user_name: String, character_name: String):
 	save_mgr.save_game(1)
 	print("初始存档已创建，用户名: ", user_name, ", 角色名: ", character_name)
 	print("初始关系已设置: ", initial_relationship.content)
+
+func _on_import_pressed():
+	"""导入存档按钮被点击"""
+	var file_dialog = FileDialog.new()
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	file_dialog.add_filter("*.zip", "存档文件")
+	file_dialog.file_selected.connect(_on_import_file_selected)
+	get_tree().root.add_child(file_dialog)
+	file_dialog.popup_centered(Vector2i(800, 600))
+
+func _on_import_file_selected(import_path: String):
+	"""用户选择了导入文件"""
+	_show_message("正在导入存档...", Color(0.3, 0.8, 1.0))
+	
+	# 获取user://目录的实际路径
+	var user_path = OS.get_user_data_dir()
+	
+	# 备份现有存档（如果存在）
+	_backup_existing_save(user_path)
+	
+	# 解压导入文件
+	var success = _extract_save(import_path, user_path)
+	
+	if success:
+		_show_message("✓ 导入成功，游戏将重启", Color(0.3, 1.0, 0.3))
+		await get_tree().create_timer(2.0).timeout
+		# 重启游戏
+		var exe_path = OS.get_executable_path()
+		OS.create_process(exe_path, [])
+		get_tree().quit()
+	else:
+		_show_message("✗ 导入失败", Color(1.0, 0.3, 0.3))
+
+func _backup_existing_save(user_path: String):
+	"""备份现有存档"""
+	var backup_path = user_path + "_backup_" + Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
+	var dir = DirAccess.open(user_path)
+	if dir:
+		dir.make_dir_recursive(backup_path)
+		_copy_directory(user_path, backup_path)
+		print("已备份现有存档到: ", backup_path)
+
+func _copy_directory(from_path: String, to_path: String):
+	"""递归复制目录"""
+	var dir = DirAccess.open(from_path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			var from_file = from_path + "/" + file_name
+			var to_file = to_path + "/" + file_name
+			
+			if dir.current_is_dir():
+				if file_name != "." and file_name != "..":
+					DirAccess.make_dir_recursive_absolute(to_file)
+					_copy_directory(from_file, to_file)
+			else:
+				dir.copy(from_file, to_file)
+			
+			file_name = dir.get_next()
+		dir.list_dir_end()
+
+func _extract_save(import_path: String, user_path: String) -> bool:
+	"""解压存档文件（跨平台）"""
+	print("开始解压存档: ", import_path)
+	print("目标路径: ", user_path)
+	
+	# 使用Godot内置的ZIPReader（跨平台）
+	var zip = ZIPReader.new()
+	var err = zip.open(import_path)
+	
+	if err != OK:
+		print("无法打开ZIP文件: ", err)
+		return false
+	
+	var files = zip.get_files()
+	print("ZIP文件包含 ", files.size(), " 个文件")
+	
+	# 解压所有文件
+	for file_path in files:
+		var content = zip.read_file(file_path)
+		if content.size() == 0 and not file_path.ends_with("/"):
+			print("警告: 文件为空或读取失败: ", file_path)
+			continue
+		
+		# 跳过目录条目
+		if file_path.ends_with("/"):
+			continue
+		
+		var full_path = user_path + "/" + file_path
+		
+		# 创建目录结构
+		var dir_path = full_path.get_base_dir()
+		if not DirAccess.dir_exists_absolute(dir_path):
+			DirAccess.make_dir_recursive_absolute(dir_path)
+		
+		# 写入文件
+		var file = FileAccess.open(full_path, FileAccess.WRITE)
+		if file:
+			file.store_buffer(content)
+			file.close()
+		else:
+			print("无法写入文件: ", full_path)
+	
+	zip.close()
+	print("存档解压成功")
+	return true
+
+func _show_message(message: String, color: Color):
+	"""显示消息提示"""
+	# 移除旧的消息标签
+	for child in $SetupContainer.get_children():
+		if child.name == "MessageLabel":
+			child.queue_free()
+	
+	var message_label = Label.new()
+	message_label.name = "MessageLabel"
+	message_label.text = message
+	message_label.add_theme_color_override("font_color", color)
+	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	$SetupContainer.add_child(message_label)
+	$SetupContainer.move_child(message_label, start_button.get_index())
 
 func _show_error(message: String):
 	"""显示错误提示"""

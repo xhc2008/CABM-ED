@@ -1,0 +1,52 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8v7y3x2xap4q"]
+
+[ext_resource type="Script" path="res://scripts/save_export_panel.gd" id="1"]
+
+[node name="SaveExportPanel" type="Panel"]
+custom_minimum_size = Vector2(500, 300)
+offset_right = 500.0
+offset_bottom = 300.0
+script = ExtResource("1")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "存档导出"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "⚠️ 存档将包含包括API密钥在内的一切信息"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="APIKeyLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "输入对话模型（或快速配置）的API密钥："
+
+[node name="APIKeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "输入API密钥"
+secret = true
+
+[node name="ExportButton" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "导出存档"
+
+[node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "关闭"

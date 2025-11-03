@@ -86,6 +86,11 @@ var selected_template: String = "standard" # 默认选择标准模板
 @onready var log_export_button = $MarginContainer/VBoxContainer/TabContainer / 日志导出 / VBoxContainer / ExportButton
 @onready var log_status_label = $MarginContainer/VBoxContainer/TabContainer / 日志导出 / VBoxContainer / StatusLabel
 
+# 存档导出
+@onready var save_export_api_key_input = $MarginContainer/VBoxContainer/TabContainer / 存档导出 / ScrollContainer / VBoxContainer / APIKeyInput
+@onready var save_export_button = $MarginContainer/VBoxContainer/TabContainer / 存档导出 / ScrollContainer / VBoxContainer / ExportButton
+@onready var save_export_status_label = $MarginContainer/VBoxContainer/TabContainer / 存档导出 / ScrollContainer / VBoxContainer / StatusLabel
+
 # 修复记忆
 @onready var repair_check_button = $MarginContainer/VBoxContainer/TabContainer / 修复记忆 / ScrollContainer / VBoxContainer / CheckButton
 @onready var repair_check_status_label = $MarginContainer/VBoxContainer/TabContainer / 修复记忆 / ScrollContainer / VBoxContainer / CheckStatusLabel
@@ -111,6 +116,7 @@ func _ready():
 	voice_volume_slider.value_changed.connect(_on_voice_volume_changed)
 	voice_reupload_button.pressed.connect(_on_voice_reupload_pressed)
 	log_export_button.pressed.connect(_on_log_export_pressed)
+	save_export_button.pressed.connect(_on_save_export_pressed)
 	repair_check_button.pressed.connect(_on_repair_check_pressed)
 	repair_button.pressed.connect(_on_repair_start_pressed)
 	
@@ -129,6 +135,9 @@ func _ready():
 	
 	# 为语音启用按钮添加样式
 	_style_voice_checkbox()
+	
+	# 为存档导出警告面板添加样式
+	_style_warning_panel()
 	
 	# 默认选择标准模板
 	_on_template_selected("standard")
@@ -196,6 +205,24 @@ func _style_voice_checkbox():
 	voice_enable_checkbox.add_theme_stylebox_override("normal", style_box)
 	voice_enable_checkbox.add_theme_stylebox_override("pressed", style_box_pressed)
 	voice_enable_checkbox.add_theme_stylebox_override("hover", style_box_pressed)
+
+func _style_warning_panel():
+	"""为存档导出警告面板添加醒目的样式"""
+	var warning_panel = $MarginContainer/VBoxContainer/TabContainer / 存档导出 / ScrollContainer / VBoxContainer / WarningPanel
+	
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = Color(0.3, 0.1, 0.1, 0.8)  # 深红色背景
+	style_box.border_width_left = 3
+	style_box.border_width_top = 3
+	style_box.border_width_right = 3
+	style_box.border_width_bottom = 3
+	style_box.border_color = Color(1.0, 0.2, 0.2, 1.0)  # 红色边框
+	style_box.corner_radius_top_left = 8
+	style_box.corner_radius_top_right = 8
+	style_box.corner_radius_bottom_left = 8
+	style_box.corner_radius_bottom_right = 8
+	
+	warning_panel.add_theme_stylebox_override("panel", style_box)
 
 func _on_template_selected(template: String):
 	"""选择配置模板"""
@@ -840,6 +867,180 @@ func _update_log_status(message: String, color: Color = Color.WHITE):
 	"""更新日志导出状态标签"""
 	log_status_label.text = message
 	log_status_label.add_theme_color_override("font_color", color)
+
+# === 存档导出相关 ===
+
+func _on_save_export_pressed():
+	"""存档导出按钮被点击"""
+	var input_key = save_export_api_key_input.text.strip_edges()
+	
+	if input_key.is_empty():
+		_update_save_export_status("请输入API密钥", Color(1.0, 0.3, 0.3))
+		return
+	
+	# 验证API密钥
+	if not _verify_api_key(input_key):
+		_update_save_export_status("API密钥验证失败，请输入正确的密钥", Color(1.0, 0.3, 0.3))
+		return
+	
+	# 执行导出
+	_export_save_archive()
+
+func _verify_api_key(input_key: String) -> bool:
+	"""验证输入的API密钥是否匹配"""
+	var keys_path = "user://ai_keys.json"
+	
+	if not FileAccess.file_exists(keys_path):
+		return false
+	
+	var file = FileAccess.open(keys_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return false
+	
+	var config = json.data
+	
+	# 检查 chat_model 的 api_key
+	if config.has("chat_model") and config.chat_model.has("api_key"):
+		if config.chat_model.api_key == input_key:
+			return true
+	
+	# 检查快速配置的 api_key
+	if config.has("api_key"):
+		if config.api_key == input_key:
+			return true
+	
+	return false
+
+func _export_save_archive():
+	"""导出存档为zip文件"""
+	_update_save_export_status("正在导出存档...", Color(0.3, 0.8, 1.0))
+	save_export_button.disabled = true
+	
+	# 生成导出文件名（带时间戳）
+	var timestamp = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
+	var export_filename = "CABM-ED_Save_%s.zip" % timestamp
+	
+	# 根据平台选择不同的导出方式
+	if OS.get_name() == "Android":
+		# Android: 直接导出到Documents目录
+		_export_save_android(export_filename)
+	else:
+		# PC: 使用文件对话框
+		var file_dialog = FileDialog.new()
+		file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		file_dialog.current_file = export_filename
+		file_dialog.add_filter("*.zip", "存档文件")
+		file_dialog.file_selected.connect(_on_save_export_path_selected)
+		file_dialog.canceled.connect(_on_save_export_canceled)
+		get_tree().root.add_child(file_dialog)
+		file_dialog.popup_centered(Vector2i(800, 600))
+
+func _export_save_android(filename: String):
+	"""Android平台导出存档"""
+	var documents_path = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	if documents_path.is_empty():
+		documents_path = "/storage/emulated/0/Documents"
+	
+	var export_path = documents_path + "/CABM-ED_Saves"
+	
+	# 创建导出目录
+	var dir = DirAccess.open(documents_path)
+	if dir and not dir.dir_exists("CABM-ED_Saves"):
+		dir.make_dir("CABM-ED_Saves")
+	
+	var full_export_path = export_path + "/" + filename
+	
+	# 使用Godot内置的ZIPPacker
+	if _create_zip_archive(full_export_path):
+		_update_save_export_status("✓ 导出成功\n" + full_export_path, Color(0.3, 1.0, 0.3))
+		print("存档导出成功: ", full_export_path)
+	else:
+		_update_save_export_status("✗ 导出失败", Color(1.0, 0.3, 0.3))
+	
+	save_export_button.disabled = false
+
+func _on_save_export_path_selected(export_path: String):
+	"""用户选择了导出路径（PC平台）"""
+	print("开始导出存档: ", export_path)
+	
+	# 使用Godot内置的ZIPPacker
+	if _create_zip_archive(export_path):
+		_update_save_export_status("✓ 导出成功: " + export_path, Color(0.3, 1.0, 0.3))
+		print("存档导出成功")
+	else:
+		_update_save_export_status("✗ 导出失败", Color(1.0, 0.3, 0.3))
+	
+	save_export_button.disabled = false
+
+func _create_zip_archive(zip_path: String) -> bool:
+	"""使用Godot内置ZIPPacker创建存档"""
+	var zip = ZIPPacker.new()
+	var err = zip.open(zip_path)
+	
+	if err != OK:
+		print("无法创建ZIP文件: ", err)
+		return false
+	
+	# 获取user://目录
+	var user_path = OS.get_user_data_dir()
+	
+	# 递归添加所有文件
+	var success = _add_directory_to_zip(zip, user_path, "")
+	
+	zip.close()
+	
+	return success
+
+func _add_directory_to_zip(zip: ZIPPacker, dir_path: String, zip_base_path: String) -> bool:
+	"""递归添加目录到ZIP"""
+	var dir = DirAccess.open(dir_path)
+	if dir == null:
+		print("无法打开目录: ", dir_path)
+		return false
+	
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	
+	while file_name != "":
+		if file_name == "." or file_name == "..":
+			file_name = dir.get_next()
+			continue
+		
+		var full_path = dir_path + "/" + file_name
+		var zip_path = zip_base_path + file_name if zip_base_path.is_empty() else zip_base_path + "/" + file_name
+		
+		if dir.current_is_dir():
+			# 递归添加子目录
+			_add_directory_to_zip(zip, full_path, zip_path)
+		else:
+			# 添加文件
+			var file = FileAccess.open(full_path, FileAccess.READ)
+			if file:
+				var content = file.get_buffer(file.get_length())
+				file.close()
+				zip.start_file(zip_path)
+				zip.write_file(content)
+				zip.close_file()
+		
+		file_name = dir.get_next()
+	
+	dir.list_dir_end()
+	return true
+
+func _on_save_export_canceled():
+	"""用户取消了导出"""
+	_update_save_export_status("已取消导出", Color(0.6, 0.6, 0.6))
+	save_export_button.disabled = false
+
+func _update_save_export_status(message: String, color: Color):
+	"""更新存档导出状态"""
+	save_export_status_label.text = message
+	save_export_status_label.add_theme_color_override("font_color", color)
 
 # === 修复记忆相关 ===
 
