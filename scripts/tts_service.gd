@@ -69,9 +69,8 @@ func _load_config():
 		push_error("AI配置解析失败")
 
 func _load_tts_settings():
-	"""加载TTS设置（API密钥、启用状态、音量）"""
+	"""加载TTS设置（启用状态、音量）"""
 	var settings_path = "user://tts_settings.json"
-	var has_tts_settings = false
 	
 	if FileAccess.file_exists(settings_path):
 		var file = FileAccess.open(settings_path, FileAccess.READ)
@@ -81,13 +80,11 @@ func _load_tts_settings():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var settings = json.data
-			api_key = settings.get("api_key", "")
 			is_enabled = settings.get("enabled", false)
 			volume = settings.get("volume", 0.8)
-			print("TTS设置加载成功: enabled=%s, volume=%.2f, api_key=%s" % [is_enabled, volume, "已设置" if not api_key.is_empty() else "未设置"])
-			has_tts_settings = not api_key.is_empty()
+			print("TTS设置加载成功: enabled=%s, volume=%.2f" % [is_enabled, volume])
 	
-	# 始终从AI配置加载model和base_url（以及备用的api_key）
+	# 始终从AI配置加载api_key、model和base_url
 	var ai_keys_path = "user://ai_keys.json"
 	if FileAccess.file_exists(ai_keys_path):
 		var file = FileAccess.open(ai_keys_path, FileAccess.READ)
@@ -97,14 +94,10 @@ func _load_tts_settings():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var ai_config = json.data
-			# 严格使用用户配置，不提供默认值回退
-			# 尝试从tts_model获取
+			# 从tts_model获取配置
 			if ai_config.has("tts_model"):
-				# 如果没有从tts_settings.json加载到api_key，从这里加载
-				if not has_tts_settings and ai_config.tts_model.has("api_key"):
+				if ai_config.tts_model.has("api_key"):
 					api_key = ai_config.tts_model.api_key
-					print("从AI配置(tts_model)加载TTS密钥")
-				# 加载TTS的model和base_url（必须从用户配置加载）
 				if ai_config.tts_model.has("model"):
 					tts_model = ai_config.tts_model.model
 					print("从AI配置加载TTS模型: ", tts_model)
@@ -112,17 +105,15 @@ func _load_tts_settings():
 					tts_base_url = ai_config.tts_model.base_url
 					print("从AI配置加载TTS地址: ", tts_base_url)
 			# 如果tts_model没有，尝试从chat_model获取（兼容旧配置）
-			elif not has_tts_settings:
+			else:
 				if ai_config.has("chat_model") and ai_config.chat_model.has("api_key"):
 					api_key = ai_config.chat_model.api_key
-					print("从AI配置(chat_model)加载TTS密钥")
 				# 兼容旧的api_key字段
 				elif ai_config.has("api_key"):
 					api_key = ai_config.api_key
-					print("从AI配置(通用api_key)加载TTS密钥")
 			
 			if not api_key.is_empty():
-				print("API密钥已加载: ", api_key.substr(0, 10) + "...")
+				print("API密钥已从AI配置加载: ", api_key.substr(0, 10) + "...")
 			else:
 				print("警告: 未找到API密钥")
 	else:
@@ -142,9 +133,8 @@ func reload_settings():
 	print("TTS设置已重新加载")
 
 func save_tts_settings():
-	"""保存TTS设置"""
+	"""保存TTS设置（不保存API密钥）"""
 	var settings = {
-		"api_key": api_key,
 		"enabled": is_enabled,
 		"volume": volume
 	}
@@ -154,7 +144,9 @@ func save_tts_settings():
 	if file:
 		file.store_string(JSON.stringify(settings, "\t"))
 		file.close()
-		print("TTS设置已保存")
+		print("TTS设置已保存（不包含API密钥）")
+
+
 
 func _load_voice_cache():
 	"""加载缓存的声音URI和音频哈希值"""
