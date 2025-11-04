@@ -88,10 +88,16 @@ func check_tilemap_interactions(tilemap_layer: TileMapLayer):
 				var distance = player_pos.distance_to(world_pos)
 				
 				if distance <= detection_radius:
+					# 获取宝箱类型字符串
+					var chest_type = "common_chest"  # 默认为普通宝箱
+					if tile_data.get_custom_data("chest_type"):
+						chest_type = tile_data.get_custom_data("chest_type")
+					
 					chest_tiles.append({
 						"position": tile_pos,
 						"world_position": world_pos,
-						"distance": distance
+						"distance": distance,
+						"chest_type": chest_type
 					})
 	
 	return chest_tiles

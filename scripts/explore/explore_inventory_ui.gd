@@ -23,13 +23,13 @@ func open_player_inventory():
 	open_inventory_only()
 	_disable_player_controls()
 
-func open_chest(chest_storage: Array):
-	"""打开宝箱"""
-	# 创建临时容器包装宝箱数据
+func open_chest(chest_storage: Array, container_name: String = "宝箱"):
+	"""打开宝箱或其他容器"""
+	# 创建临时容器包装数据
 	current_chest_container = StorageContainer.new(chest_storage.size(), player_inventory.items_config)
 	current_chest_container.storage = chest_storage
 	
-	setup_other_container(current_chest_container, "宝箱")
+	setup_other_container(current_chest_container, container_name)
 	open_with_container()
 	_disable_player_controls()
 

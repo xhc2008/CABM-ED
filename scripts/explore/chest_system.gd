@@ -83,6 +83,26 @@ func get_chest_type_by_tile(tile_id: int) -> String:
 	
 	return ""
 
+func get_chest_name_by_tile(tile_id: int) -> String:
+	"""根据tile ID获取宝箱名称"""
+	if not loot_config.has("chest_types"):
+		return "宝箱"
+	
+	for type_key in loot_config.chest_types:
+		var chest_type = loot_config.chest_types[type_key]
+		if chest_type.get("tile_id", -1) == tile_id:
+			return chest_type.get("name", "宝箱")
+	
+	return "宝箱"
+
+func get_chest_name_by_type(chest_type: String) -> String:
+	"""根据宝箱类型获取宝箱名称"""
+	if not loot_config.has("loot_tables"):
+		return "宝箱"
+	
+	var loot_table = loot_config.loot_tables.get(chest_type, {})
+	return loot_table.get("name", "宝箱")
+
 func get_save_data() -> Dictionary:
 	"""获取保存数据"""
 	return {

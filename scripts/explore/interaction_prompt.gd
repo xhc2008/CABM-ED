@@ -6,7 +6,7 @@ class_name InteractionPrompt
 @onready var prompt_list = $Panel/VBoxContainer/PromptList
 @onready var panel = $Panel
 
-var interactions: Array = []  # [{text: String, callback: Callable, object: Object}]
+var interactions: Array = [] # [{text: String, callback: Callable, object: Object}]
 var selected_index: int = 0
 
 signal interaction_selected(index: int)
@@ -37,20 +37,26 @@ func _update_display():
 		hide()
 		return
 	
-	# 创建交互选项
+	# 显示所有交互项
 	for i in range(interactions.size()):
 		var interaction = interactions[i]
 		var label = Label.new()
-		label.text = interaction.text
 		
-		# 设置字体大小
-		label.add_theme_font_size_override("font_size", 16)
-		
-		# 高亮选中项
+		# 只有选中的项显示"F："前缀
 		if i == selected_index:
+			label.text = interaction.text
 			label.add_theme_color_override("font_color", Color.YELLOW)
 		else:
-			label.add_theme_color_override("font_color", Color.WHITE)
+			# 移除"F: "前缀显示
+			var text = interaction.text
+			if text.begins_with("F: "):
+				text = text.substr(3)
+			label.text = text
+			label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7)) # 灰色
+		
+		# 设置字体大小和居中对齐
+		label.add_theme_font_size_override("font_size", 16)
+		# label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		
 		prompt_list.add_child(label)
 	
@@ -60,9 +66,11 @@ func _update_display():
 	# 调整Panel大小以适应内容
 	if panel:
 		var content_size = prompt_list.get_combined_minimum_size()
+		# 根据项目数量调整高度，宽度根据最长文本调整
+		var padding = 10 # 减小边距
 		panel.custom_minimum_size = Vector2(
-			max(200, content_size.x + 40),  # 最小宽度200，加上边距
-			max(60, content_size.y + 40)    # 最小高度60，加上边距
+			content_size.x + padding * 2,
+			content_size.y + padding * 2
 		)
 
 func _input(event: InputEvent):
@@ -113,8 +121,13 @@ func _check_click_selection(click_pos: Vector2):
 		var label = labels[i]
 		var rect = Rect2(label.global_position, label.size)
 		if rect.has_point(click_pos):
-			selected_index = i
-			_confirm_selection()
+			# 点击后先选中，再更新显示
+			if selected_index != i:
+				selected_index = i
+				_update_display()
+			else:
+				# 如果点击的是已选中项，则确认
+				_confirm_selection()
 			return
 
 func _confirm_selection():

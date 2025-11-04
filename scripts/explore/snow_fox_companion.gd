@@ -17,9 +17,18 @@ var time_too_close: float = 0.0
 var is_escaping: bool = false
 var escape_target: Vector2 = Vector2.ZERO
 
+# 雪狐的背包存储
+const STORAGE_SIZE = 12
+var storage: Array = []
+
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
 func _ready():
+	# 初始化存储
+	storage.resize(STORAGE_SIZE)
+	for i in range(STORAGE_SIZE):
+		storage[i] = null
+	
 	# 配置导航代理
 	navigation_agent.path_desired_distance = 10.0
 	navigation_agent.target_desired_distance = 10.0
@@ -111,3 +120,22 @@ func _physics_process(delta):
 			rotation = velocity.angle()
 	
 	move_and_slide()
+
+func get_storage() -> Array:
+	"""获取雪狐的存储"""
+	return storage
+
+func set_storage(new_storage: Array):
+	"""设置雪狐的存储"""
+	storage = new_storage.duplicate()
+
+func get_save_data() -> Dictionary:
+	"""获取保存数据"""
+	return {
+		"storage": storage.duplicate()
+	}
+
+func load_save_data(data: Dictionary):
+	"""加载保存数据"""
+	if data.has("storage"):
+		storage = data.storage.duplicate()
