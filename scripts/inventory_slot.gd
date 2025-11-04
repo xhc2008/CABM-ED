@@ -8,7 +8,7 @@ signal slot_clicked(slot_index: int, storage_type: String)
 @onready var count_label = $CountLabel
 
 var slot_index: int = 0
-var storage_type: String = ""  # "inventory" 或 "warehouse"
+var storage_type: String = ""  # "player", "other", "inventory", "warehouse" 等
 var item_data: Dictionary = {}  # {item_id: String, count: int}
 var is_selected: bool = false
 
@@ -37,8 +37,11 @@ func update_display():
 		count_label.text = ""
 		modulate = Color.WHITE
 	else:
-		# 有物品
-		var item_config = InventoryManager.get_item_config(item_data.item_id)
+		# 有物品 - 尝试从InventoryManager获取配置
+		var item_config: Dictionary = {}
+		if InventoryManager:
+			item_config = InventoryManager.get_item_config(item_data.item_id)
+		
 		if item_config.has("icon"):
 			var icon_path = "res://assets/images/items/" + item_config.icon
 			if ResourceLoader.exists(icon_path):
@@ -47,6 +50,8 @@ func update_display():
 				icon_texture.texture = load(icon_path)
 			else:
 				icon_texture.texture = null
+		else:
+			icon_texture.texture = null
 		
 		# 显示数量
 		if item_data.count > 1:

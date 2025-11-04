@@ -1,0 +1,184 @@
+extends RefCounted
+class_name StorageContainer
+
+# 通用存储容器类 - 处理背包、仓库、宝箱等所有存储逻辑
+
+signal storage_changed()
+
+var storage: Array = []  # [{item_id: String, count: int}]
+var size: int = 0
+var items_config: Dictionary = {}
+
+func _init(container_size: int, config: Dictionary = {}):
+	size = container_size
+	items_config = config
+	storage.resize(size)
+	for i in range(size):
+		storage[i] = null
+
+func set_items_config(config: Dictionary):
+	"""设置物品配置"""
+	items_config = config
+
+func get_item_config(item_id: String) -> Dictionary:
+	"""获取物品配置"""
+	return items_config.get(item_id, {})
+
+func add_item(item_id: String, count: int = 1) -> bool:
+	"""添加物品"""
+	var item_config = get_item_config(item_id)
+	if item_config.is_empty():
+		push_error("物品ID不存在: " + item_id)
+		return false
+	
+	var max_stack = item_config.get("max_stack", 1)
+	var remaining = count
+	
+	# 先尝试堆叠到现有格子
+	for i in range(storage.size()):
+		if storage[i] != null and storage[i].item_id == item_id:
+			var current_count = storage[i].count
+			var can_add = min(remaining, max_stack - current_count)
+			if can_add > 0:
+				storage[i].count += can_add
+				remaining -= can_add
+				if remaining <= 0:
+					storage_changed.emit()
+					return true
+	
+	# 放入空格子
+	for i in range(storage.size()):
+		if storage[i] == null:
+			var add_count = min(remaining, max_stack)
+			storage[i] = {"item_id": item_id, "count": add_count}
+			remaining -= add_count
+			if remaining <= 0:
+				storage_changed.emit()
+				return true
+	
+	# 空间不足
+	if remaining > 0:
+		push_warning("存储空间不足，剩余 " + str(remaining) + " 个物品未添加")
+		storage_changed.emit()
+		return false
+	
+	return true
+
+func remove_item(index: int, count: int = 1) -> bool:
+	"""移除物品"""
+	if index < 0 or index >= storage.size() or storage[index] == null:
+		return false
+	
+	storage[index].count -= count
+	if storage[index].count <= 0:
+		storage[index] = null
+	
+	storage_changed.emit()
+	return true
+
+func move_item_internal(from_index: int, to_index: int) -> bool:
+	"""容器内移动物品"""
+	if from_index < 0 or from_index >= storage.size():
+		return false
+	if to_index < 0 or to_index >= storage.size():
+		return false
+	
+	var from_item = storage[from_index]
+	var to_item = storage[to_index]
+	
+	if from_item == null:
+		return false
+	
+	# 目标格子为空，直接移动
+	if to_item == null:
+		storage[to_index] = from_item
+		storage[from_index] = null
+		storage_changed.emit()
+		return true
+	
+	# 目标格子有物品，检查是否可以堆叠
+	if from_item.item_id == to_item.item_id:
+		var item_config = get_item_config(from_item.item_id)
+		var max_stack = item_config.get("max_stack", 1)
+		var total = from_item.count + to_item.count
+		
+		if total <= max_stack:
+			storage[to_index].count = total
+			storage[from_index] = null
+		else:
+			storage[to_index].count = max_stack
+			storage[from_index].count = total - max_stack
+		
+		storage_changed.emit()
+		return true
+	
+	# 不同物品，交换位置
+	storage[to_index] = from_item
+	storage[from_index] = to_item
+	storage_changed.emit()
+	return true
+
+func transfer_to(from_index: int, target_container: StorageContainer, to_index: int) -> bool:
+	"""转移物品到另一个容器"""
+	if from_index < 0 or from_index >= storage.size():
+		return false
+	if to_index < 0 or to_index >= target_container.storage.size():
+		return false
+	
+	var from_item = storage[from_index]
+	var to_item = target_container.storage[to_index]
+	
+	if from_item == null:
+		return false
+	
+	# 目标格子为空，直接移动
+	if to_item == null:
+		target_container.storage[to_index] = from_item
+		storage[from_index] = null
+		storage_changed.emit()
+		target_container.storage_changed.emit()
+		return true
+	
+	# 目标格子有物品，检查是否可以堆叠
+	if from_item.item_id == to_item.item_id:
+		var item_config = get_item_config(from_item.item_id)
+		var max_stack = item_config.get("max_stack", 1)
+		var total = from_item.count + to_item.count
+		
+		if total <= max_stack:
+			target_container.storage[to_index].count = total
+			storage[from_index] = null
+		else:
+			target_container.storage[to_index].count = max_stack
+			storage[from_index].count = total - max_stack
+		
+		storage_changed.emit()
+		target_container.storage_changed.emit()
+		return true
+	
+	# 不同物品，交换位置
+	target_container.storage[to_index] = from_item
+	storage[from_index] = to_item
+	storage_changed.emit()
+	target_container.storage_changed.emit()
+	return true
+
+func get_data() -> Array:
+	"""获取存储数据用于保存"""
+	var result = []
+	for item in storage:
+		if item != null:
+			result.append(item.duplicate())
+		else:
+			result.append(null)
+	return result
+
+func load_data(data: Array):
+	"""从保存数据加载"""
+	storage.resize(size)
+	for i in range(size):
+		if i < data.size() and data[i] != null:
+			storage[i] = data[i].duplicate()
+		else:
+			storage[i] = null
+	storage_changed.emit()

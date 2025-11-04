@@ -5,10 +5,10 @@ extends Node2D
 @onready var joystick = $UI/VirtualJoystick
 @onready var tilemap_layer = $TileMapLayer
 @onready var interaction_prompt = $UI/InteractionPrompt
-@onready var inventory_ui = $UI/InventoryUI
 @onready var inventory_button = $UI/InventoryButton
 
-var player_inventory: Node  # PlayerInventory
+var inventory_ui: ExploreInventoryUI
+var player_inventory: PlayerInventory
 var chest_system: Node  # ChestSystem
 var nearby_chests: Array = []
 var current_opened_chest: Dictionary = {}
@@ -23,9 +23,11 @@ func _ready():
 	chest_system = chest_script.new()
 	add_child(chest_system)
 	
-	# 设置UI
-	if inventory_ui:
-		inventory_ui.setup(player_inventory, chest_system)
+	# 创建背包UI
+	var inventory_ui_scene = load("res://scenes/explore_inventory_ui.tscn")
+	inventory_ui = inventory_ui_scene.instantiate()
+	$UI.add_child(inventory_ui)
+	inventory_ui.setup(player_inventory, chest_system)
 	
 	# 设置雪狐跟随玩家
 	if snow_fox and player:
