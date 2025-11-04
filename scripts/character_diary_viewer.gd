@@ -6,6 +6,10 @@ signal diary_closed
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 @onready var title_label: Label = $MarginContainer/VBoxContainer/TitleLabel
 @onready var close_button: Button = $MarginContainer/VBoxContainer/CloseButton
+@onready var search_container: HBoxContainer = $MarginContainer/VBoxContainer/SearchContainer
+@onready var search_input: LineEdit = $MarginContainer/VBoxContainer/SearchContainer/SearchInput
+@onready var search_button: Button = $MarginContainer/VBoxContainer/SearchContainer/SearchButton
+@onready var clear_search_button: Button = $MarginContainer/VBoxContainer/SearchContainer/ClearSearchButton
 @onready var date_selector: HBoxContainer = $MarginContainer/VBoxContainer/DateSelector
 @onready var prev_date_button: Button = $MarginContainer/VBoxContainer/DateSelector/PrevButton
 @onready var date_label: Label = $MarginContainer/VBoxContainer/DateSelector/DateLabel
@@ -18,10 +22,12 @@ const ANIMATION_DURATION = 0.3
 var available_dates: Array = [] # 可用的日期列表（降序）
 var current_date_index: int = 0
 var current_records: Array = [] # 当前日期的所有记录
-var view_mode: String = "list" # "list" = 列表视图, "detail" = 详情视图
+var view_mode: String = "list" # "list" = 列表视图, "detail" = 详情视图, "search" = 搜索结果视图
 var current_detail_record: Dictionary = {} # 当前查看的详细记录
 var back_button_container: HBoxContainer = null # 返回按钮容器
 var saved_scroll_position: int = 0 # 保存的滚动位置（用于从详情返回列表时恢复）
+var search_results: Array = [] # 搜索结果列表
+var current_search_keyword: String = "" # 当前搜索关键词
 
 # 触摸手势检测
 var touch_start_pos: Vector2 = Vector2.ZERO
@@ -48,6 +54,12 @@ func _ready():
 		prev_date_button.pressed.connect(_on_prev_date_pressed)
 	if next_date_button:
 		next_date_button.pressed.connect(_on_next_date_pressed)
+	if search_button:
+		search_button.pressed.connect(_on_search_button_pressed)
+	if clear_search_button:
+		clear_search_button.pressed.connect(_on_clear_search_pressed)
+	if search_input:
+		search_input.text_submitted.connect(_on_search_submitted)
 
 func _setup_scrollbar_style():
 	"""设置滚动条样式（加粗）"""
@@ -136,6 +148,11 @@ func show_diary():
 	"""显示日记查看器"""
 	# 重置视图状态
 	view_mode = "list"
+	current_search_keyword = ""
+	if search_input:
+		search_input.text = ""
+	if search_container:
+		search_container.visible = true
 	if date_selector:
 		date_selector.visible = true
 	if back_button_container:
@@ -644,6 +661,299 @@ func _on_close_button_pressed():
 	hide_diary()
 	await get_tree().create_timer(ANIMATION_DURATION).timeout
 	diary_closed.emit()
+
+func _on_search_button_pressed():
+	"""搜索按钮点击"""
+	if search_input:
+		_perform_search(search_input.text)
+
+func _on_search_submitted(text: String):
+	"""搜索框回车提交"""
+	_perform_search(text)
+
+func _on_clear_search_pressed():
+	"""清除搜索"""
+	if search_input:
+		search_input.text = ""
+	current_search_keyword = ""
+	view_mode = "list"
+	
+	# 恢复日期选择器
+	if date_selector:
+		date_selector.visible = true
+	
+	# 重新加载当前日期内容
+	if not available_dates.is_empty():
+		_load_date_content(available_dates[current_date_index])
+
+func _perform_search(keyword: String):
+	"""执行搜索"""
+	keyword = keyword.strip_edges()
+	if keyword.is_empty():
+		return
+	
+	current_search_keyword = keyword
+	view_mode = "search"
+	search_results.clear()
+	
+	# 隐藏日期选择器
+	if date_selector:
+		date_selector.visible = false
+	if back_button_container:
+		back_button_container.visible = false
+	
+	# 搜索所有日期的日记
+	for date_str in available_dates:
+		var diary_path = "user://diary/" + date_str + ".jsonl"
+		var file = FileAccess.open(diary_path, FileAccess.READ)
+		if file == null:
+			continue
+		
+		# 读取所有记录
+		while not file.eof_reached():
+			var line = file.get_line().strip_edges()
+			if line.is_empty():
+				continue
+			
+			var json = JSON.new()
+			if json.parse(line) == OK:
+				var record = json.data
+				
+				# 检查记录是否包含关键词
+				if _record_contains_keyword(record, keyword):
+					# 添加日期信息到记录
+					var search_result = record.duplicate()
+					search_result["_date"] = date_str
+					search_results.append(search_result)
+		
+		file.close()
+	
+	# 显示搜索结果
+	_display_search_results()
+
+func _record_contains_keyword(record: Dictionary, keyword: String) -> bool:
+	"""检查记录是否包含关键词（不区分大小写）"""
+	var keyword_lower = keyword.to_lower()
+	var record_type = record.get("type", "offline")
+	
+	if record_type == "chat":
+		# 搜索总结和对话内容
+		var summary = record.get("summary", "").to_lower()
+		var conversation = record.get("conversation", "").to_lower()
+		return keyword_lower in summary or keyword_lower in conversation
+	else:
+		# 搜索事件内容
+		var event = record.get("event", "").to_lower()
+		return keyword_lower in event
+
+func _display_search_results():
+	"""显示搜索结果"""
+	# 清空当前内容
+	for child in content_vbox.get_children():
+		child.queue_free()
+	
+	if search_results.is_empty():
+		# 显示无结果提示
+		var no_result_label = Label.new()
+		no_result_label.text = "未找到包含 \"%s\" 的日记记录" % current_search_keyword
+		no_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		no_result_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		content_vbox.add_child(no_result_label)
+	else:
+		# 显示结果数量
+		var result_count_label = Label.new()
+		result_count_label.text = "找到 %d 条包含 \"%s\" 的记录" % [search_results.size(), current_search_keyword]
+		result_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		result_count_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+		content_vbox.add_child(result_count_label)
+		
+		# 添加分隔线
+		var separator = HSeparator.new()
+		content_vbox.add_child(separator)
+		
+		# 显示所有搜索结果（按日期降序）
+		for result in search_results:
+			_add_search_result_card(result)
+	
+	# 滚动到顶部
+	await get_tree().process_frame
+	if scroll_container:
+		scroll_container.scroll_vertical = 0
+
+func _add_search_result_card(record: Dictionary):
+	"""添加搜索结果卡片（带日期标签）"""
+	var date_str = record.get("_date", "")
+	var record_type = record.get("type", "offline")
+	
+	# 创建卡片容器
+	var card_panel = PanelContainer.new()
+	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	# 设置样式
+	var style_normal = StyleBoxFlat.new()
+	style_normal.bg_color = Color(0.15, 0.15, 0.15, 0.5)
+	style_normal.border_width_left = 2
+	style_normal.border_width_top = 2
+	style_normal.border_width_right = 2
+	style_normal.border_width_bottom = 2
+	style_normal.border_color = Color(0.3, 0.3, 0.3, 0.7)
+	style_normal.corner_radius_top_left = 8
+	style_normal.corner_radius_top_right = 8
+	style_normal.corner_radius_bottom_left = 8
+	style_normal.corner_radius_bottom_right = 8
+	style_normal.content_margin_left = 15
+	style_normal.content_margin_top = 15
+	style_normal.content_margin_right = 15
+	style_normal.content_margin_bottom = 15
+	card_panel.add_theme_stylebox_override("panel", style_normal)
+	
+	# 创建内容容器
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 8)
+	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	# 添加日期标签
+	var date_label_widget = Label.new()
+	date_label_widget.text = "📅 " + date_str
+	date_label_widget.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	date_label_widget.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	date_label_widget.custom_minimum_size.x = 700
+	date_label_widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_vbox.add_child(date_label_widget)
+	
+	if record_type == "games":
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
+		var time_str = record.get("time", "")
+		var event_text = record.get("event", "")
+		var display_time = _format_time_display(time_str)
+		
+		var time_label = Label.new()
+		time_label.text = "🎮 " + display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		
+		var event_label = RichTextLabel.new()
+		event_label.bbcode_enabled = true
+		event_label.text = _highlight_keyword(event_text, current_search_keyword)
+		event_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		event_label.fit_content = true
+		event_label.scroll_active = false
+		event_label.custom_minimum_size.x = 700
+		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(event_label)
+		
+		card_panel.add_child(card_vbox)
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	elif record_type == "chat":
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
+		var timestamp = record.get("timestamp", "")
+		var summary = record.get("summary", "无总结")
+		var display_time = _format_chat_time_display(timestamp)
+		
+		var time_label = Label.new()
+		time_label.text = "💬 " + display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		
+		var summary_label = RichTextLabel.new()
+		summary_label.bbcode_enabled = true
+		var display_summary = summary
+		if summary.length() > 150:
+			display_summary = summary.substr(0, 150) + "..."
+		summary_label.text = _highlight_keyword(display_summary, current_search_keyword)
+		summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		summary_label.fit_content = true
+		summary_label.scroll_active = false
+		summary_label.custom_minimum_size.x = 700
+		summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(summary_label)
+		
+		card_panel.add_child(card_vbox)
+		
+		var click_area = Control.new()
+		click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+		click_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		click_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		card_panel.add_child(click_area)
+		
+		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, style_normal, click_area))
+		
+		click_area.mouse_entered.connect(func():
+			if not is_dragging:
+				var style_hover = style_normal.duplicate()
+				style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
+				style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
+				card_panel.add_theme_stylebox_override("panel", style_hover)
+		)
+		click_area.mouse_exited.connect(func():
+			card_panel.add_theme_stylebox_override("panel", style_normal)
+		)
+	else:
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		
+		var time_str = record.get("time", "")
+		var event_text = record.get("event", "")
+		var display_time = _format_time_display(time_str)
+		
+		var time_label = Label.new()
+		time_label.text = "⏰ " + display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		
+		var event_label = RichTextLabel.new()
+		event_label.bbcode_enabled = true
+		event_label.text = _highlight_keyword(event_text, current_search_keyword)
+		event_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		event_label.fit_content = true
+		event_label.scroll_active = false
+		event_label.custom_minimum_size.x = 700
+		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(event_label)
+		
+		card_panel.add_child(card_vbox)
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	content_vbox.add_child(card_panel)
+
+func _highlight_keyword(text: String, keyword: String) -> String:
+	"""高亮显示关键词（使用BBCode）"""
+	if keyword.is_empty():
+		return text
+	
+	# 不区分大小写地查找并替换
+	var result = text
+	var keyword_lower = keyword.to_lower()
+	var text_lower = text.to_lower()
+	var start_pos = 0
+	
+	while true:
+		var pos = text_lower.find(keyword_lower, start_pos)
+		if pos == -1:
+			break
+		
+		# 获取原文中的实际文本（保持大小写）
+		var original_keyword = text.substr(pos, keyword.length())
+		var before = text.substr(0, pos)
+		var after = text.substr(pos + keyword.length())
+		
+		# 使用黄色高亮
+		result = before + "[color=yellow]" + original_keyword + "[/color]" + after
+		text = result
+		text_lower = text.to_lower()
+		start_pos = pos + "[color=yellow]".length() + keyword.length() + "[/color]".length()
+	
+	return result
 
 
 func _format_time_display(time_str: String) -> String:
