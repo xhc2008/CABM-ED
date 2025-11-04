@@ -4,9 +4,14 @@ class_name ExplorePlayer
 @export var move_speed: float = 200.0
 
 var joystick_direction: Vector2 = Vector2.ZERO
+var interaction_detector: Node  # InteractionDetector
 
 func _ready():
-	pass
+	# 添加交互检测器
+	var detector_script = load("res://scripts/explore/interaction_detector.gd")
+	interaction_detector = detector_script.new()
+	interaction_detector.detection_radius = 80.0
+	add_child(interaction_detector)
 
 func set_joystick_direction(direction: Vector2):
 	joystick_direction = direction

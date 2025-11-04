@@ -1,0 +1,186 @@
+{
+  "loot_tables": {
+    "common_chest": {
+      "name": "普通宝箱",
+      "items": [
+        {
+          "item_id": "5.8mm_ammo",
+          "min_count": 10,
+          "max_count": 30,
+          "probability": 0.4
+        },
+        {
+          "item_id": ".45_ammo",
+          "min_count": 10,
+          "max_count": 25,
+          "probability": 0.35
+        },
+        {
+          "item_id": "9mm_ammo",
+          "min_count": 10,
+          "max_count": 20,
+          "probability": 0.3
+        },
+        {
+          "item_id": "medkit_small",
+          "min_count": 1,
+          "max_count": 2,
+          "probability": 0.5
+        },
+        {
+          "item_id": "apple",
+          "min_count": 2,
+          "max_count": 5,
+          "probability": 0.6
+        },
+        {
+          "item_id": "bread",
+          "min_count": 1,
+          "max_count": 3,
+          "probability": 0.5
+        },
+        {
+          "item_id": "carrot",
+          "min_count": 2,
+          "max_count": 6,
+          "probability": 0.4
+        }
+      ]
+    },
+    "rare_chest": {
+      "name": "稀有宝箱",
+      "items": [
+        {
+          "item_id": "medkit_large",
+          "min_count": 1,
+          "max_count": 2,
+          "probability": 0.7
+        },
+        {
+          "item_id": "UMP45",
+          "min_count": 1,
+          "max_count": 1,
+          "probability": 0.15
+        },
+        {
+          "item_id": "VSS-SF",
+          "min_count": 1,
+          "max_count": 1,
+          "probability": 0.1
+        },
+        {
+          "item_id": "5.8mm_ammo",
+          "min_count": 30,
+          "max_count": 64,
+          "probability": 0.5
+        },
+        {
+          "item_id": ".45_ammo",
+          "min_count": 25,
+          "max_count": 64,
+          "probability": 0.45
+        },
+        {
+          "item_id": "9mm_ammo",
+          "min_count": 20,
+          "max_count": 64,
+          "probability": 0.4
+        },
+        {
+          "item_id": "cake",
+          "min_count": 1,
+          "max_count": 1,
+          "probability": 0.3
+        },
+        {
+          "item_id": "amethyst",
+          "min_count": 1,
+          "max_count": 1,
+          "probability": 0.05
+        }
+      ]
+    },
+    "food_chest": {
+      "name": "食物箱",
+      "items": [
+        {
+          "item_id": "apple",
+          "min_count": 3,
+          "max_count": 8,
+          "probability": 0.8
+        },
+        {
+          "item_id": "bread",
+          "min_count": 2,
+          "max_count": 5,
+          "probability": 0.7
+        },
+        {
+          "item_id": "carrot",
+          "min_count": 3,
+          "max_count": 10,
+          "probability": 0.6
+        },
+        {
+          "item_id": "potato",
+          "min_count": 3,
+          "max_count": 10,
+          "probability": 0.6
+        },
+        {
+          "item_id": "beef",
+          "min_count": 2,
+          "max_count": 6,
+          "probability": 0.5
+        },
+        {
+          "item_id": "chicken",
+          "min_count": 2,
+          "max_count": 6,
+          "probability": 0.5
+        },
+        {
+          "item_id": "porkchop",
+          "min_count": 2,
+          "max_count": 6,
+          "probability": 0.5
+        },
+        {
+          "item_id": "rabbit",
+          "min_count": 1,
+          "max_count": 4,
+          "probability": 0.4
+        },
+        {
+          "item_id": "cookie",
+          "min_count": 3,
+          "max_count": 8,
+          "probability": 0.6
+        },
+        {
+          "item_id": "cake",
+          "min_count": 1,
+          "max_count": 1,
+          "probability": 0.2
+        }
+      ]
+    }
+  },
+  "chest_types": {
+    "1": {
+      "name": "普通宝箱",
+      "loot_table": "common_chest",
+      "tile_id": 1
+    },
+    "2": {
+      "name": "稀有宝箱",
+      "loot_table": "rare_chest",
+      "tile_id": 2
+    },
+    "3": {
+      "name": "食物箱",
+      "loot_table": "food_chest",
+      "tile_id": 3
+    }
+  }
+}
