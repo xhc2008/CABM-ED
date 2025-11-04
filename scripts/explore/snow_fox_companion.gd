@@ -4,7 +4,7 @@ class_name SnowFoxCompanion
 @export var follow_speed: float = 180.0
 @export var min_follow_distance: float = 80.0  # 开始跟随的最小距离
 @export var max_follow_distance: float = 400.0  # 传送回来的最大距离
-@export var too_close_distance: float = 30.0  # 太近了需要远离
+@export var too_close_distance: float = 37.0  # 太近了需要远离
 @export var escape_distance: float = 60.0  # 远离到这个距离
 @export var reaction_delay: float = 0.15  # 反应延迟（秒）
 @export var too_close_time_threshold: float = 2.0  # 靠太近多久后开始远离

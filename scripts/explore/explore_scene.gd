@@ -74,7 +74,7 @@ func _check_nearby_chests():
 		var fox_in_range = false
 		if snow_fox:
 			var distance_to_fox = player.global_position.distance_to(snow_fox.global_position)
-			var fox_interaction_distance = 40.0  # 雪狐交互距离
+			var fox_interaction_distance = 48.0  # 雪狐交互距离
 			fox_in_range = distance_to_fox <= fox_interaction_distance
 		
 		# 如果雪狐状态变化，需要更新
@@ -114,7 +114,7 @@ func _update_interaction_prompt():
 	# 添加雪狐交互（距离更近才能交互）
 	if snow_fox and player:
 		var distance_to_fox = player.global_position.distance_to(snow_fox.global_position)
-		var fox_interaction_distance = 40.0  # 雪狐交互距离设置为50像素
+		var fox_interaction_distance = 48.0  # 雪狐交互距离设置为50像素
 		if distance_to_fox <= fox_interaction_distance:
 			interactions.append({
 				"text": "F: 雪狐",

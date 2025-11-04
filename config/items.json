@@ -164,9 +164,9 @@
       "max_stack": 64
     },
     "porkchop": {
-      "name": "猪排",
+      "name": "猪肉",
       "type": "食材",
-      "description": "新鲜的猪排",
+      "description": "新鲜的猪肉",
       "icon": "porkchop.png",
       "weight": 0.5,
       "max_stack": 64
