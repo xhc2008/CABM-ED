@@ -8,7 +8,7 @@ signal chest_opened(chest_data: Dictionary)
 const CHEST_STORAGE_SIZE = 12  # 宝箱格子数量
 
 var loot_config: Dictionary = {}
-var opened_chests: Dictionary = {}  # 记录已开启的宝箱 {position: bool}
+var opened_chests: Dictionary = {}  # 记录已开启的宝箱及其内容 {position: {opened: bool, storage: Array}}
 
 func _ready():
 	_load_loot_config()
@@ -61,15 +61,35 @@ func generate_chest_loot(chest_type: String) -> Array:
 	
 	return storage
 
+func get_chest_storage(chest_position: Vector2i, chest_type: String) -> Array:
+	"""获取宝箱存储（如果已打开过则返回保存的状态，否则生成新的）"""
+	var key = str(chest_position)
+	
+	if opened_chests.has(key) and opened_chests[key].has("storage"):
+		# 返回已保存的状态
+		return opened_chests[key].storage.duplicate(true)
+	else:
+		# 生成新的战利品
+		var storage = generate_chest_loot(chest_type)
+		# 保存到已开启列表
+		opened_chests[key] = {
+			"opened": true,
+			"storage": storage.duplicate(true)
+		}
+		return storage
+
+func save_chest_storage(chest_position: Vector2i, storage: Array):
+	"""保存宝箱存储状态"""
+	var key = str(chest_position)
+	if not opened_chests.has(key):
+		opened_chests[key] = {}
+	opened_chests[key].opened = true
+	opened_chests[key].storage = storage.duplicate(true)
+
 func is_chest_opened(chest_position: Vector2i) -> bool:
 	"""检查宝箱是否已开启"""
 	var key = str(chest_position)
-	return opened_chests.get(key, false)
-
-func mark_chest_opened(chest_position: Vector2i):
-	"""标记宝箱为已开启"""
-	var key = str(chest_position)
-	opened_chests[key] = true
+	return opened_chests.has(key) and opened_chests[key].get("opened", false)
 
 func get_chest_type_by_tile(tile_id: int) -> String:
 	"""根据tile ID获取宝箱类型"""
@@ -106,10 +126,10 @@ func get_chest_name_by_type(chest_type: String) -> String:
 func get_save_data() -> Dictionary:
 	"""获取保存数据"""
 	return {
-		"opened_chests": opened_chests.duplicate()
+		"opened_chests": opened_chests.duplicate(true)
 	}
 
 func load_save_data(data: Dictionary):
 	"""加载保存数据"""
 	if data.has("opened_chests"):
-		opened_chests = data.opened_chests.duplicate()
+		opened_chests = data.opened_chests.duplicate(true)

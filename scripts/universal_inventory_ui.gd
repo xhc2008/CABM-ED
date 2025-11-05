@@ -73,12 +73,17 @@ func setup_player_inventory(container: StorageContainer, title: String = "背包
 
 func setup_other_container(container: StorageContainer, title: String = "容器"):
 	"""设置其他容器（宝箱、仓库等）"""
+	# 断开旧容器的信号
+	if other_container and other_container.storage_changed.is_connected(_refresh_other_slots):
+		other_container.storage_changed.disconnect(_refresh_other_slots)
+	
 	other_container = container
 	if container_title:
 		container_title.text = title
 	_create_other_slots()
 	
-	if other_container:
+	# 连接新容器的信号
+	if other_container and not other_container.storage_changed.is_connected(_refresh_other_slots):
 		other_container.storage_changed.connect(_refresh_other_slots)
 
 func open_inventory_only():

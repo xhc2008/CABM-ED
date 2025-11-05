@@ -457,6 +457,14 @@ func _load_inventory_data():
 	if needs_init:
 		print("[SaveManager] 开始添加初始物品...")
 		_add_initial_items_to_warehouse()
+	
+	# 初始化雪狐背包（如果不存在）
+	if not save_data.has("snow_fox_inventory"):
+		save_data.snow_fox_inventory = []
+		save_data.snow_fox_inventory.resize(12)
+		for i in range(12):
+			save_data.snow_fox_inventory[i] = null
+		print("[SaveManager] 初始化雪狐背包")
 
 func save_inventory_data():
 	"""保存背包数据"""
