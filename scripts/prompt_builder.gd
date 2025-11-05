@@ -265,14 +265,11 @@ func _get_scene_description(scene_id: String) -> String:
 
 func _get_weather_description(weather_id: String) -> String:
 	"""获取天气描述（从配置文件读取）"""
-	var save_mgr = get_node("/root/SaveManager")
-	var current_scene = save_mgr.get_character_scene()
-	
 	var scenes_config = _load_scenes_config()
-	if scenes_config.has("scenes") and scenes_config.scenes.has(current_scene):
-		var scene = scenes_config.scenes[current_scene]
-		if scene.has("weathers") and scene.weathers.has(weather_id):
-			return scene.weathers[weather_id]
+	
+	# 从全局 weathers 配置中读取
+	if scenes_config.has("weathers") and scenes_config.weathers.has(weather_id):
+		return scenes_config.weathers[weather_id]
 	
 	# 如果找不到，返回默认值
 	return "晴天"

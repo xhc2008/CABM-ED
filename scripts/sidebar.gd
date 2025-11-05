@@ -28,7 +28,7 @@ var scenes = {
 
 var current_scene_id: String = "livingroom"
 var current_time_id: String = "day"
-var current_weather_id: String = "sunny"
+var current_weather_id: String = ""  # 将从存档加载
 var auto_time_enabled: bool = true # 默认开启自动调整时间
 var clock_label: Label
 var auto_checkbox: CheckBox
@@ -51,6 +51,18 @@ var auto_save_timer: Timer
 func _ready():
 	toggle_button.pressed.connect(_on_toggle_pressed)
 	_load_scenes_config()
+	
+	# 从存档加载天气
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		var saved_weather = save_mgr.get_current_weather()
+		if saved_weather != "":
+			current_weather_id = saved_weather
+			print("从存档加载天气: ", current_weather_id)
+		else:
+			current_weather_id = "sunny"  # 默认值
+	else:
+		current_weather_id = "sunny"  # 默认值
 	
 	# 如果启用了自动时间，在构建UI之前先调整时间
 	if auto_time_enabled:
