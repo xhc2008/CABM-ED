@@ -204,7 +204,7 @@ func _on_import_file_selected(import_path: String):
 	var success = _extract_save(import_path, user_path)
 	
 	if success:
-		_show_message("✓ 导入成功，游戏将重启", Color(0.3, 1.0, 0.3))
+		_show_message("✓ 导入成功，请等待游戏重启...", Color(0.3, 1.0, 0.3))
 		await get_tree().create_timer(2.0).timeout
 		# 重启游戏
 		var exe_path = OS.get_executable_path()
