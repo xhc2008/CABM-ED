@@ -1,7 +1,7 @@
 {
   "loot_tables": {
     "common_chest": {
-      "name": "普通宝箱",
+      "name": "小型物资箱",
       "items": [
         {
           "item_id": "5.8mm_ammo",
@@ -48,7 +48,7 @@
       ]
     },
     "rare_chest": {
-      "name": "稀有宝箱",
+      "name": "行李箱",
       "items": [
         {
           "item_id": "medkit_large",

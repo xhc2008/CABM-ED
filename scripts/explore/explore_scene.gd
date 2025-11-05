@@ -73,14 +73,10 @@ func _process(_delta):
 
 func _check_nearby_chests():
 	"""检查附近的宝箱"""
-	if not player or not player.has_method("get_interaction_detector"):
+	if not player.interaction_detector:
 		return
 	
-	var detector = player.get_interaction_detector()
-	if not detector:
-		return
-	
-	var chest_tiles = detector.check_tilemap_interactions(tilemap_layer)
+	var chest_tiles = player.interaction_detector.check_tilemap_interactions(tilemap_layer)
 	if chest_tiles == null:
 		chest_tiles = []
 	
@@ -166,6 +162,10 @@ func _open_chest(chest_data: Dictionary):
 		"chest_type": chest_type
 	}
 	
+	# 连接背包UI的关闭信号
+	if inventory_ui and not inventory_ui.closed.is_connected(_on_inventory_closed):
+		inventory_ui.closed.connect(_on_inventory_closed)
+	
 	# 打开背包UI显示宝箱
 	if inventory_ui:
 		inventory_ui.open_chest(chest_storage, chest_name, chest_data.position)
@@ -181,12 +181,30 @@ func _open_snow_fox_storage():
 	# 获取或初始化雪狐的存储
 	var fox_storage = snow_fox.get_storage()
 	
+	# 连接背包UI的关闭信号
+	if inventory_ui and not inventory_ui.closed.is_connected(_on_inventory_closed):
+		inventory_ui.closed.connect(_on_inventory_closed)
+	
 	# 打开背包UI显示雪狐背包
 	if inventory_ui:
 		inventory_ui.open_chest(fox_storage, "雪狐的背包")
 	
 	# 隐藏交互提示
 	interaction_prompt.hide_interactions()
+
+func _on_inventory_closed():
+	"""当背包UI关闭时调用"""
+	# 断开信号连接，避免重复调用
+	if inventory_ui and inventory_ui.closed.is_connected(_on_inventory_closed):
+		inventory_ui.closed.disconnect(_on_inventory_closed)
+	
+	# 重置当前打开的宝箱
+	current_opened_chest = {}
+	
+	# 重新检查附近的交互对象
+	_check_nearby_chests()
+	
+	print("背包已关闭，重新显示交互提示")
 
 func _on_interactions_changed(_interactions: Array):
 	"""交互列表变化"""
