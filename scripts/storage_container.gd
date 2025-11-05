@@ -26,21 +26,26 @@ func get_item_config(item_id: String) -> Dictionary:
 
 func add_item(item_id: String, count: int = 1) -> bool:
 	"""添加物品"""
+	# 确保数量是整数
+	count = int(count)
+	if count <= 0:
+		return false
+	
 	var item_config = get_item_config(item_id)
 	if item_config.is_empty():
 		push_error("物品ID不存在: " + item_id)
 		return false
 	
-	var max_stack = item_config.get("max_stack", 1)
+	var max_stack = int(item_config.get("max_stack", 1))
 	var remaining = count
 	
 	# 先尝试堆叠到现有格子
 	for i in range(storage.size()):
 		if storage[i] != null and storage[i].item_id == item_id:
-			var current_count = storage[i].count
-			var can_add = min(remaining, max_stack - current_count)
+			var current_count = int(storage[i].count)
+			var can_add = int(min(remaining, max_stack - current_count))
 			if can_add > 0:
-				storage[i].count += can_add
+				storage[i].count = int(current_count + can_add)
 				remaining -= can_add
 				if remaining <= 0:
 					storage_changed.emit()
@@ -49,7 +54,7 @@ func add_item(item_id: String, count: int = 1) -> bool:
 	# 放入空格子
 	for i in range(storage.size()):
 		if storage[i] == null:
-			var add_count = min(remaining, max_stack)
+			var add_count = int(min(remaining, max_stack))
 			storage[i] = {"item_id": item_id, "count": add_count}
 			remaining -= add_count
 			if remaining <= 0:
@@ -66,10 +71,15 @@ func add_item(item_id: String, count: int = 1) -> bool:
 
 func remove_item(index: int, count: int = 1) -> bool:
 	"""移除物品"""
+	# 确保数量是整数
+	count = int(count)
+	if count <= 0:
+		return false
+	
 	if index < 0 or index >= storage.size() or storage[index] == null:
 		return false
 	
-	storage[index].count -= count
+	storage[index].count = int(storage[index].count) - count
 	if storage[index].count <= 0:
 		storage[index] = null
 	
@@ -99,8 +109,8 @@ func move_item_internal(from_index: int, to_index: int) -> bool:
 	# 目标格子有物品，检查是否可以堆叠
 	if from_item.item_id == to_item.item_id:
 		var item_config = get_item_config(from_item.item_id)
-		var max_stack = item_config.get("max_stack", 1)
-		var total = from_item.count + to_item.count
+		var max_stack = int(item_config.get("max_stack", 1))
+		var total = int(from_item.count) + int(to_item.count)
 		
 		if total <= max_stack:
 			storage[to_index].count = total
@@ -142,8 +152,8 @@ func transfer_to(from_index: int, target_container: StorageContainer, to_index: 
 	# 目标格子有物品，检查是否可以堆叠
 	if from_item.item_id == to_item.item_id:
 		var item_config = get_item_config(from_item.item_id)
-		var max_stack = item_config.get("max_stack", 1)
-		var total = from_item.count + to_item.count
+		var max_stack = int(item_config.get("max_stack", 1))
+		var total = int(from_item.count) + int(to_item.count)
 		
 		if total <= max_stack:
 			target_container.storage[to_index].count = total
@@ -179,6 +189,43 @@ func load_data(data: Array):
 	for i in range(size):
 		if i < data.size() and data[i] != null:
 			storage[i] = data[i].duplicate()
+			# 确保加载的数量是整数
+			if storage[i].has("count"):
+				storage[i].count = int(storage[i].count)
 		else:
 			storage[i] = null
 	storage_changed.emit()
+
+func split_item(from_index: int, to_index: int, split_count: int) -> bool:
+	"""分离物品到另一个格子"""
+	# 确保数量是整数
+	split_count = int(split_count)
+	if split_count <= 0:
+		return false
+	
+	if from_index < 0 or from_index >= storage.size():
+		return false
+	if to_index < 0 or to_index >= storage.size():
+		return false
+	
+	var from_item = storage[from_index]
+	if from_item == null:
+		return false
+	
+	var from_count = int(from_item.count)
+	if split_count >= from_count:
+		return false
+	
+	# 目标格子必须为空
+	if storage[to_index] != null:
+		return false
+	
+	# 执行分离
+	storage[from_index].count = from_count - split_count
+	storage[to_index] = {
+		"item_id": from_item.item_id,
+		"count": split_count
+	}
+	
+	storage_changed.emit()
+	return true

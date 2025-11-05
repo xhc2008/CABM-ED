@@ -2192,7 +2192,7 @@ offset_right = 300.0
 offset_bottom = 150.0
 text = "WASD/摇杆 - 移动
 鼠标 - 朝向
-雪狐会跟随你！"
+交战、搜索，搞定就撤"
 
 [node name="VirtualJoystick" type="Control" parent="UI"]
 layout_mode = 3
