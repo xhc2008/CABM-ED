@@ -18,6 +18,10 @@ var temp_player_inventory: Array = []
 var temp_snow_fox_inventory: Array = []
 
 func _ready():
+	# 设置项目设置
+	ProjectSettings.set_setting("input_devices/pointing/emulate_touch_from_mouse", false)
+	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", false)
+	
 	# 初始化系统
 	var inventory_script = load("res://scripts/explore/player_inventory.gd")
 	player_inventory = inventory_script.new()
@@ -40,13 +44,23 @@ func _ready():
 	if snow_fox and player:
 		snow_fox.set_follow_target(player)
 	
-	# 连接摇杆信号
+	# 连接摇杆信号 - 适配 VirtualJoystick 插件
 	if joystick and player:
-		joystick.direction_changed.connect(_on_joystick_direction_changed)
+		# 尝试连接不同的信号名称
+		if joystick.has_signal("updated"):
+			joystick.updated.connect(_on_joystick_updated)
+		elif joystick.has_signal("input_updated"):
+			joystick.input_updated.connect(_on_joystick_updated)
+		elif joystick.has_signal("value_changed"):
+			joystick.value_changed.connect(_on_joystick_updated)
+		else:
+			print("VirtualJoystick 没有找到可用的信号")
 	
 	# 连接交互检测器信号
-	if player and player.interaction_detector:
-		player.interaction_detector.interactions_changed.connect(_on_interactions_changed)
+	if player and player.has_method("get_interaction_detector"):
+		var detector = player.get_interaction_detector()
+		if detector and detector.has_signal("interactions_changed"):
+			detector.interactions_changed.connect(_on_interactions_changed)
 	
 	# 连接背包按钮
 	if inventory_button:
@@ -59,10 +73,14 @@ func _process(_delta):
 
 func _check_nearby_chests():
 	"""检查附近的宝箱"""
-	if not player.interaction_detector:
+	if not player or not player.has_method("get_interaction_detector"):
 		return
 	
-	var chest_tiles = player.interaction_detector.check_tilemap_interactions(tilemap_layer)
+	var detector = player.get_interaction_detector()
+	if not detector:
+		return
+	
+	var chest_tiles = detector.check_tilemap_interactions(tilemap_layer)
 	if chest_tiles == null:
 		chest_tiles = []
 	
@@ -175,9 +193,11 @@ func _on_interactions_changed(_interactions: Array):
 	# 这里可以处理其他类型的交互物体
 	pass
 
-func _on_joystick_direction_changed(direction: Vector2):
-	if player:
-		player.set_joystick_direction(direction)
+# 适配 VirtualJoystick 插件的新方法
+func _on_joystick_updated(vector: Vector2, _power: float = 1.0):
+	"""处理摇杆输入更新"""
+	if player and player.has_method("set_joystick_direction"):
+		player.set_joystick_direction(vector)
 
 func _on_inventory_button_pressed():
 	"""背包按钮点击"""
