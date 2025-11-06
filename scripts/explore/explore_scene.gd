@@ -18,13 +18,10 @@ var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
 var temp_snow_fox_inventory = {}  # 可以是 Array 或 Dictionary
 
 func _ready():
-	# 设置固定分辨率（1280x720）和缩放模式
-	# 探索场景使用固定分辨率，不同屏幕直接缩放
-	get_viewport().size = Vector2i(1280, 720)
-	
-	# 设置项目设置
-	ProjectSettings.set_setting("input_devices/pointing/emulate_touch_from_mouse", false)
-	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", false)
+	# 固定分辨率和缩放模式已在项目设置中配置
+	# window/size/viewport: 1280x720
+	# window/stretch/mode: "viewport" - 使用固定分辨率视口
+	# window/stretch/aspect: "keep" - 保持宽高比，不同屏幕直接缩放
 	
 	# 初始化系统
 	var inventory_script = load("res://scripts/explore/player_inventory.gd")
@@ -70,7 +67,19 @@ func _ready():
 	if inventory_button:
 		inventory_button.text = "背包 (B)"
 		inventory_button.custom_minimum_size = Vector2(100, 40)
-		inventory_button.position = Vector2(20, 80)
+		
+		# 设置锚点到右上角
+		inventory_button.anchor_right = 1.0
+		inventory_button.anchor_top = 0.0
+		inventory_button.anchor_left = 1.0
+		inventory_button.anchor_bottom = 0.0
+		
+		# 设置边距（距离右上角20像素）
+		inventory_button.offset_right = -120  # 100(按钮宽度) + 20(边距)
+		inventory_button.offset_top = 20
+		inventory_button.offset_left = -120
+		inventory_button.offset_bottom = 60   # 20 + 40(按钮高度)
+		
 		inventory_button.pressed.connect(_on_inventory_button_pressed)
 
 func _process(_delta):

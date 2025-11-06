@@ -26,7 +26,7 @@ offset_top = 4.0
 offset_right = -8.0
 offset_bottom = 24.0
 grow_horizontal = 2
-text = "武器栏"
+text = "武器"
 horizontal_alignment = 0
 vertical_alignment = 1
 
