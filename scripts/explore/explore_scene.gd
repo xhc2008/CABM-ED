@@ -79,7 +79,7 @@ func _process(_delta):
 		_check_nearby_chests()
 
 func _check_nearby_chests():
-    """检查附近的宝箱"""
+	"""检查附近的宝箱"""
 	if not player.interaction_detector:
 		return
 	
@@ -118,7 +118,7 @@ func _check_nearby_chests():
 		_update_interaction_prompt()
 
 func _update_interaction_prompt():
-    """更新交互提示"""
+	"""更新交互提示"""
 	if not interaction_prompt:
 		return
 	
@@ -154,7 +154,7 @@ func _update_interaction_prompt():
 		interaction_prompt.show_interactions(interactions)
 
 func _open_chest(chest_data: Dictionary):
-    """开启宝箱"""
+	"""开启宝箱"""
 	# 直接从chest_data获取宝箱类型
 	var chest_type = chest_data.get("chest_type", "common_chest")
 	var chest_name = chest_system.get_chest_name_by_type(chest_type)
@@ -181,39 +181,31 @@ func _open_chest(chest_data: Dictionary):
 	interaction_prompt.hide_interactions()
 
 func _open_snow_fox_storage():
-    """打开雪狐的背包"""
+	"""打开雪狐的背包"""
 	if not snow_fox:
 		return
 	
-	# 获取或初始化雪狐的存储
+	# 获取雪狐的存储（支持新旧格式）
 	var fox_storage_data = snow_fox.get_storage()
-	
-	# 提取存储数组部分（兼容新旧格式）
-	var storage_array = []
-	if fox_storage_data is Array:
-		storage_array = fox_storage_data
-	elif fox_storage_data is Dictionary and fox_storage_data.has("storage"):
-		storage_array = fox_storage_data.storage
-	else:
-		# 初始化空存储数组
-		storage_array = []
-		storage_array.resize(12)  # 默认大小
-		for i in range(storage_array.size()):
-			storage_array[i] = null
 	
 	# 连接背包UI的关闭信号
 	if inventory_ui and not inventory_ui.closed.is_connected(_on_inventory_closed):
 		inventory_ui.closed.connect(_on_inventory_closed)
 	
-	# 打开背包UI显示雪狐背包 - 现在传递正确的 Array 类型
+	# 打开背包UI显示雪狐背包（启用武器栏）
 	if inventory_ui:
-		inventory_ui.open_chest(storage_array, "雪狐的背包")
+		inventory_ui.open_chest(fox_storage_data, "雪狐的背包", Vector2i.ZERO, true)
 	
 	# 隐藏交互提示
 	interaction_prompt.hide_interactions()
 
+func update_snow_fox_storage(storage_data):
+	"""更新雪狐背包数据（从背包UI回调）"""
+	if snow_fox:
+		snow_fox.set_storage(storage_data)
+
 func _on_inventory_closed():
-    """当背包UI关闭时调用"""
+	"""当背包UI关闭时调用"""
 	# 断开信号连接，避免重复调用
 	if inventory_ui and inventory_ui.closed.is_connected(_on_inventory_closed):
 		inventory_ui.closed.disconnect(_on_inventory_closed)
@@ -227,18 +219,18 @@ func _on_inventory_closed():
 	print("背包已关闭，重新显示交互提示")
 
 func _on_interactions_changed(_interactions: Array):
-    """交互列表变化"""
+	"""交互列表变化"""
 	# 这里可以处理其他类型的交互物体
 	pass
 
 # 适配 VirtualJoystick 插件的新方法
 func _on_joystick_updated(vector: Vector2, _power: float = 1.0):
-    """处理摇杆输入更新"""
+	"""处理摇杆输入更新"""
 	if player and player.has_method("set_joystick_direction"):
 		player.set_joystick_direction(vector)
 
 func _on_inventory_button_pressed():
-    """背包按钮点击"""
+	"""背包按钮点击"""
 	if inventory_ui:
 		if inventory_ui.visible:
 			inventory_ui.close_inventory()
@@ -267,7 +259,7 @@ func _on_exit_button_pressed():
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func set_player_controls_enabled(enabled: bool):
-    """启用/禁用玩家控制"""
+	"""启用/禁用玩家控制"""
 	if player:
 		player.set_physics_process(enabled)
 		player.set_process_input(enabled)
@@ -279,7 +271,7 @@ func set_player_controls_enabled(enabled: bool):
 		interaction_prompt.set_process_input(enabled)
 
 func _load_explore_inventory_state():
-    """加载探索模式的背包状态"""
+	"""加载探索模式的背包状态"""
 	if not InventoryManager:
 		return
 	
@@ -313,7 +305,7 @@ func _load_explore_inventory_state():
 	print("已加载探索模式背包状态")
 
 func _save_explore_inventory_state():
-    """保存探索模式的背包状态"""
+	"""保存探索模式的背包状态"""
 	if not InventoryManager or not SaveManager:
 		return
 	

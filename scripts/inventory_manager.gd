@@ -4,6 +4,7 @@ extends Node
 # 管理玩家背包和仓库数据
 
 const INVENTORY_SIZE = 30  # 背包格子数量
+const WAREHOUSE_SIZE=60
 
 var inventory_container: StorageContainer
 var warehouse_container: StorageContainer
@@ -183,8 +184,8 @@ func _initialize_storage():
 	"""初始化存储空间"""
 	# 玩家背包和雪狐背包有武器栏
 	inventory_container = StorageContainer.new(INVENTORY_SIZE, items_config, true)
-	# 仓库没有物品上限（设置一个很大的数字）
-	warehouse_container = StorageContainer.new(60, items_config, false)
+	# 仓库物品
+	warehouse_container = StorageContainer.new(WAREHOUSE_SIZE, items_config, false)
 
 func get_item_config(item_id: String) -> Dictionary:
 	"""获取物品配置"""
