@@ -447,30 +447,8 @@ func _load_inventory_data():
 	print("[SaveManager] InventoryManager 已找到")
 	
 	# 检查是否需要初始化仓库物品
-	# 1. inventory_data 字段不存在
-	# 2. inventory_data 存在但仓库为空
-	var needs_init = false
-	
-	if not save_data.has("inventory_data"):
-		needs_init = true
-		print("[SaveManager] inventory_data 字段不存在，需要初始化")
-	else:
-		# 检查仓库是否为空
-		var inv_data = save_data.inventory_data
-		var warehouse_empty = true
-		
-		if inv_data.has("warehouse") and inv_data.warehouse is Array:
-			for item in inv_data.warehouse:
-				if item != null:
-					warehouse_empty = false
-					break
-		
-		if warehouse_empty:
-			needs_init = true
-			print("[SaveManager] 仓库为空，需要初始化")
-		else:
-			print("[SaveManager] 仓库已有物品，跳过初始化")
-	
+	# 只有当所有容器都为空时才需要初始化
+	var needs_init = _should_initialize_items()
 	print("[SaveManager] 是否需要初始化: ", needs_init)
 	
 	if save_data.has("inventory_data"):
@@ -481,14 +459,85 @@ func _load_inventory_data():
 	if needs_init:
 		print("[SaveManager] 开始添加初始物品...")
 		_add_initial_items_to_warehouse()
+		# 标记已初始化，避免重复添加
+		save_data.has_initialized_items = true
+		save_inventory_data()
 	
 	# 初始化雪狐背包（如果不存在）
 	if not save_data.has("snow_fox_inventory"):
-		save_data.snow_fox_inventory = []
-		save_data.snow_fox_inventory.resize(12)
-		for i in range(12):
-			save_data.snow_fox_inventory[i] = null
-		print("[SaveManager] 初始化雪狐背包")
+		save_data.snow_fox_inventory = {
+			"storage": [],
+			"weapon_slot": {}
+		}
+	save_data.snow_fox_inventory.storage.resize(12)
+	for i in range(12):
+		save_data.snow_fox_inventory.storage[i] = null
+	print("[SaveManager] 初始化雪狐背包")
+
+func _should_initialize_items() -> bool:
+	"""检查是否需要初始化物品（所有容器都为空）"""
+	# 如果已经初始化过，直接返回false
+	if save_data.get("has_initialized_items", false):
+		print("[SaveManager] 已经初始化过物品，跳过")
+		return false
+	
+	# 1. 检查 inventory_data 字段是否存在
+	if not save_data.has("inventory_data"):
+		print("[SaveManager] inventory_data 字段不存在，需要初始化")
+		return true
+	
+	var inv_data = save_data.inventory_data
+	
+	# 2. 检查玩家背包是否为空
+	var player_inventory_empty = true
+	if inv_data.has("inventory"):
+		var player_data = inv_data.inventory
+		# 检查武器栏
+		if player_data.has("weapon_slot") and not player_data.weapon_slot.is_empty():
+			player_inventory_empty = false
+			print("[SaveManager] 玩家背包武器栏有物品")
+		# 检查普通格子
+		elif player_data.has("storage"):
+			for item in player_data.storage:
+				if item != null:
+					player_inventory_empty = false
+					print("[SaveManager] 玩家背包有物品")
+					break
+	
+	# 3. 检查仓库是否为空
+	var warehouse_empty = true
+	if inv_data.has("warehouse") and inv_data.warehouse.has("storage"):
+		for item in inv_data.warehouse.storage:
+			if item != null:
+				warehouse_empty = false
+				print("[SaveManager] 仓库有物品")
+				break
+	
+	# 4. 检查雪狐背包是否为空
+	var snow_fox_empty = true
+	if save_data.has("snow_fox_inventory"):
+		var snow_fox_data = save_data.snow_fox_inventory
+		# 检查武器栏
+		if snow_fox_data.has("weapon_slot") and not snow_fox_data.weapon_slot.is_empty():
+			snow_fox_empty = false
+			print("[SaveManager] 雪狐背包武器栏有物品")
+		# 检查普通格子
+		elif snow_fox_data.has("storage"):
+			for item in snow_fox_data.storage:
+				if item != null:
+					snow_fox_empty = false
+					print("[SaveManager] 雪狐背包有物品")
+					break
+	
+	print("[SaveManager] 容器状态 - 玩家背包: ", "空" if player_inventory_empty else "有物品", 
+		  ", 仓库: ", "空" if warehouse_empty else "有物品",
+		  ", 雪狐背包: ", "空" if snow_fox_empty else "有物品")
+	
+	# 只有当所有容器都为空时才需要初始化
+	var should_init = player_inventory_empty and warehouse_empty and snow_fox_empty
+	print("[SaveManager] 所有容器都为空: ", should_init)
+	
+	return should_init
 
 func save_inventory_data():
 	"""保存背包数据"""
@@ -513,14 +562,9 @@ func _add_initial_items_to_warehouse():
 	
 	# 定义初始物品列表 [物品ID, 数量]
 	var initial_items = [
-		["note", 1],
-		["CMR-951", 1],
 		["5.8mm_ammo", 64],
-		["VSS-SF", 1],
 		["9mm_ammo", 64],
-		["UMP45", 1],
 		[".45_ammo", 64],
-		
 	]
 	
 	print("[SaveManager] 准备添加 ", initial_items.size(), " 种初始物品")
@@ -536,7 +580,4 @@ func _add_initial_items_to_warehouse():
 		else:
 			print("[SaveManager] ✗ 警告: 无法添加初始物品: ", item_id)
 	
-	# 保存仓库数据
-	print("[SaveManager] 保存仓库数据...")
-	save_inventory_data()
-	print("[SaveManager] ✓ 初始物品已添加到仓库并保存")
+	print("[SaveManager] ✓ 初始物品已添加到仓库")

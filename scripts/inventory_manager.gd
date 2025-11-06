@@ -67,7 +67,7 @@ func _manage_unique_items():
 		item_counts[item_id] = 0
 		item_locations[item_id] = []
 	
-	# 扫描玩家背包
+	# 扫描所有容器中的唯一物品
 	_scan_container_for_unique_items(inventory_container, "player", item_counts, item_locations)
 	
 	# 扫描雪狐背包
@@ -83,18 +83,85 @@ func _manage_unique_items():
 		var count = item_counts[item_id]
 		
 		if count == 0:
-			# 缺少物品，添加到仓库
-			print("唯一物品 ", item_id, " 缺失，添加到仓库")
-			warehouse_container.add_item(item_id, 1)
+			# 缺少物品，检查是否真的需要添加
+			# 只有在所有容器中都不存在时才添加
+			print("唯一物品 ", item_id, " 缺失，检查是否需要添加到仓库")
+			
+			# 再次确认物品确实不存在（防止扫描遗漏）
+			var truly_missing = true
+			if _check_item_exists_anywhere(item_id):
+				truly_missing = false
+				print("唯一物品 ", item_id, " 实际上存在，跳过添加")
+			
+			if truly_missing:
+				print("唯一物品 ", item_id, " 确实缺失，添加到仓库")
+				warehouse_container.add_item(item_id, 1)
+		
 		elif count > 1:
 			# 有多个，删除多余的（保留第一个）
 			print("唯一物品 ", item_id, " 有 ", count, " 个，删除多余的")
 			var locations = item_locations[item_id]
+			
+			# 按优先级保留：玩家背包 > 雪狐背包 > 仓库
+			locations.sort_custom(_sort_locations_by_priority)
+			
+			# 删除除第一个外的所有
 			for i in range(1, locations.size()):
 				var loc = locations[i]
+				print("删除重复的唯一物品 ", item_id, " 在 ", loc.container, " 位置 ", loc.index)
 				_remove_item_at_location(loc)
 	
 	print("唯一物品管理完成")
+
+func _check_item_exists_anywhere(item_id: String) -> bool:
+	"""检查物品是否存在于任何容器中"""
+	# 检查玩家背包
+	if inventory_container.has_item(item_id):
+		return true
+	
+	# 检查仓库
+	if warehouse_container.has_item(item_id):
+		return true
+	
+	# 检查雪狐背包
+	if SaveManager and SaveManager.save_data.has("snow_fox_inventory"):
+		var snow_fox_data = SaveManager.save_data.snow_fox_inventory
+		if _check_storage_data_has_item(snow_fox_data, item_id):
+			return true
+	
+	return false
+
+func _check_storage_data_has_item(storage_data, item_id: String) -> bool:
+	"""检查存储数据中是否有指定物品"""
+	if storage_data is Array:
+		for item in storage_data:
+			if item != null and item.has("item_id") and item.item_id == item_id:
+				return true
+	elif storage_data is Dictionary:
+		# 检查武器栏
+		if storage_data.has("weapon_slot") and not storage_data.weapon_slot.is_empty():
+			if storage_data.weapon_slot.item_id == item_id:
+				return true
+		
+		# 检查普通格子
+		if storage_data.has("storage"):
+			for item in storage_data.storage:
+				if item != null and item.has("item_id") and item.item_id == item_id:
+					return true
+	return false
+
+func _sort_locations_by_priority(a, b):
+	"""按容器优先级排序位置"""
+	var priority_order = {
+		"player": 0,      # 最高优先级
+		"snow_fox": 1,    # 中等优先级  
+		"warehouse": 2    # 最低优先级
+	}
+	
+	var a_priority = priority_order.get(a.container, 999)
+	var b_priority = priority_order.get(b.container, 999)
+	
+	return a_priority < b_priority
 
 func _scan_container_for_unique_items(container: StorageContainer, container_name: String, item_counts: Dictionary, item_locations: Dictionary):
 	"""扫描容器中的唯一物品"""

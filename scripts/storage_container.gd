@@ -20,6 +20,19 @@ func _init(container_size: int, config: Dictionary = {}, enable_weapon_slot: boo
 		storage[i] = null
 	if has_weapon_slot:
 		weapon_slot = {}
+		
+func has_item(item_id: String) -> bool:
+	"""检查容器中是否有指定物品"""
+	# 检查武器栏
+	if has_weapon_slot and not weapon_slot.is_empty() and weapon_slot.item_id == item_id:
+		return true
+	
+	# 检查普通格子
+	for item in storage:
+		if item != null and item.item_id == item_id:
+			return true
+	
+	return false
 
 func set_items_config(config: Dictionary):
 	"""设置物品配置"""
