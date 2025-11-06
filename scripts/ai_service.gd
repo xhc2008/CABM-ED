@@ -468,7 +468,11 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	if result != HTTPRequest.RESULT_SUCCESS:
 		var error_msg = "请求失败: " + str(result)
 		print(error_msg)
-		chat_error.emit(error_msg)
+		# 替换 chat_error.emit(error_msg) 为：
+		if request_type != "summary":
+			chat_error.emit(error_msg)
+		else:
+			print("总结过程错误: " + error_msg)
 		
 		# 如果是总结请求失败，尝试重试
 		if request_type == "summary":
@@ -479,7 +483,10 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		var error_text = body.get_string_from_utf8()
 		var error_msg = "API 错误 (%d): %s" % [response_code, error_text]
 		print(error_msg)
-		chat_error.emit(error_msg)
+		if request_type != "summary":
+			chat_error.emit(error_msg)
+		else:
+			print("总结过程错误: " + error_msg)
 		
 		var request_body = http_request.get_meta("request_body", {})
 		logger.log_api_error(response_code, error_text, request_body)
@@ -839,13 +846,13 @@ func _save_relationship(relationship_summary: String):
 
 func _calculate_word_limit(conversation_count: int) -> int:
 	"""根据对话条数动态计算字数限制
-	
-	规则：
-	- 1-2条对话：30字
-	- 3-4条对话：50字
-	- 5-6条对话：70字
-	- 7-8条对话：90字
-	- 9条及以上：110字
+    
+    规则：
+    - 1-2条对话：30字
+    - 3-4条对话：50字
+    - 5-6条对话：70字
+    - 7-8条对话：90字
+    - 9条及以上：110字
 	"""
 	if conversation_count <= 2:
 		return 20
@@ -1066,7 +1073,7 @@ func _handle_summary_failure(error_msg: String):
 		# 删除临时文件
 		_delete_temp_conversation()
 		
-		chat_error.emit("总结失败: " + error_msg)
+		# chat_error.emit("总结失败: " + error_msg)
 
 func _clear_conversation_context():
 	"""清除对话上下文（保留后50%）"""

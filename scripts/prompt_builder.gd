@@ -306,7 +306,6 @@ func _convert_affection_to_text(affection: int) -> String:
 
 func _convert_willingness_to_text(willingness: int) -> String:
 	"""将回复意愿数值转换为描述文本"""
-	# TODO: 根据需要自定义回复意愿描述
 	var percentage = float(willingness) / 100.0
 	if percentage >= 0.8:
 		return "高，乐意交流"
