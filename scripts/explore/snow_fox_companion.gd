@@ -19,15 +19,20 @@ var escape_target: Vector2 = Vector2.ZERO
 
 # 雪狐的背包存储
 const STORAGE_SIZE = 12
-var storage: Array = []
+var storage: Dictionary = {}  # 使用字典格式 {storage: Array, weapon_slot: Dictionary}
 
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
 func _ready():
-	# 初始化存储
-	storage.resize(STORAGE_SIZE)
+	# 初始化存储（新格式）
+	var storage_array = []
+	storage_array.resize(STORAGE_SIZE)
 	for i in range(STORAGE_SIZE):
-		storage[i] = null
+		storage_array[i] = null
+	storage = {
+		"storage": storage_array,
+		"weapon_slot": {}
+	}
 	
 	# 配置导航代理
 	navigation_agent.path_desired_distance = 10.0
@@ -121,21 +126,36 @@ func _physics_process(delta):
 	
 	move_and_slide()
 
-func get_storage() -> Array:
+func get_storage():
 	"""获取雪狐的存储"""
 	return storage
 
-func set_storage(new_storage: Array):
+func set_storage(new_storage):
 	"""设置雪狐的存储"""
-	storage = new_storage.duplicate()
+	# 兼容旧格式（Array）和新格式（Dictionary）
+	if new_storage is Array:
+		# 旧格式，转换为新格式
+		storage = {
+			"storage": new_storage.duplicate(),
+			"weapon_slot": {}
+		}
+	elif new_storage is Dictionary:
+		storage = new_storage.duplicate(true)
+	else:
+		# 初始化空存储
+		var storage_array = []
+		storage_array.resize(STORAGE_SIZE)
+		for i in range(STORAGE_SIZE):
+			storage_array[i] = null
+		storage = {
+			"storage": storage_array,
+			"weapon_slot": {}
+		}
 
 func get_save_data() -> Dictionary:
 	"""获取保存数据"""
-	return {
-		"storage": storage.duplicate()
-	}
+	return storage.duplicate(true)
 
 func load_save_data(data: Dictionary):
 	"""加载保存数据"""
-	if data.has("storage"):
-		storage = data.storage.duplicate()
+	set_storage(data)

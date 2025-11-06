@@ -14,10 +14,14 @@ var nearby_chests: Array = []
 var current_opened_chest: Dictionary = {}
 
 # 探索模式的临时背包状态（进入时加载，退出时保存）
-var temp_player_inventory: Array = []
-var temp_snow_fox_inventory: Array = []
+var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
+var temp_snow_fox_inventory = {}  # 可以是 Array 或 Dictionary
 
 func _ready():
+	# 设置固定分辨率（1280x720）和缩放模式
+	# 探索场景使用固定分辨率，不同屏幕直接缩放
+	get_viewport().size = Vector2i(1280, 720)
+	
 	# 设置项目设置
 	ProjectSettings.set_setting("input_devices/pointing/emulate_touch_from_mouse", false)
 	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", false)
@@ -64,6 +68,9 @@ func _ready():
 	
 	# 连接背包按钮
 	if inventory_button:
+		inventory_button.text = "背包 (B)"
+		inventory_button.custom_minimum_size = Vector2(100, 40)
+		inventory_button.position = Vector2(20, 80)
 		inventory_button.pressed.connect(_on_inventory_button_pressed)
 
 func _process(_delta):
@@ -234,7 +241,10 @@ func _input(event: InputEvent):
 	if event is InputEventKey:
 		if event.pressed and event.keycode == KEY_B:
 			if inventory_ui:
-				inventory_ui.open_player_inventory()
+				if inventory_ui.visible:
+					inventory_ui.close_inventory()
+				else:
+					inventory_ui.open_player_inventory()
 				get_viewport().set_input_as_handled()
 
 func _on_exit_button_pressed():
@@ -270,11 +280,15 @@ func _load_explore_inventory_state():
 		if snow_fox:
 			snow_fox.set_storage(temp_snow_fox_inventory)
 	else:
-		# 初始化空背包
-		temp_snow_fox_inventory = []
-		temp_snow_fox_inventory.resize(snow_fox.STORAGE_SIZE if snow_fox else 12)
-		for i in range(temp_snow_fox_inventory.size()):
-			temp_snow_fox_inventory[i] = null
+		# 初始化空背包（新格式）
+		var storage_array = []
+		storage_array.resize(snow_fox.STORAGE_SIZE if snow_fox else 12)
+		for i in range(storage_array.size()):
+			storage_array[i] = null
+		temp_snow_fox_inventory = {
+			"storage": storage_array,
+			"weapon_slot": {}
+		}
 		if snow_fox:
 			snow_fox.set_storage(temp_snow_fox_inventory)
 	
@@ -295,7 +309,8 @@ func _save_explore_inventory_state():
 	
 	# 保存雪狐背包到存档
 	if snow_fox:
-		SaveManager.save_data.snow_fox_inventory = snow_fox.get_storage().duplicate(true)
+		var fox_storage = snow_fox.get_storage()
+		SaveManager.save_data.snow_fox_inventory = fox_storage.duplicate(true) if fox_storage is Dictionary else fox_storage
 	
 	# 保存宝箱状态
 	if chest_system:

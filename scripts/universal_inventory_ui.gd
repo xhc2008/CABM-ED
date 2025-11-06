@@ -26,17 +26,22 @@ var other_container: StorageContainer  # 可选的第二个容器（宝箱、仓
 
 var player_slots: Array = []
 var other_slots: Array = []
+var player_weapon_slot: Control = null
+var other_weapon_slot: Control = null
 
 var selected_slot_index: int = -1
 var selected_storage_type: String = ""  # "player" 或 "other"
+var selected_is_weapon_slot: bool = false
 
 # 拖拽相关
 var is_dragging: bool = false
 var dragging_slot_index: int = -1
 var dragging_storage_type: String = ""
+var dragging_is_weapon_slot: bool = false
 var drag_preview: Control = null
 
 const SLOT_SCENE = preload("res://scenes/inventory_slot.tscn")
+const WEAPON_SLOT_SCENE = preload("res://scenes/weapon_slot.tscn")
 
 func _ready():
 	# 获取节点引用
@@ -53,11 +58,11 @@ func _ready():
 func _get_node_references():
 	"""获取节点引用"""
 	player_panel = get_node_or_null("Panel/HBoxContainer/PlayerPanel")
-	player_grid = get_node_or_null("Panel/HBoxContainer/PlayerPanel/VBox/ScrollContainer/Grid")
+	player_grid = get_node_or_null("Panel/HBoxContainer/PlayerPanel/VBox/InventoryContainer/ScrollContainer/Grid")
 	player_title = get_node_or_null("Panel/HBoxContainer/PlayerPanel/VBox/Title")
 	
 	container_panel = get_node_or_null("Panel/HBoxContainer/ContainerPanel")
-	container_grid = get_node_or_null("Panel/HBoxContainer/ContainerPanel/VBox/ScrollContainer/Grid")
+	container_grid = get_node_or_null("Panel/HBoxContainer/ContainerPanel/VBox/InventoryContainer/ScrollContainer/Grid")
 	container_title = get_node_or_null("Panel/HBoxContainer/ContainerPanel/VBox/Title")
 	
 	info_panel = get_node_or_null("Panel/HBoxContainer/InfoPanel")
@@ -123,13 +128,33 @@ func _create_player_slots():
 		push_error("player_grid 节点未找到")
 		return
 	
+	# 清空普通格子
 	for child in player_grid.get_children():
 		child.queue_free()
 	player_slots.clear()
 	
+	# 清空武器槽
+	var weapon_container = player_panel.get_node_or_null("VBox/WeaponContainer")
+	if weapon_container:
+		for child in weapon_container.get_children():
+			child.queue_free()
+	player_weapon_slot = null
+	
 	if not player_container:
 		return
 	
+	# 如果有武器栏，创建武器槽到独立容器
+	if player_container.has_weapon_slot and weapon_container:
+		var weapon_slot = WEAPON_SLOT_SCENE.instantiate()
+		weapon_slot.setup("player")
+		weapon_slot.slot_clicked.connect(_on_weapon_slot_clicked)
+		weapon_slot.slot_double_clicked.connect(_on_weapon_slot_double_clicked)
+		weapon_slot.drag_started.connect(_on_weapon_drag_started)
+		weapon_slot.drag_ended.connect(_on_weapon_drag_ended)
+		weapon_container.add_child(weapon_slot)
+		player_weapon_slot = weapon_slot
+	
+	# 创建普通格子
 	for i in range(player_container.size):
 		var slot = SLOT_SCENE.instantiate()
 		slot.setup(i, "player")
@@ -146,13 +171,33 @@ func _create_other_slots():
 		push_error("container_grid 节点未找到")
 		return
 	
+	# 清空普通格子
 	for child in container_grid.get_children():
 		child.queue_free()
 	other_slots.clear()
 	
+	# 清空武器槽
+	var weapon_container = container_panel.get_node_or_null("VBox/WeaponContainer")
+	if weapon_container:
+		for child in weapon_container.get_children():
+			child.queue_free()
+	other_weapon_slot = null
+	
 	if not other_container:
 		return
 	
+	# 如果有武器栏，创建武器槽到独立容器
+	if other_container.has_weapon_slot and weapon_container:
+		var weapon_slot = WEAPON_SLOT_SCENE.instantiate()
+		weapon_slot.setup("other")
+		weapon_slot.slot_clicked.connect(_on_weapon_slot_clicked)
+		weapon_slot.slot_double_clicked.connect(_on_weapon_slot_double_clicked)
+		weapon_slot.drag_started.connect(_on_weapon_drag_started)
+		weapon_slot.drag_ended.connect(_on_weapon_drag_ended)
+		weapon_container.add_child(weapon_slot)
+		other_weapon_slot = weapon_slot
+	
+	# 创建普通格子
 	for i in range(other_container.size):
 		var slot = SLOT_SCENE.instantiate()
 		slot.setup(i, "other")
@@ -168,6 +213,11 @@ func _refresh_player_slots():
 	if not player_container:
 		return
 	
+	# 刷新武器槽
+	if player_weapon_slot and player_container.has_weapon_slot:
+		player_weapon_slot.set_item(player_container.weapon_slot)
+	
+	# 刷新普通格子
 	for i in range(player_slots.size()):
 		if i < player_container.storage.size():
 			player_slots[i].set_item(player_container.storage[i])
@@ -177,6 +227,11 @@ func _refresh_other_slots():
 	if not other_container:
 		return
 	
+	# 刷新武器槽
+	if other_weapon_slot and other_container.has_weapon_slot:
+		other_weapon_slot.set_item(other_container.weapon_slot)
+	
+	# 刷新普通格子
 	for i in range(other_slots.size()):
 		if i < other_container.storage.size():
 			other_slots[i].set_item(other_container.storage[i])
@@ -272,7 +327,7 @@ func _on_drag_started(slot_index: int, storage_type: String):
 
 func _on_drag_ended(_slot_index: int, _storage_type: String):
 	"""结束拖拽"""
-	if not is_dragging:
+	if not is_dragging or dragging_is_weapon_slot:
 		return
 	
 	# 销毁拖拽预览
@@ -284,31 +339,60 @@ func _on_drag_ended(_slot_index: int, _storage_type: String):
 	if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
 		var target_index = target_slot["index"]
 		var target_type = target_slot["type"]
+		var target_is_weapon = target_slot.get("is_weapon_slot", false)
 		
 		# 执行移动/合并/交换
-		if target_index != dragging_slot_index or target_type != dragging_storage_type:
-			_move_item(dragging_slot_index, dragging_storage_type, target_index, target_type)
+		if target_index != dragging_slot_index or target_type != dragging_storage_type or target_is_weapon:
+			_move_item(dragging_slot_index, dragging_storage_type, target_index, target_type, target_is_weapon)
 	
 	# 清除拖拽状态
 	is_dragging = false
 	dragging_slot_index = -1
 	dragging_storage_type = ""
+	dragging_is_weapon_slot = false
 	
 	# 清除选中
 	_clear_selection()
 	_clear_item_info()
 
-func _move_item(from_index: int, from_type: String, to_index: int, to_type: String):
+func _move_item(from_index: int, from_type: String, to_index: int, to_type: String, to_is_weapon: bool = false):
 	"""移动物品"""
-	if from_type == to_type:
+	var from_container = player_container if from_type == "player" else other_container
+	var to_container = player_container if to_type == "player" else other_container
+	
+	if not from_container or not to_container:
+		return
+	
+	# 如果目标是武器槽
+	if to_is_weapon:
+		var from_item = from_container.storage[from_index]
+		if from_item == null:
+			return
+		
+		# 检查是否是武器
+		var item_config = from_container.get_item_config(from_item.item_id)
+		if item_config.get("type") != "武器":
+			print("只有武器可以放入武器槽")
+			return
+		
+		# 获取目标武器槽的物品
+		var to_weapon = to_container.weapon_slot
+		
+		# 交换
+		to_container.weapon_slot = from_item.duplicate()
+		if not to_weapon.is_empty():
+			from_container.storage[from_index] = to_weapon.duplicate()
+		else:
+			from_container.storage[from_index] = null
+		
+		from_container.storage_changed.emit()
+		to_container.storage_changed.emit()
+	elif from_type == to_type:
 		# 同一容器内移动
-		var container = player_container if from_type == "player" else other_container
-		if container:
-			container.move_item_internal(from_index, to_index)
+		if from_container:
+			from_container.move_item_internal(from_index, to_index)
 	else:
 		# 跨容器移动
-		var from_container = player_container if from_type == "player" else other_container
-		var to_container = player_container if to_type == "player" else other_container
 		if from_container and to_container:
 			from_container.transfer_to(from_index, to_container, to_index)
 
@@ -317,20 +401,41 @@ func _select_slot(slot_index: int, storage_type: String):
 	_clear_selection()
 	selected_slot_index = slot_index
 	selected_storage_type = storage_type
+	selected_is_weapon_slot = false
 	
 	var slots = player_slots if storage_type == "player" else other_slots
 	if slot_index < slots.size():
 		slots[slot_index].set_selected(true)
 
+func _select_weapon_slot(storage_type: String):
+	"""选中武器槽"""
+	_clear_selection()
+	selected_slot_index = -1
+	selected_storage_type = storage_type
+	selected_is_weapon_slot = true
+	
+	if storage_type == "player" and player_weapon_slot:
+		player_weapon_slot.set_selected(true)
+	elif storage_type == "other" and other_weapon_slot:
+		other_weapon_slot.set_selected(true)
+
 func _clear_selection():
 	"""清除选中状态"""
-	if selected_slot_index != -1:
+	if selected_is_weapon_slot:
+		# 清除武器槽选中
+		if selected_storage_type == "player" and player_weapon_slot:
+			player_weapon_slot.set_selected(false)
+		elif selected_storage_type == "other" and other_weapon_slot:
+			other_weapon_slot.set_selected(false)
+	elif selected_slot_index != -1:
+		# 清除普通槽选中
 		var slots = player_slots if selected_storage_type == "player" else other_slots
 		if selected_slot_index < slots.size():
 			slots[selected_slot_index].set_selected(false)
 	
 	selected_slot_index = -1
 	selected_storage_type = ""
+	selected_is_weapon_slot = false
 
 func _show_item_info(item_data: Dictionary):
 	"""显示物品信息"""
@@ -482,18 +587,159 @@ func _get_slot_under_mouse() -> Dictionary:
 	"""获取鼠标下的格子"""
 	var mouse_pos = get_global_mouse_position()
 	
+	# 检查玩家武器槽
+	if player_weapon_slot:
+		var rect = Rect2(player_weapon_slot.global_position, player_weapon_slot.size)
+		if rect.has_point(mouse_pos):
+			return {"index": -1, "type": "player", "is_weapon_slot": true}
+	
 	# 检查玩家背包格子
 	for i in range(player_slots.size()):
 		var slot = player_slots[i]
 		var rect = Rect2(slot.global_position, slot.size)
 		if rect.has_point(mouse_pos):
-			return {"index": i, "type": "player"}
+			return {"index": i, "type": "player", "is_weapon_slot": false}
+	
+	# 检查其他容器武器槽
+	if other_weapon_slot:
+		var rect = Rect2(other_weapon_slot.global_position, other_weapon_slot.size)
+		if rect.has_point(mouse_pos):
+			return {"index": -1, "type": "other", "is_weapon_slot": true}
 	
 	# 检查其他容器格子
 	for i in range(other_slots.size()):
 		var slot = other_slots[i]
 		var rect = Rect2(slot.global_position, slot.size)
 		if rect.has_point(mouse_pos):
-			return {"index": i, "type": "other"}
+			return {"index": i, "type": "other", "is_weapon_slot": false}
 	
 	return {}
+
+
+func _on_weapon_slot_clicked(storage_type: String):
+	"""武器槽被点击"""
+	var container = player_container if storage_type == "player" else other_container
+	if not container or not container.has_weapon_slot:
+		return
+	
+	var weapon_item = container.weapon_slot
+	
+	# 没有选中物品时
+	if selected_slot_index == -1 and not selected_is_weapon_slot:
+		if not weapon_item.is_empty():
+			_select_weapon_slot(storage_type)
+			_show_item_info(weapon_item)
+	else:
+		# 已有选中物品时
+		if selected_is_weapon_slot and selected_storage_type == storage_type:
+			# 点击同一个武器槽，取消选中
+			_clear_selection()
+			_clear_item_info()
+		else:
+			# 点击不同槽，切换选中
+			if not weapon_item.is_empty():
+				_select_weapon_slot(storage_type)
+				_show_item_info(weapon_item)
+			else:
+				_clear_selection()
+				_clear_item_info()
+
+func _on_weapon_slot_double_clicked(_storage_type: String):
+	"""武器槽被双击（暂不支持分离）"""
+	pass
+
+func _on_weapon_drag_started(storage_type: String):
+	"""开始拖拽武器槽"""
+	var container = player_container if storage_type == "player" else other_container
+	if not container or not container.has_weapon_slot:
+		return
+	
+	var weapon_item = container.weapon_slot
+	if weapon_item.is_empty():
+		return
+	
+	is_dragging = true
+	dragging_slot_index = -1
+	dragging_storage_type = storage_type
+	dragging_is_weapon_slot = true
+	
+	# 创建拖拽预览
+	_create_drag_preview(weapon_item)
+	
+	# 选中被拖拽的武器槽
+	_select_weapon_slot(storage_type)
+
+func _on_weapon_drag_ended(_storage_type: String):
+	"""结束拖拽武器槽"""
+	if not is_dragging or not dragging_is_weapon_slot:
+		return
+	
+	# 销毁拖拽预览
+	_destroy_drag_preview()
+	
+	# 查找鼠标下的目标格子
+	var target_slot = _get_slot_under_mouse()
+	
+	if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
+		var target_index = target_slot["index"]
+		var target_type = target_slot["type"]
+		var target_is_weapon = target_slot.get("is_weapon_slot", false)
+		
+		# 执行移动
+		if target_index != dragging_slot_index or target_type != dragging_storage_type or target_is_weapon != dragging_is_weapon_slot:
+			_move_weapon_item(dragging_storage_type, target_index, target_type, target_is_weapon)
+	
+	# 清除拖拽状态
+	is_dragging = false
+	dragging_slot_index = -1
+	dragging_storage_type = ""
+	dragging_is_weapon_slot = false
+	
+	# 清除选中
+	_clear_selection()
+	_clear_item_info()
+
+func _move_weapon_item(from_type: String, to_index: int, to_type: String, to_is_weapon: bool):
+	"""移动武器槽中的物品"""
+	var from_container = player_container if from_type == "player" else other_container
+	var to_container = player_container if to_type == "player" else other_container
+	
+	if not from_container or not to_container:
+		return
+	
+	var from_item = from_container.weapon_slot
+	
+	if to_is_weapon:
+		# 目标也是武器槽
+		if from_type == to_type:
+			# 同一个槽，不做任何操作
+			return
+		else:
+			# 跨容器，交换武器槽
+			var to_item = to_container.weapon_slot
+			to_container.weapon_slot = from_item.duplicate() if not from_item.is_empty() else {}
+			from_container.weapon_slot = to_item.duplicate() if not to_item.is_empty() else {}
+			from_container.storage_changed.emit()
+			to_container.storage_changed.emit()
+	else:
+		# 目标是普通槽
+		var to_item = to_container.storage[to_index] if to_index < to_container.storage.size() else null
+		
+		# 检查目标槽的物品是否是武器
+		if to_item != null:
+			var to_item_config = to_container.get_item_config(to_item.item_id)
+			if to_item_config.get("type") == "武器":
+				# 目标槽有武器，交换
+				to_container.storage[to_index] = from_item.duplicate()
+				from_container.weapon_slot = to_item.duplicate()
+			else:
+				# 目标槽不是武器，不能放入
+				print("武器只能与武器交换或放入空槽")
+				return
+		else:
+			# 目标槽为空，移动武器到普通槽
+			to_container.storage[to_index] = from_item.duplicate()
+			from_container.weapon_slot = {}
+		
+		from_container.storage_changed.emit()
+		to_container.storage_changed.emit()

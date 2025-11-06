@@ -72,11 +72,19 @@ text = "背包"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox"]
+[node name="WeaponContainer" type="VBoxContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="InventoryContainer" type="VBoxContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Grid" type="GridContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox/ScrollContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox/InventoryContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Grid" type="GridContainer" parent="Panel/HBoxContainer/PlayerPanel/VBox/InventoryContainer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 5
@@ -97,11 +105,19 @@ text = "容器"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox"]
+[node name="WeaponContainer" type="VBoxContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="InventoryContainer" type="VBoxContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Grid" type="GridContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox/ScrollContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox/InventoryContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Grid" type="GridContainer" parent="Panel/HBoxContainer/ContainerPanel/VBox/InventoryContainer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 5

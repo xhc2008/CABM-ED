@@ -20,9 +20,9 @@ func _ready():
 	_create_switch_button()
 
 func _initialize_snow_fox_container():
-	"""初始化雪狐背包容器"""
+	"""初始化雪狐背包容器（带武器栏）"""
 	const SNOW_FOX_SIZE = 12
-	snow_fox_container = StorageContainer.new(SNOW_FOX_SIZE, InventoryManager.items_config)
+	snow_fox_container = StorageContainer.new(SNOW_FOX_SIZE, InventoryManager.items_config, true)
 	
 	# 从存档加载雪狐背包
 	if SaveManager and SaveManager.save_data.has("snow_fox_inventory"):

@@ -8,13 +8,18 @@ signal storage_changed()
 var storage: Array = []  # [{item_id: String, count: int}]
 var size: int = 0
 var items_config: Dictionary = {}
+var weapon_slot: Dictionary = {}  # 武器栏 {item_id: String, count: int}
+var has_weapon_slot: bool = false  # 是否有武器栏
 
-func _init(container_size: int, config: Dictionary = {}):
+func _init(container_size: int, config: Dictionary = {}, enable_weapon_slot: bool = false):
 	size = container_size
 	items_config = config
+	has_weapon_slot = enable_weapon_slot
 	storage.resize(size)
 	for i in range(size):
 		storage[i] = null
+	if has_weapon_slot:
+		weapon_slot = {}
 
 func set_items_config(config: Dictionary):
 	"""设置物品配置"""
@@ -38,6 +43,15 @@ func add_item(item_id: String, count: int = 1) -> bool:
 	
 	var max_stack = int(item_config.get("max_stack", 1))
 	var remaining = count
+	
+	# 如果是武器且有武器栏，优先放入武器栏
+	if has_weapon_slot and item_config.get("type") == "武器":
+		if weapon_slot.is_empty():
+			weapon_slot = {"item_id": item_id, "count": 1}
+			remaining -= 1
+			if remaining <= 0:
+				storage_changed.emit()
+				return true
 	
 	# 先尝试堆叠到现有格子
 	for i in range(storage.size()):
@@ -173,7 +187,7 @@ func transfer_to(from_index: int, target_container: StorageContainer, to_index: 
 	target_container.storage_changed.emit()
 	return true
 
-func get_data() -> Array:
+func get_data() -> Dictionary:
 	"""获取存储数据用于保存"""
 	var result = []
 	for item in storage:
@@ -181,14 +195,27 @@ func get_data() -> Array:
 			result.append(item.duplicate())
 		else:
 			result.append(null)
-	return result
+	
+	var data = {"storage": result}
+	if has_weapon_slot:
+		data["weapon_slot"] = weapon_slot.duplicate() if not weapon_slot.is_empty() else {}
+	return data
 
-func load_data(data: Array):
+func load_data(data):
 	"""从保存数据加载"""
+	# 兼容旧格式（Array）和新格式（Dictionary）
+	var storage_data = []
+	if data is Array:
+		storage_data = data
+	elif data is Dictionary:
+		storage_data = data.get("storage", [])
+		if has_weapon_slot and data.has("weapon_slot"):
+			weapon_slot = data.weapon_slot.duplicate() if data.weapon_slot is Dictionary else {}
+	
 	storage.resize(size)
 	for i in range(size):
-		if i < data.size() and data[i] != null:
-			storage[i] = data[i].duplicate()
+		if i < storage_data.size() and storage_data[i] != null:
+			storage[i] = storage_data[i].duplicate()
 			# 确保加载的数量是整数
 			if storage[i].has("count"):
 				storage[i].count = int(storage[i].count)

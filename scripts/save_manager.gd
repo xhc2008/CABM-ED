@@ -217,6 +217,9 @@ func load_game(slot: int = 1) -> bool:
 	save_data = _deep_merge(save_data, loaded_data)
 	current_slot = slot
 	
+	# 检查是否需要每日刷新（删除opened_chests）
+	_check_daily_refresh()
+	
 	# 先检查离线时间变化（使用存档中的旧时间）
 	# 延迟调用以确保 OfflineTimeManager 已经加载
 	call_deferred("_check_offline_time")
@@ -224,6 +227,27 @@ func load_game(slot: int = 1) -> bool:
 	print("游戏已从槽位 ", slot, " 加载")
 	load_completed.emit(slot)
 	return true
+
+func _check_daily_refresh():
+	"""检查是否需要每日刷新地图"""
+	if not save_data.has("timestamp") or not save_data.timestamp.has("last_played_at"):
+		return
+	
+	var last_played = save_data.timestamp.last_played_at
+	var now = Time.get_datetime_string_from_system()
+	
+	# 提取日期部分（YYYY-MM-DD）
+	var last_date = last_played.split("T")[0] if "T" in last_played else last_played.split(" ")[0]
+	var current_date = now.split("T")[0] if "T" in now else now.split(" ")[0]
+	
+	print("上次游玩日期: ", last_date, ", 当前日期: ", current_date)
+	
+	# 如果日期不同，删除opened_chests
+	if last_date != current_date:
+		print("检测到日期变化，刷新地图（删除opened_chests）")
+		if save_data.has("chest_system_data") and save_data.chest_system_data.has("opened_chests"):
+			save_data.chest_system_data.opened_chests = {}
+			print("已删除opened_chests，地图已刷新")
 
 # === 角色数据访问方法 ===
 

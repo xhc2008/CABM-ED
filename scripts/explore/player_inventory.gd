@@ -31,8 +31,8 @@ func _load_items_config():
 			items_config = data.items
 
 func _initialize_inventory():
-	"""初始化背包"""
-	container = StorageContainer.new(INVENTORY_SIZE, items_config)
+	"""初始化背包（带武器栏）"""
+	container = StorageContainer.new(INVENTORY_SIZE, items_config, true)
 
 func get_item_config(item_id: String) -> Dictionary:
 	"""获取物品配置"""
@@ -42,10 +42,10 @@ func add_item(item_id: String, count: int = 1) -> bool:
 	"""添加物品到背包"""
 	return container.add_item(item_id, count)
 
-func get_inventory_data() -> Array:
+func get_inventory_data():
 	"""获取背包数据用于保存"""
 	return container.get_data()
 
-func load_inventory_data(data: Array):
+func load_inventory_data(data):
 	"""从保存数据加载"""
 	container.load_data(data)
