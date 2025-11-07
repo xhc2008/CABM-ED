@@ -71,6 +71,30 @@
           "signal": null
         }
       ]
+    },
+    "cook_button": {
+      "name": "烹饪入口",
+      "type": "click_area",
+      "size": {
+        "width": 200,
+        "height": 150
+      },
+      "position": {
+        "anchor": "bottom_left",
+        "offset_x": 160,
+        "offset_y": -150
+      },
+      "scenes": [
+        "kitchen"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🍳 做饭",
+          "action": "start_cook",
+          "signal": "start_cook"
+        }
+      ]
     }
   },
   "position_anchors": {
