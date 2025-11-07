@@ -1,30 +1,46 @@
 extends Control
+class_name InteractiveElement
 
-# 音乐播放器入口按钮
-# 隐藏的点击区域，点击后显示"背景音乐"按钮
+# 通用交互元素
+# 通过 element_id 从配置文件读取所有信息
 
 # 判定区域（隐藏的点击区域）
 var click_area: Control
 # 选项菜单
 var options_panel: Panel
-var music_button: Button
+var options_container: VBoxContainer
+var option_buttons: Array[Button] = []
 
 const ANIMATION_DURATION = 0.2
-const ELEMENT_ID = "music_button"
+
+@export var element_id: String = ""
 
 var is_enabled: bool = false
 var is_menu_visible: bool = false
-var music_player_panel
+var element_config: Dictionary = {}
+
+# 动态信号 - 根据配置发射
+signal action_triggered(action_name: String)
 
 func _ready():
-	# 从配置获取大小
-	var element_size = Vector2(200, 150)
+	if element_id.is_empty():
+		push_error("InteractiveElement: element_id 未设置")
+		return
+	
+	# 从配置获取元素信息
 	if has_node("/root/InteractiveElementManager"):
 		var mgr = get_node("/root/InteractiveElementManager")
-		element_size = mgr.get_element_size(ELEMENT_ID)
-		mgr.register_element(ELEMENT_ID, self)
+		element_config = mgr.get_element_config(element_id)
+		if element_config.is_empty():
+			push_error("InteractiveElement: 找不到元素配置 " + element_id)
+			return
+		
+		mgr.register_element(element_id, self)
 	
 	# 创建隐藏的点击区域
+	var element_size = Vector2(element_config.get("size", {}).get("width", 80), 
+							   element_config.get("size", {}).get("height", 80))
+	
 	click_area = Control.new()
 	click_area.custom_minimum_size = element_size
 	click_area.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -36,10 +52,6 @@ func _ready():
 	
 	# 创建选项面板
 	_create_options_panel()
-	
-	# 获取音乐播放器面板
-	await get_tree().process_frame
-	music_player_panel = get_node_or_null("/root/Main/MusicPlayerPanel")
 	
 	visible = false
 
@@ -58,15 +70,23 @@ func _create_options_panel():
 	margin.add_theme_constant_override("margin_bottom", 10)
 	options_panel.add_child(margin)
 	
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 5)
-	margin.add_child(vbox)
+	options_container = VBoxContainer.new()
+	options_container.add_theme_constant_override("separation", 5)
+	margin.add_child(options_container)
 	
-	# 背景音乐按钮
-	music_button = Button.new()
-	music_button.text = "🎵 音乐播放器"
-	music_button.pressed.connect(_on_music_button_pressed)
-	vbox.add_child(music_button)
+	# 从配置创建选项按钮
+	var options = element_config.get("options", [])
+	for option in options:
+		var btn = Button.new()
+		var text = option.get("text", "")
+		
+		# 处理文本中的占位符
+		text = _process_text_placeholders(text)
+		
+		btn.text = text
+		btn.pressed.connect(_on_option_pressed.bind(option))
+		options_container.add_child(btn)
+		option_buttons.append(btn)
 	
 	# 等待布局更新
 	await get_tree().process_frame
@@ -74,8 +94,34 @@ func _create_options_panel():
 	# 设置选项面板位置（在点击区域上方）
 	options_panel.position = Vector2(0, -options_panel.size.y - 10)
 
+func _process_text_placeholders(text: String) -> String:
+	"""处理文本中的占位符"""
+	# 替换 {character_name}
+	if text.contains("{character_name}"):
+		var character_name = _get_character_name()
+		text = text.replace("{character_name}", character_name)
+	
+	return text
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	var config_path = "res://config/app_config.json"
+	if not FileAccess.file_exists(config_path):
+		return "角色"
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) == OK:
+		var config = json.data
+		return config.get("character_name", "角色")
+	
+	return "角色"
+
 func enable():
-	"""启用判定区域（在指定场景）"""
+	"""启用判定区域"""
 	if is_enabled:
 		return
 	
@@ -91,7 +137,7 @@ func enable():
 			click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func disable():
-	"""禁用判定区域（离开场景）"""
+	"""禁用判定区域"""
 	if not is_enabled:
 		return
 	
@@ -159,11 +205,31 @@ func hide_menu():
 	await tween.finished
 	options_panel.visible = false
 
-func _on_music_button_pressed():
-	"""背景音乐按钮点击"""
+func _on_option_pressed(option: Dictionary):
+	"""选项按钮点击"""
+	var action = option.get("action", "")
+	
+	# 发射通用信号
+	action_triggered.emit(action)
+	
+	# 执行内置动作
+	_execute_action(action)
+	
+	# 隐藏菜单
+	hide_menu()
+
+func _execute_action(action: String):
+	"""执行内置动作"""
+	match action:
+		"music_player":
+			_open_music_player()
+
+func _open_music_player():
+	"""打开音乐播放器"""
+	await get_tree().process_frame
+	var music_player_panel = get_node_or_null("/root/Main/MusicPlayerPanel")
 	if music_player_panel:
 		music_player_panel.show_panel()
-	hide_menu()
 
 func _input(event):
 	"""全局输入事件 - 点击外部关闭菜单"""

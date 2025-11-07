@@ -9,10 +9,9 @@
 [ext_resource type="Script" uid="uid://bovp4hs3xx2vc" path="res://scripts/action_menu.gd" id="6_action_menu"]
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
-[ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
+[ext_resource type="PackedScene" path="res://scenes/interactive_element.tscn" id="11_interactive"]
 [ext_resource type="PackedScene" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
-[ext_resource type="PackedScene" path="res://scenes/music_button.tscn" id="14_music_button"]
 [ext_resource type="PackedScene" path="res://scenes/music_player_panel.tscn" id="15_music_panel"]
 
 [node name="Main" type="Control"]
@@ -281,8 +280,9 @@ script = ExtResource("5_debug")
 [node name="AudioManager" type="Node" parent="."]
 script = ExtResource("8_audio_manager")
 
-[node name="CharacterDiaryButton" parent="." instance=ExtResource("12_0d3j1")]
+[node name="CharacterDiaryButton" parent="." instance=ExtResource("11_interactive")]
 layout_mode = 0
+element_id = "character_diary_button"
 
 [node name="CharacterDiaryViewer" parent="." instance=ExtResource("13_m1sh3")]
 layout_mode = 0
@@ -295,6 +295,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MusicButton" parent="." instance=ExtResource("14_music_button")]
+[node name="MusicButton" parent="." instance=ExtResource("11_interactive")]
+element_id = "music_button"
 
 [node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]

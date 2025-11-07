@@ -73,7 +73,7 @@ func _ready():
 	
 	# 连接角色日记按钮和查看器
 	if character_diary_button:
-		character_diary_button.diary_selected.connect(_on_character_diary_selected)
+		character_diary_button.action_triggered.connect(_on_diary_action_triggered)
 	if character_diary_viewer:
 		character_diary_viewer.diary_closed.connect(_on_character_diary_closed)
 	
@@ -1022,8 +1022,14 @@ func _update_character_diary_button_visibility():
 	else:
 		character_diary_button.disable()
 
+func _on_diary_action_triggered(action: String):
+	"""日记按钮动作触发"""
+	if action == "diary_selected":
+		if character_diary_viewer:
+			character_diary_viewer.show_diary()
+
 func _on_character_diary_selected():
-	"""角色日记选项被选中"""
+	"""角色日记选项被选中（已废弃，保留兼容性）"""
 	if character_diary_viewer:
 		character_diary_viewer.show_diary()
 
@@ -1186,8 +1192,17 @@ func _update_music_button_visibility():
 	else:
 		music_button.disable()
 
+func _on_costume_action_triggered(action: String):
+	"""换装按钮动作触发"""
+	if action == "costume_selector":
+		_open_costume_selector()
+
 func _on_costume_selector_requested():
-	"""换装选择器被请求"""
+	"""换装选择器被请求（已废弃，保留兼容性）"""
+	_open_costume_selector()
+
+func _open_costume_selector():
+	"""打开换装选择器"""
 	# 创建换装选择器
 	var costume_selector_script = load("res://scripts/costume_selector.gd")
 	var costume_selector = Control.new()
@@ -1244,18 +1259,19 @@ func _setup_costume_button():
 		print("使用场景中的 CostumeButton")
 	else:
 		# 动态创建换装按钮
-		var costume_button_scene = load("res://scenes/costume_button.tscn")
+		var costume_button_scene = load("res://scenes/interactive_element.tscn")
 		if costume_button_scene:
 			costume_button = costume_button_scene.instantiate()
 			costume_button.name = "CostumeButton"
+			costume_button.element_id = "costume_button"
 			add_child(costume_button)
 			print("动态创建 CostumeButton")
 		else:
-			print("警告: 无法加载 costume_button.tscn")
+			print("警告: 无法加载 interactive_element.tscn")
 			return
 	
 	# 连接信号
 	if costume_button:
-		costume_button.costume_selector_requested.connect(_on_costume_selector_requested)
+		costume_button.action_triggered.connect(_on_costume_action_triggered)
 
 
