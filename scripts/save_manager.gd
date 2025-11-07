@@ -431,17 +431,19 @@ func _add_missing_unique_items_on_daily_refresh():
 	
 	# 统计每个唯一物品的数量
 	var item_counts = {}
+	var item_locations = {}  # 需要初始化完整的字典结构
 	for item_id in unique_items:
 		item_counts[item_id] = 0
+		item_locations[item_id] = []
 	
 	# 扫描所有容器
-	inventory_mgr._scan_container_for_unique_items(inventory_mgr.inventory_container, "player", item_counts, {})
-	inventory_mgr._scan_container_for_unique_items(inventory_mgr.warehouse_container, "warehouse", item_counts, {})
+	inventory_mgr._scan_container_for_unique_items(inventory_mgr.inventory_container, "player", item_counts, item_locations)
+	inventory_mgr._scan_container_for_unique_items(inventory_mgr.warehouse_container, "warehouse", item_counts, item_locations)
 	
 	# 扫描雪狐背包
 	if save_data.has("snow_fox_inventory"):
 		var snow_fox_data = save_data.snow_fox_inventory
-		inventory_mgr._scan_storage_data_for_unique_items(snow_fox_data, "snow_fox", item_counts, {})
+		inventory_mgr._scan_storage_data_for_unique_items(snow_fox_data, "snow_fox", item_counts, item_locations)
 	
 	# 添加缺失的唯一物品到仓库
 	for item_id in unique_items:
