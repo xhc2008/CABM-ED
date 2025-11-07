@@ -437,6 +437,19 @@ func _clear_selection():
 	selected_storage_type = ""
 	selected_is_weapon_slot = false
 
+func _setup_info_icon():
+	"""专门设置信息图标的显示参数 - 保持原始比例"""
+	if not info_icon:
+		return
+	
+	# Godot 4 设置 - 保持原始比例，在容器内居中显示
+	info_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	info_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	info_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	
+	# 确保能够填满容器但保持比例
+	info_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
 func _show_item_info(item_data: Dictionary):
 	"""显示物品信息"""
 	if not player_container or not info_name or not info_desc or not info_icon:
@@ -447,16 +460,28 @@ func _show_item_info(item_data: Dictionary):
 	info_name.text = item_config.get("name", "未知物品")
 	info_desc.text = item_config.get("description", "无描述")
 	
-	# 显示图标
+	# 显示图标 - 保持原始比例
 	if item_config.has("icon"):
 		var icon_path = "res://assets/images/items/" + item_config.icon
-		if ResourceLoader.exists(icon_path):
-			info_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			info_icon.texture = load(icon_path)
+		# 设置保持比例的缩放模式
+		info_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		info_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		info_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		if ResourceLoader.exists(icon_path):	
+			# 加载纹理
+			var texture = load(icon_path)
+			info_icon.texture = texture
+			
+			# 调试信息
+			print("图标原始尺寸: ", texture.get_size())
+			print("容器尺寸: ", info_icon.size)
 		else:
-			info_icon.texture = null
+			var texture = load("res://assets/images/error.png")
+			info_icon.texture = texture
+			push_warning("图标文件不存在: " + icon_path)
 	else:
 		info_icon.texture = null
+
 	
 	# 显示详细属性
 	var details = "\n\n属性\n"
@@ -549,6 +574,8 @@ func _create_drag_preview(item_data: Dictionary):
 		var icon_path = "res://assets/images/items/" + item_config.icon
 		if ResourceLoader.exists(icon_path):
 			icon.texture = load(icon_path)
+		else:
+			icon.texture = load("res://assets/images/error.png")
 	
 	drag_preview.add_child(icon)
 	

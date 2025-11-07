@@ -42,7 +42,6 @@ InventoryManager="*res://scripts/inventory_manager.gd"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
 window/ios/hide_home_indicator=false
 window/ios/hide_status_bar=false
 window/ios/suppress_ui_gesture=false

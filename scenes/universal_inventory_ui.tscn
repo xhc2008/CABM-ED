@@ -138,7 +138,7 @@ text = "选择物品查看详情"
 horizontal_alignment = 1
 
 [node name="ItemIcon" type="TextureRect" parent="Panel/HBoxContainer/InfoPanel/VBox"]
-custom_minimum_size = Vector2(128, 128)
+custom_minimum_size = Vector2(256, 128)
 layout_mode = 2
 size_flags_horizontal = 4
 expand_mode = 1
