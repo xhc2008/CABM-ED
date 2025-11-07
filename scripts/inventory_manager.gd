@@ -53,11 +53,12 @@ func _load_unique_items():
 			print("已加载唯一物品列表: ", unique_items)
 
 func _manage_unique_items():
-	"""管理唯一物品：确保每个唯一物品只有一个，缺少的自动添加到仓库"""
+	"""管理唯一物品：只删除多余的唯一物品（保护机制）
+	注意：不再自动添加缺失的唯一物品，添加逻辑已移至地图每日刷新"""
 	if unique_items.is_empty():
 		return
 	
-	print("开始管理唯一物品...")
+	print("开始检查重复的唯一物品...")
 	
 	# 统计每个唯一物品的数量和位置
 	var item_counts = {}
@@ -78,26 +79,11 @@ func _manage_unique_items():
 	# 扫描仓库
 	_scan_container_for_unique_items(warehouse_container, "warehouse", item_counts, item_locations)
 	
-	# 处理每个唯一物品
+	# 只处理重复的唯一物品（删除多余的）
 	for item_id in unique_items:
 		var count = item_counts[item_id]
 		
-		if count == 0:
-			# 缺少物品，检查是否真的需要添加
-			# 只有在所有容器中都不存在时才添加
-			print("唯一物品 ", item_id, " 缺失，检查是否需要添加到仓库")
-			
-			# 再次确认物品确实不存在（防止扫描遗漏）
-			var truly_missing = true
-			if _check_item_exists_anywhere(item_id):
-				truly_missing = false
-				print("唯一物品 ", item_id, " 实际上存在，跳过添加")
-			
-			if truly_missing:
-				print("唯一物品 ", item_id, " 确实缺失，添加到仓库")
-				warehouse_container.add_item(item_id, 1)
-		
-		elif count > 1:
+		if count > 1:
 			# 有多个，删除多余的（保留第一个）
 			print("唯一物品 ", item_id, " 有 ", count, " 个，删除多余的")
 			var locations = item_locations[item_id]
@@ -111,7 +97,7 @@ func _manage_unique_items():
 				print("删除重复的唯一物品 ", item_id, " 在 ", loc.container, " 位置 ", loc.index)
 				_remove_item_at_location(loc)
 	
-	print("唯一物品管理完成")
+	print("唯一物品检查完成")
 
 func _check_item_exists_anywhere(item_id: String) -> bool:
 	"""检查物品是否存在于任何容器中"""

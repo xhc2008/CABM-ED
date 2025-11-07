@@ -242,12 +242,18 @@ func _check_daily_refresh():
 	
 	print("上次游玩日期: ", last_date, ", 当前日期: ", current_date)
 	
-	# 如果日期不同，删除opened_chests
+	# 如果日期不同，刷新地图
 	if last_date != current_date:
-		print("检测到日期变化，刷新地图（删除opened_chests）")
+		print("检测到日期变化，刷新地图")
+		
+		# 1. 删除opened_chests（刷新宝箱）
 		if save_data.has("chest_system_data") and save_data.chest_system_data.has("opened_chests"):
 			save_data.chest_system_data.opened_chests = {}
 			print("已删除opened_chests，地图已刷新")
+		
+		# 2. 检查并添加缺失的唯一物品到仓库
+		# 延迟调用以确保 InventoryManager 已加载
+		call_deferred("_add_missing_unique_items_on_daily_refresh")
 
 # === 角色数据访问方法 ===
 
@@ -408,6 +414,44 @@ func _auto_save():
 	# 只有在初始设置完成后才允许自动保存
 	if enable_instant_save and is_initial_setup_completed:
 		save_game(current_slot)
+
+func _add_missing_unique_items_on_daily_refresh():
+	"""每日刷新时添加缺失的唯一物品到仓库"""
+	if not has_node("/root/InventoryManager"):
+		print("[SaveManager] InventoryManager 未找到，无法添加缺失的唯一物品")
+		return
+	
+	var inventory_mgr = get_node("/root/InventoryManager")
+	print("[SaveManager] 开始检查缺失的唯一物品...")
+	
+	# 获取唯一物品列表
+	var unique_items = inventory_mgr.unique_items
+	if unique_items.is_empty():
+		return
+	
+	# 统计每个唯一物品的数量
+	var item_counts = {}
+	for item_id in unique_items:
+		item_counts[item_id] = 0
+	
+	# 扫描所有容器
+	inventory_mgr._scan_container_for_unique_items(inventory_mgr.inventory_container, "player", item_counts, {})
+	inventory_mgr._scan_container_for_unique_items(inventory_mgr.warehouse_container, "warehouse", item_counts, {})
+	
+	# 扫描雪狐背包
+	if save_data.has("snow_fox_inventory"):
+		var snow_fox_data = save_data.snow_fox_inventory
+		inventory_mgr._scan_storage_data_for_unique_items(snow_fox_data, "snow_fox", item_counts, {})
+	
+	# 添加缺失的唯一物品到仓库
+	for item_id in unique_items:
+		if item_counts[item_id] == 0:
+			print("[SaveManager] 唯一物品 ", item_id, " 缺失（可能在地图箱子中），添加到仓库")
+			inventory_mgr.add_item_to_warehouse(item_id, 1)
+	
+	# 保存更新后的数据
+	save_inventory_data()
+	print("[SaveManager] 唯一物品检查完成")
 
 func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:
 	"""深度合并两个字典，overlay的值会覆盖base的值
