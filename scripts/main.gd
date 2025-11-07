@@ -12,6 +12,7 @@ extends Control
 @onready var character_diary_button = $CharacterDiaryButton if has_node("CharacterDiaryButton") else null
 @onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
 @onready var music_button = $MusicButton if has_node("MusicButton") else null
+@onready var cook_button = $CookButton if has_node("CookButton") else null
 @onready var music_player_panel = $MusicPlayerPanel if has_node("MusicPlayerPanel") else null
 var costume_button = null
 
@@ -96,7 +97,8 @@ func _setup_managers():
 		"character_diary_button": character_diary_button,
 		"character_diary_viewer": character_diary_viewer,
 		"costume_button": costume_button,
-		"music_button": music_button
+		"music_button": music_button,
+		"cook_button": cook_button
 	})
 	add_child(ui_layout_manager)
 	
@@ -138,6 +140,8 @@ func _setup_managers():
 			ui_mgr.register_element(costume_button)
 		if music_button:
 			ui_mgr.register_element(music_button)
+		if cook_button:
+			ui_mgr.register_element(cook_button)
 
 func _connect_signals():
 	"""连接所有信号"""
@@ -208,14 +212,26 @@ func _update_interactive_elements_visibility():
 	"""更新所有可交互元素的显示状态"""
 	var current_scene = scene_manager.current_scene
 	
-	# 更新换装按钮
-	costume_manager.update_costume_button_visibility(current_scene)
+	# 统一处理所有交互元素的可见性
+	_update_element_visibility("costume_button", costume_button, current_scene)
+	_update_element_visibility("character_diary_button", character_diary_button, current_scene)
+	_update_element_visibility("music_button", music_button, current_scene)
+	_update_element_visibility("cook_button", cook_button, current_scene)
+
+func _update_element_visibility(element_id: String, element, current_scene: String):
+	"""统一更新单个交互元素的显示状态"""
+	if not element:
+		return
 	
-	# 更新角色日记按钮
-	_update_character_diary_button_visibility(current_scene)
+	var should_show = false
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		should_show = mgr.should_show_in_scene(element_id, current_scene) and mgr.is_element_enabled(element_id)
 	
-	# 更新音乐按钮
-	_update_music_button_visibility(current_scene)
+	if should_show:
+		element.enable()
+	else:
+		element.disable()
 
 func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	# 如果正在聊天，忽略场景切换请求
@@ -511,40 +527,6 @@ func _check_pending_offline_position_change():
 		save_mgr.remove_meta("pending_offline_position_change")
 		await character.apply_position_probability_silent()
 		print("离线位置变化已应用")
-
-func _update_character_diary_button_visibility(current_scene: String):
-	"""更新角色日记按钮的显示状态"""
-	if not character_diary_button:
-		return
-	
-	var should_show = false
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		should_show = mgr.should_show_in_scene("character_diary_button", current_scene) and mgr.is_element_enabled("character_diary_button")
-	else:
-		should_show = (current_scene == "bedroom")
-	
-	if should_show:
-		character_diary_button.enable()
-	else:
-		character_diary_button.disable()
-
-func _update_music_button_visibility(current_scene: String):
-	"""更新音乐按钮的显示状态"""
-	if not music_button:
-		return
-	
-	var should_show = false
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		should_show = mgr.should_show_in_scene("music_button", current_scene) and mgr.is_element_enabled("music_button")
-	else:
-		should_show = (current_scene == "studyroom")
-	
-	if should_show:
-		music_button.enable()
-	else:
-		music_button.disable()
 
 func _on_diary_action_triggered(action: String):
 	"""日记按钮动作触发"""

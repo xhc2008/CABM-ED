@@ -18,22 +18,6 @@ func set_costume_button(button):
 	if costume_button:
 		costume_button.action_triggered.connect(_on_costume_action_triggered)
 
-func update_costume_button_visibility(current_scene: String):
-	"""更新换装按钮的显示状态"""
-	if not costume_button:
-		return
-	
-	var should_show = false
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		should_show = mgr.should_show_in_scene("costume_button", current_scene) and mgr.is_element_enabled("costume_button")
-	else:
-		should_show = (current_scene == "bathroom")
-	
-	if should_show:
-		costume_button.enable()
-	else:
-		costume_button.disable()
 
 func _on_costume_action_triggered(action: String):
 	"""换装按钮动作触发"""

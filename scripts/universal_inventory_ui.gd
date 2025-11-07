@@ -283,7 +283,7 @@ func _on_slot_double_clicked(slot_index: int, storage_type: String):
 		return
 	
 	# 分离一半（向下取整）
-	var split_count = int(item.count) / 2
+	var split_count = int(int(item.count) / 2)
 	if split_count <= 0:
 		return
 	

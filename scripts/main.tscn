@@ -299,3 +299,4 @@ grow_vertical = 2
 element_id = "music_button"
 
 [node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]
+

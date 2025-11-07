@@ -11,6 +11,7 @@ var character_diary_button
 var character_diary_viewer
 var costume_button
 var music_button
+var cook_button
 
 func initialize(scene_mgr: SceneManager):
 	"""初始化管理器"""
@@ -21,10 +22,12 @@ func set_ui_references(refs: Dictionary):
 	sidebar = refs.get("sidebar")
 	chat_dialog = refs.get("chat_dialog")
 	action_menu = refs.get("action_menu")
-	character_diary_button = refs.get("character_diary_button")
 	character_diary_viewer = refs.get("character_diary_viewer")
-	costume_button = refs.get("costume_button")
-	music_button = refs.get("music_button")
+	
+	# 简化四个按钮的引用设置
+	var button_names = ["character_diary_button", "costume_button", "music_button", "cook_button"]
+	for button_name in button_names:
+		set(button_name, refs.get(button_name))
 
 func update_all_layouts():
 	"""更新所有UI组件的位置和大小"""
@@ -32,13 +35,28 @@ func update_all_layouts():
 	
 	update_sidebar_layout()
 	update_chat_dialog_layout()
-	update_character_diary_button_layout()
 	update_character_diary_viewer_layout()
-	update_costume_button_layout()
-	update_music_button_layout()
+	
+	# 合并四个按钮的布局更新
+	_update_button_layout("character_diary_button", character_diary_button)
+	_update_button_layout("costume_button", costume_button)
+	_update_button_layout("music_button", music_button)
+	_update_button_layout("cook_button", cook_button)
 	
 	if action_menu and action_menu.visible:
 		update_action_menu_position()
+
+func _update_button_layout(button_id: String, button):
+	"""统一更新按钮布局"""
+	if not button:
+		return
+	
+	var scene_rect = scene_manager.scene_rect
+	
+	if has_node("/root/InteractiveElementManager"):
+		var mgr = get_node("/root/InteractiveElementManager")
+		var element_size = button.custom_minimum_size if button.has_method("get_custom_minimum_size") else button.size
+		button.position = mgr.calculate_element_position(button_id, scene_rect, element_size)
 
 func update_sidebar_layout():
 	"""更新侧边栏布局"""
@@ -96,22 +114,6 @@ func update_action_menu_position():
 	
 	action_menu.position = menu_pos
 
-func update_character_diary_button_layout():
-	"""更新角色日记按钮布局"""
-	if not character_diary_button:
-		return
-	
-	var scene_rect = scene_manager.scene_rect
-	
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		var element_size = character_diary_button.size
-		character_diary_button.position = mgr.calculate_element_position("character_diary_button", scene_rect, element_size)
-	else:
-		var button_x = scene_rect.position.x + 120
-		var button_y = scene_rect.position.y + scene_rect.size.y - character_diary_button.size.y - 130
-		character_diary_button.position = Vector2(button_x, button_y)
-
 func update_character_diary_viewer_layout():
 	"""更新角色日记查看器布局"""
 	if not character_diary_viewer:
@@ -122,35 +124,3 @@ func update_character_diary_viewer_layout():
 	var viewer_y = scene_rect.position.y + (scene_rect.size.y - character_diary_viewer.size.y) / 2
 	
 	character_diary_viewer.position = Vector2(viewer_x, viewer_y)
-
-func update_costume_button_layout():
-	"""更新换装按钮布局"""
-	if not costume_button:
-		return
-	
-	var scene_rect = scene_manager.scene_rect
-	
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		var element_size = costume_button.size
-		costume_button.position = mgr.calculate_element_position("costume_button", scene_rect, element_size)
-	else:
-		var button_x = scene_rect.position.x + scene_rect.size.x - costume_button.size.x - 140
-		var button_y = scene_rect.position.y + scene_rect.size.y - costume_button.size.y - 130
-		costume_button.position = Vector2(button_x, button_y)
-
-func update_music_button_layout():
-	"""更新音乐按钮布局"""
-	if not music_button:
-		return
-	
-	var scene_rect = scene_manager.scene_rect
-	
-	if has_node("/root/InteractiveElementManager"):
-		var mgr = get_node("/root/InteractiveElementManager")
-		var element_size = music_button.custom_minimum_size
-		music_button.position = mgr.calculate_element_position("music_button", scene_rect, element_size)
-	else:
-		var button_x = scene_rect.position.x + 160
-		var button_y = scene_rect.position.y + scene_rect.size.y - 150
-		music_button.position = Vector2(button_x, button_y)
