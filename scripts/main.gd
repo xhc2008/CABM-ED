@@ -362,7 +362,22 @@ func _on_gomoku_ended():
 			child.queue_free()
 	
 	game_state_manager.show_main_scene()
-	ui_layout_manager.update_all_layouts()
+	
+	# 等待背景完全加载后再更新角色状态
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# 确保背景纹理已加载
+	if background.texture:
+		ui_layout_manager.update_all_layouts()
+		# 重新加载角色（此时背景已准备好）
+		character.load_character_for_scene(scene_manager.current_scene)
+	else:
+		print("警告: 背景纹理未加载，等待加载...")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		ui_layout_manager.update_all_layouts()
+		character.load_character_for_scene(scene_manager.current_scene)
 
 
 func _on_character_scene_changed(new_scene: String):
