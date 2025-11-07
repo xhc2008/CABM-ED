@@ -63,12 +63,6 @@
           "probability": 0.15
         },
         {
-          "item_id": "VSS-SF",
-          "min_count": 1,
-          "max_count": 1,
-          "probability": 0.1
-        },
-        {
           "item_id": "5.8mm_ammo",
           "min_count": 30,
           "max_count": 64,

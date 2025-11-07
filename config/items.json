@@ -10,7 +10,8 @@
       "damage": 42,
       "ammo_type": "5.8mm",
       "magazine_size": 30,
-      "fire_rate": 0.09
+      "fire_rate": 0.09,
+      "special_tags":["绑定"]
     },
     "UMP45": {
       "name": "UMP45",
@@ -34,7 +35,8 @@
       "damage": 65,
       "ammo_type": "9mm",
       "magazine_size": 20,
-      "fire_rate": 0.25
+      "fire_rate": 0.25,
+      "special_tags":["绑定"]
     },
     "5.8mm_ammo": {
       "name": "5.8mm子弹",

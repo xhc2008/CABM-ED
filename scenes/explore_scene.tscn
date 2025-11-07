@@ -2305,6 +2305,7 @@ layout_mode = 2
 [node name="InventoryButton" type="Button" parent="UI"]
 offset_right = 8.0
 offset_bottom = 8.0
+button_mask = 0
 
 [node name="VirtualJoystick" type="Control" parent="UI"]
 layout_mode = 3

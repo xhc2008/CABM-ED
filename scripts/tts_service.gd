@@ -291,7 +291,7 @@ func upload_reference_audio(force: bool = false):
 	# 添加customName字段
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
 	body.append_array("Content-Disposition: form-data; name=\"customName\"\r\n\r\n".to_utf8_buffer())
-	body.append_array("character-voice\r\n".to_utf8_buffer())
+	body.append_array("SnowFox-voice\r\n".to_utf8_buffer())
 	
 	# 添加text字段
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())

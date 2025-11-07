@@ -110,7 +110,8 @@ func _ready():
 func _input(event):
 	# 按 F12 打开存档调试面板
 	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
-		_show_save_debug_panel()
+		pass
+		# _show_save_debug_panel()
 	
 
 
