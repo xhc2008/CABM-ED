@@ -7,15 +7,15 @@ var scene_manager: SceneManager
 var sidebar
 var chat_dialog
 var action_menu
-var character_diary_button
 var character_diary_viewer
-var costume_button
-var music_button
-var cook_button
+
+# 存储所有交互元素的字典
+var interactive_elements = {}
 
 func initialize(scene_mgr: SceneManager):
 	"""初始化管理器"""
 	scene_manager = scene_mgr
+	_load_interactive_elements()
 
 func set_ui_references(refs: Dictionary):
 	"""设置UI组件引用"""
@@ -24,10 +24,32 @@ func set_ui_references(refs: Dictionary):
 	action_menu = refs.get("action_menu")
 	character_diary_viewer = refs.get("character_diary_viewer")
 	
-	# 简化四个按钮的引用设置
-	var button_names = ["character_diary_button", "costume_button", "music_button", "cook_button"]
-	for button_name in button_names:
-		set(button_name, refs.get(button_name))
+	# 动态设置交互元素引用
+	for element_id in interactive_elements:
+		if refs.has(element_id):
+			interactive_elements[element_id].node = refs[element_id]
+
+func _load_interactive_elements():
+	"""从JSON文件加载交互元素配置"""
+	var file = FileAccess.open("res://config/interactive_elements.json", FileAccess.READ)
+	if file:
+		var json = JSON.new()
+		var parse_result = json.parse(file.get_as_text())
+		file.close()
+		
+		if parse_result == OK:
+			var data = json.data
+			if data and data.has("elements"):
+				for element_id in data["elements"]:
+					var element_data = data["elements"][element_id]
+					interactive_elements[element_id] = {
+						"data": element_data,
+						"node": null
+					}
+		else:
+			push_error("解析interactive_elements.json失败: " + json.get_error_message())
+	else:
+		push_error("无法打开interactive_elements.json文件")
 
 func update_all_layouts():
 	"""更新所有UI组件的位置和大小"""
@@ -37,26 +59,30 @@ func update_all_layouts():
 	update_chat_dialog_layout()
 	update_character_diary_viewer_layout()
 	
-	# 合并四个按钮的布局更新
-	_update_button_layout("character_diary_button", character_diary_button)
-	_update_button_layout("costume_button", costume_button)
-	_update_button_layout("music_button", music_button)
-	_update_button_layout("cook_button", cook_button)
+	# 动态更新所有交互元素布局
+	_update_all_interactive_elements_layout()
 	
 	if action_menu and action_menu.visible:
 		update_action_menu_position()
 
-func _update_button_layout(button_id: String, button):
-	"""统一更新按钮布局"""
-	if not button:
+func _update_all_interactive_elements_layout():
+	"""更新所有交互元素的布局"""
+	for element_id in interactive_elements:
+		var element = interactive_elements[element_id]
+		if element.node and element.data.get("enabled", true):
+			_update_interactive_element_layout(element_id, element.node)
+
+func _update_interactive_element_layout(element_id: String, element_node):
+	"""更新单个交互元素的布局"""
+	if not element_node:
 		return
 	
 	var scene_rect = scene_manager.scene_rect
 	
 	if has_node("/root/InteractiveElementManager"):
 		var mgr = get_node("/root/InteractiveElementManager")
-		var element_size = button.custom_minimum_size if button.has_method("get_custom_minimum_size") else button.size
-		button.position = mgr.calculate_element_position(button_id, scene_rect, element_size)
+		var element_size = element_node.custom_minimum_size if element_node.has_method("get_custom_minimum_size") else element_node.size
+		element_node.position = mgr.calculate_element_position(element_id, scene_rect, element_size)
 
 func update_sidebar_layout():
 	"""更新侧边栏布局"""
@@ -124,3 +150,25 @@ func update_character_diary_viewer_layout():
 	var viewer_y = scene_rect.position.y + (scene_rect.size.y - character_diary_viewer.size.y) / 2
 	
 	character_diary_viewer.position = Vector2(viewer_x, viewer_y)
+
+func get_interactive_elements() -> Dictionary:
+	"""获取所有交互元素数据"""
+	return interactive_elements.duplicate(true)
+
+func is_element_enabled(element_id: String) -> bool:
+	"""检查指定元素是否启用"""
+	if interactive_elements.has(element_id):
+		return interactive_elements[element_id].data.get("enabled", true)
+	return false
+
+func set_element_enabled(element_id: String, enabled: bool):
+	"""设置元素启用状态"""
+	if interactive_elements.has(element_id):
+		interactive_elements[element_id].data["enabled"] = enabled
+		
+		# 立即更新布局
+		var element = interactive_elements[element_id]
+		if element.node:
+			element.node.visible = enabled
+			if enabled:
+				_update_interactive_element_layout(element_id, element.node)

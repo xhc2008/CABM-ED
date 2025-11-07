@@ -9,12 +9,8 @@ extends Control
 @onready var right_click_area = $Background/RightClickArea
 @onready var debug_helper = $CharacterDebugHelper
 @onready var audio_manager = $AudioManager
-@onready var character_diary_button = $CharacterDiaryButton if has_node("CharacterDiaryButton") else null
 @onready var character_diary_viewer = $CharacterDiaryViewer if has_node("CharacterDiaryViewer") else null
-@onready var music_button = $MusicButton if has_node("MusicButton") else null
-@onready var cook_button = $CookButton if has_node("CookButton") else null
 @onready var music_player_panel = $MusicPlayerPanel if has_node("MusicPlayerPanel") else null
-var costume_button = null
 
 # 管理器
 var scene_manager: SceneManager
@@ -24,14 +20,12 @@ var interaction_handler: InteractionHandler
 var game_state_manager: GameStateManager
 var costume_manager: CostumeManager
 
-
+# 存储动态创建的交互元素
+var dynamic_elements = {}
 
 func _ready():
 	# 检查并迁移旧日记数据
 	_check_and_migrate_diary()
-	
-	# 创建换装按钮（如果场景中不存在）
-	_setup_costume_button()
 	
 	# 初始化管理器
 	await _setup_managers()
@@ -90,16 +84,12 @@ func _setup_managers():
 	# 初始化UI布局管理器
 	ui_layout_manager = UILayoutManager.new()
 	ui_layout_manager.initialize(scene_manager)
-	ui_layout_manager.set_ui_references({
-		"sidebar": sidebar,
-		"chat_dialog": chat_dialog,
-		"action_menu": action_menu,
-		"character_diary_button": character_diary_button,
-		"character_diary_viewer": character_diary_viewer,
-		"costume_button": costume_button,
-		"music_button": music_button,
-		"cook_button": cook_button
-	})
+	
+	# 创建动态交互元素
+	await _create_dynamic_elements()
+	
+	# 设置UI引用
+	_set_ui_references()
 	add_child(ui_layout_manager)
 	
 	# 初始化消息显示管理器
@@ -119,7 +109,6 @@ func _setup_managers():
 		"character": character,
 		"action_menu": action_menu,
 		"scene_menu": scene_menu,
-		"character_diary_button": character_diary_button,
 		"current_scene": scene_manager.current_scene
 	})
 	add_child(game_state_manager)
@@ -127,21 +116,60 @@ func _setup_managers():
 	# 初始化换装管理器
 	costume_manager = CostumeManager.new()
 	costume_manager.initialize(character, message_display_manager)
-	costume_manager.set_costume_button(costume_button)
+	
+	# 设置换装按钮引用（如果存在）
+	var costume_button = dynamic_elements.get("costume_button")
+	if costume_button:
+		costume_manager.set_costume_button(costume_button)
+	
 	add_child(costume_manager)
 	
 	# 注册可交互UI元素到UIManager
 	if has_node("/root/UIManager"):
 		var ui_mgr = get_node("/root/UIManager")
 		ui_mgr.register_element(right_click_area)
-		if character_diary_button:
-			ui_mgr.register_element(character_diary_button)
-		if costume_button:
-			ui_mgr.register_element(costume_button)
-		if music_button:
-			ui_mgr.register_element(music_button)
-		if cook_button:
-			ui_mgr.register_element(cook_button)
+		
+		# 注册所有动态元素
+		for element_id in dynamic_elements:
+			ui_mgr.register_element(dynamic_elements[element_id])
+
+func _create_dynamic_elements():
+	"""根据配置创建动态交互元素"""
+	var interactive_elements = ui_layout_manager.get_interactive_elements()
+	
+	for element_id in interactive_elements:
+		
+		# 检查场景中是否已存在该元素
+		if has_node(element_id):
+			dynamic_elements[element_id] = get_node(element_id)
+			print("使用场景中的 ", element_id)
+		else:
+			# 动态创建元素
+			var element_scene = load("res://scenes/interactive_element.tscn")
+			if element_scene:
+				var element = element_scene.instantiate()
+				element.name = element_id
+				element.element_id = element_id
+				add_child(element)
+				dynamic_elements[element_id] = element
+				print("动态创建 ", element_id)
+			else:
+				print("警告: 无法加载 interactive_element.tscn")
+
+func _set_ui_references():
+	"""设置UI组件引用到布局管理器"""
+	var refs = {
+		"sidebar": sidebar,
+		"chat_dialog": chat_dialog,
+		"action_menu": action_menu,
+		"character_diary_viewer": character_diary_viewer
+	}
+	
+	# 添加所有动态元素引用
+	for element_id in dynamic_elements:
+		refs[element_id] = dynamic_elements[element_id]
+	
+	ui_layout_manager.set_ui_references(refs)
 
 func _connect_signals():
 	"""连接所有信号"""
@@ -180,10 +208,21 @@ func _connect_signals():
 	right_click_area.gui_input.connect(_on_right_area_input)
 	
 	# 角色日记
-	if character_diary_button:
-		character_diary_button.action_triggered.connect(_on_diary_action_triggered)
 	if character_diary_viewer:
 		character_diary_viewer.diary_closed.connect(_on_character_diary_closed)
+	
+	# 连接动态元素的信号
+	_connect_dynamic_elements_signals()
+
+func _connect_dynamic_elements_signals():
+	"""连接动态交互元素的信号"""
+	for element_id in dynamic_elements:
+		var element = dynamic_elements[element_id]
+		
+		if element_id == "character_diary_button" and element.has_signal("action_triggered"):
+			element.action_triggered.connect(_on_diary_action_triggered)
+		
+		# 可以根据需要添加其他元素的信号连接
 
 func _process(_delta):
 	# 持续更新场景区域信息
@@ -212,11 +251,10 @@ func _update_interactive_elements_visibility():
 	"""更新所有可交互元素的显示状态"""
 	var current_scene = scene_manager.current_scene
 	
-	# 统一处理所有交互元素的可见性
-	_update_element_visibility("costume_button", costume_button, current_scene)
-	_update_element_visibility("character_diary_button", character_diary_button, current_scene)
-	_update_element_visibility("music_button", music_button, current_scene)
-	_update_element_visibility("cook_button", cook_button, current_scene)
+	# 更新所有动态元素的可见性
+	for element_id in dynamic_elements:
+		var element = dynamic_elements[element_id]
+		_update_element_visibility(element_id, element, current_scene)
 
 func _update_element_visibility(element_id: String, element, current_scene: String):
 	"""统一更新单个交互元素的显示状态"""
@@ -394,7 +432,6 @@ func _on_gomoku_ended():
 		await get_tree().process_frame
 		ui_layout_manager.update_all_layouts()
 		character.load_character_for_scene(scene_manager.current_scene)
-
 
 func _on_character_scene_changed(new_scene: String):
 	"""角色场景变化时的处理"""
@@ -603,21 +640,3 @@ func _move_character_to_current_scene():
 			print("警告: 角色加载后仍不可见")
 		
 		_start_called_chat()
-
-
-func _setup_costume_button():
-	"""设置换装按钮（如果场景中不存在则动态创建）"""
-	if has_node("CostumeButton"):
-		costume_button = get_node("CostumeButton")
-		print("使用场景中的 CostumeButton")
-	else:
-		var costume_button_scene = load("res://scenes/interactive_element.tscn")
-		if costume_button_scene:
-			costume_button = costume_button_scene.instantiate()
-			costume_button.name = "CostumeButton"
-			costume_button.element_id = "costume_button"
-			add_child(costume_button)
-			print("动态创建 CostumeButton")
-		else:
-			print("警告: 无法加载 interactive_element.tscn")
-			return
