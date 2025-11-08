@@ -80,9 +80,9 @@
         "height": 150
       },
       "position": {
-        "anchor": "bottom_left",
-        "offset_x": 160,
-        "offset_y": -150
+        "anchor": "right_center",
+        "offset_x": -100,
+        "offset_y": 0
       },
       "scenes": [
         "kitchen"

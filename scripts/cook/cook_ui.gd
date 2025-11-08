@@ -40,11 +40,32 @@ var is_cleaning: bool = false
 # 在类变量中添加选中状态
 var selected_prep_slot_index: int = -1
 
+# 火焰动画
+var fire_sprite: AnimatedSprite2D = null
+var fire_sprite_frames: SpriteFrames = null
+
+# 火焰音效
+var fire_audio_player: AudioStreamPlayer = null
+var crack_audio_player: AudioStreamPlayer = null  # 火力变化音效
+
+# 菜品记录
+var cooked_dishes: Array[Dictionary] = []  # 存储所有做好的菜品
+
+# 上次火力值（用于检测变化）
+var last_heat_level: float = 0.0
+
 
 func _ready():
 	# 设置全屏
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# 加载背景图片
+	var background_node = get_node_or_null("Background")
+	if background_node:
+		var table_path = "res://assets/images/cook/table.png"
+		if ResourceLoader.exists(table_path):
+			background_node.texture = load(table_path)
 	
 	# 获取物品配置
 	if has_node("/root/InventoryManager"):
@@ -78,6 +99,18 @@ func _ready():
 		var pan_path = "res://assets/images/cook/pan.png"
 		if ResourceLoader.exists(pan_path):
 			pan_texture.texture = load(pan_path)
+	
+	# 创建火焰动画
+	_create_fire_animation()
+	
+	# 创建火焰音效播放器
+	_create_fire_audio()
+	
+	# 创建火力变化音效播放器
+	_create_crack_audio()
+	
+	# 初始化上次火力值
+	last_heat_level = 0.0
 	
 	# 调整准备栏布局 - 设置固定列数避免滚动条
 	if prep_grid:
@@ -120,6 +153,7 @@ func _process(delta):
 	if cook_manager:
 		cook_manager.update_cooking(delta)
 		_update_ingredient_sprites()
+		_update_fire_animation()
 
 func _create_prep_slots():
 	"""创建食材准备栏格子"""
@@ -363,8 +397,22 @@ func _override_inventory_transfer_logic():
 func _on_heat_changed(value: float):
 	"""火力值改变"""
 	if cook_manager:
-		cook_manager.heat_level = value / 100.0
+		var new_heat_level = value / 100.0
+		var old_heat_level = cook_manager.heat_level
+		cook_manager.heat_level = new_heat_level
 		_update_heat_label()
+		
+		# 检测火力变化（从0变为非0，或从非0变为0）
+		var was_zero = (old_heat_level == 0.0)
+		var is_zero = (new_heat_level == 0.0)
+		if was_zero != is_zero:
+			_play_crack_sound()
+		
+		_update_fire_animation()
+		_update_fire_audio()
+		
+		# 更新上次火力值
+		last_heat_level = new_heat_level
 
 func _update_heat_label():
 	"""更新火力标签"""
@@ -381,6 +429,9 @@ func _on_serve_pressed():
 	var ingredients_to_show = cook_manager.get_finished_ingredients()
 	cook_manager.clear_pan()
 	_clear_ingredient_sprites()
+	
+	# 记录菜品信息
+	_record_dish(ingredients_to_show)
 	
 	# 显示结果
 	_show_result(ingredients_to_show)
@@ -410,11 +461,21 @@ func _show_result(ingredients: Array):
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_KEEP_SIZE)
 	result_panel.add_child(vbox)
 	
-	# 标题
-	var title = Label.new()
-	title.text = "蜜汁炖菜"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	# 标题标签
+	var title_label = Label.new()
+	title_label.text = "菜名："
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_label)
+	
+	# 可编辑的标题输入框
+	var title_input = LineEdit.new()
+	title_input.text = "蜜汁炖菜"
+	title_input.placeholder_text = "请输入菜名"
+	title_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_input)
+	
+	# 保存标题输入框的引用，以便在关闭时获取
+	result_panel.set_meta("title_input", title_input)
 	
 	# 结果容器
 	var result_container = Control.new()
@@ -493,6 +554,15 @@ func _get_bowl_rect(bowl_container: Control) -> Rect2:
 func _on_result_closed():
 	"""结果面板关闭"""
 	if result_panel:
+		# 获取并更新最后一道菜的菜名
+		if cooked_dishes.size() > 0:
+			var title_input = result_panel.get_meta("title_input", null)
+			if title_input:
+				var dish_name = title_input.text.strip_edges()
+				if dish_name.is_empty():
+					dish_name = "蜜汁炖菜"  # 默认名称
+				cooked_dishes[-1]["dish_name"] = dish_name
+		
 		result_panel.queue_free()
 		result_panel = null
 
@@ -505,11 +575,35 @@ func _clear_ingredient_sprites():
 
 func _on_close_pressed():
 	"""关闭按钮被点击"""
+	# 如果有菜品记录，保存记忆
+	if cooked_dishes.size() > 0:
+		_save_cook_memory()
+	
 	game_ended.emit()
 
 func show_cook_ui():
 	"""显示烹饪UI"""
 	show()
+	# 更新火焰位置（如果存在）
+	if fire_sprite:
+		call_deferred("_update_fire_position")
+		# 根据当前火力更新火焰状态
+		_update_fire_animation()
+		_update_fire_audio()
+
+func _update_fire_position():
+	"""更新火焰位置"""
+	if not fire_sprite or not pan_texture:
+		return
+	
+	var pan_container = pan_texture.get_parent()
+	if not pan_container:
+		return
+	
+	# 计算火焰位置（相对于pan_container）
+	# 由于pan_texture填充整个pan_container，火焰位置就是容器中心偏下
+	var container_size = pan_container.size
+	fire_sprite.position = Vector2(container_size.x * 0.5, container_size.y * 0.9)
 
 func hide_cook_ui():
 	"""隐藏烹饪UI"""
@@ -518,3 +612,244 @@ func hide_cook_ui():
 	_clear_ingredient_sprites()
 	if cook_manager:
 		cook_manager.clear_pan()
+	# 停止火焰音效
+	if fire_audio_player:
+		fire_audio_player.stop()
+	# 隐藏火焰动画
+	if fire_sprite:
+		fire_sprite.visible = false
+
+func _create_fire_animation():
+	"""创建火焰动画"""
+	if not pan_texture:
+		return
+	
+	# 获取锅容器（PanContainer）
+	var pan_container = pan_texture.get_parent()
+	if not pan_container:
+		return
+	
+	# 创建SpriteFrames资源
+	fire_sprite_frames = SpriteFrames.new()
+	fire_sprite_frames.add_animation("fire")
+	
+	# 加载所有火焰帧（frame_0001.png 到 frame_0032.png）
+	for i in range(1, 33):  # 1到32
+		var frame_path = "res://assets/images/cook/fire/frame_%04d.png" % i
+		if ResourceLoader.exists(frame_path):
+			var texture = load(frame_path)
+			fire_sprite_frames.add_frame("fire", texture)
+	
+	# 设置动画速度
+	fire_sprite_frames.set_animation_speed("fire", 10.0)  # 10帧每秒
+	fire_sprite_frames.set_animation_loop("fire", true)
+	
+	# 创建AnimatedSprite2D节点
+	fire_sprite = AnimatedSprite2D.new()
+	fire_sprite.sprite_frames = fire_sprite_frames
+	fire_sprite.animation = "fire"
+	fire_sprite.visible = false
+	# 在Godot 4中，使用play()方法播放动画
+	fire_sprite.play("fire")
+	
+	# 将火焰添加到锅容器下，放在锅的底部中心
+	pan_container.add_child(fire_sprite)
+	# 设置z_index，确保火焰在背景之上
+	# AnimatedSprite2D是CanvasItem，默认会渲染在Control节点之上
+	# 设置z_index为0，确保在背景（z_index=-1）之上
+	fire_sprite.z_index = 0
+	
+	# 使用call_deferred来在下一帧更新位置
+	call_deferred("_update_fire_position")
+
+func _update_fire_animation():
+	"""更新火焰动画（根据火力调整大小和可见性）"""
+	if not fire_sprite or not cook_manager or not fire_sprite_frames:
+		return
+	
+	var heat_level = cook_manager.heat_level
+	
+	if heat_level > 0.0:
+		if not fire_sprite.visible:
+			fire_sprite.visible = true
+			# 确保动画在播放
+			if fire_sprite.animation != "fire" or not fire_sprite.is_playing():
+				fire_sprite.play("fire")
+		
+		# 根据火力调整大小（0.3到1.0倍）
+		var fire_scale = 0.3 + (heat_level * 0.7)
+		fire_sprite.scale = Vector2(fire_scale, fire_scale)
+		
+		# 调整动画速度（火力越大，动画越快）
+		var anim_speed = 8.0 + (heat_level * 12.0)  # 8-20帧每秒
+		fire_sprite_frames.set_animation_speed("fire", anim_speed)
+	else:
+		if fire_sprite.visible:
+			fire_sprite.visible = false
+			# 停止动画（可选，因为已经隐藏了）
+			if fire_sprite.is_playing():
+				fire_sprite.stop()
+
+func _create_fire_audio():
+	"""创建火焰音效播放器"""
+	fire_audio_player = AudioStreamPlayer.new()
+	add_child(fire_audio_player)
+	
+	# 加载火焰音效
+	var audio_path = "res://assets/audio/effect/burn.mp3"
+	if ResourceLoader.exists(audio_path):
+		var audio_stream = load(audio_path)
+		if audio_stream:
+			# 设置为循环播放
+			if audio_stream is AudioStreamMP3:
+				audio_stream.loop = true
+			elif audio_stream is AudioStreamOggVorbis:
+				audio_stream.loop = true
+			fire_audio_player.stream = audio_stream
+	else:
+		print("警告: 火焰音效文件不存在: ", audio_path)
+
+func _update_fire_audio():
+	"""更新火焰音效（根据火力播放或停止）"""
+	if not fire_audio_player:
+		return
+	
+	var heat_level = cook_manager.heat_level if cook_manager else 0.0
+	
+	if heat_level > 0.0:
+		if not fire_audio_player.playing:
+			fire_audio_player.play()
+		# 根据火力调整音量（0.3到1.0）
+		fire_audio_player.volume_db = linear_to_db(0.3 + (heat_level * 0.7))
+	else:
+		if fire_audio_player.playing:
+			fire_audio_player.stop()
+
+func _create_crack_audio():
+	"""创建火力变化音效播放器"""
+	crack_audio_player = AudioStreamPlayer.new()
+	add_child(crack_audio_player)
+	
+	# 加载火力变化音效
+	var audio_path = "res://assets/audio/effect/crack.mp3"
+	if ResourceLoader.exists(audio_path):
+		var audio_stream = load(audio_path)
+		if audio_stream:
+			crack_audio_player.stream = audio_stream
+	else:
+		print("警告: 火力变化音效文件不存在: ", audio_path)
+
+func _play_crack_sound():
+	"""播放火力变化音效"""
+	if not crack_audio_player:
+		return
+	
+	# 如果音效文件已加载，播放它
+	if crack_audio_player.stream:
+		crack_audio_player.play()
+		print("播放火力变化音效")
+
+func _record_dish(ingredients: Array):
+	"""记录菜品信息"""
+	if ingredients.is_empty():
+		return
+	
+	# 统计食材（模糊记录，只记录类型）
+	var ingredient_types = {}
+	var has_cooked = false
+	var has_burnt = false
+	
+	for ingredient in ingredients:
+		var item_id = ingredient.item_id
+		var item_config = items_config.get(item_id, {})
+		var item_name = item_config.get("name", item_id)
+		
+		# 模糊记录：只记录食材名称的一部分或简化名称
+		# 这里简单记录食材名称的前两个字或整个名称（如果很短）
+		var simple_name = item_name
+		if item_name.length() > 2:
+			simple_name = item_name.substr(0, 2) + "..."
+		
+		if simple_name in ingredient_types:
+			ingredient_types[simple_name] += 1
+		else:
+			ingredient_types[simple_name] = 1
+		
+		# 检查是否熟了或焦了
+		if ingredient.state == cook_manager.IngredientState.COOKED:
+			has_cooked = true
+		elif ingredient.state == cook_manager.IngredientState.BURNT:
+			has_burnt = true
+	
+	# 构建食材描述（模糊）
+	var ingredients_desc = ""
+	var ingredient_list = []
+	for ingredient_name in ingredient_types:
+		var count = ingredient_types[ingredient_name]
+		if count > 1:
+			ingredient_list.append("%s×%d" % [ingredient_name, count])
+		else:
+			ingredient_list.append(ingredient_name)
+	
+	if ingredient_list.size() > 0:
+		ingredients_desc = "、".join(ingredient_list)
+	else:
+		ingredients_desc = "未知食材"
+	
+	# 记录菜品
+	var dish = {
+		"dish_name": "蜜汁炖菜",  # 默认名称，会在关闭结果面板时更新
+		"ingredients": ingredients_desc,
+		"is_cooked": has_cooked,
+		"is_burnt": has_burnt
+	}
+	
+	cooked_dishes.append(dish)
+	print("记录菜品: ", dish)
+
+func _save_cook_memory():
+	"""保存烹饪记忆"""
+	if cooked_dishes.size() == 0:
+		return
+	
+	# 构建记忆内容
+	var memory_content = "做了%d道菜：" % cooked_dishes.size()
+	var dish_descriptions = []
+	
+	for dish in cooked_dishes:
+		var desc = dish.dish_name
+		var details = []
+		
+		if dish.has("ingredients"):
+			details.append("用了" + dish.ingredients)
+		
+		if dish.has("is_cooked"):
+			if dish.is_cooked:
+				details.append("熟了")
+			elif dish.has("is_burnt") and dish.is_burnt:
+				details.append("焦了")
+			else:
+				details.append("没熟")
+		
+		if details.size() > 0:
+			desc += "（" + "，".join(details) + "）"
+		
+		dish_descriptions.append(desc)
+	
+	memory_content += "；".join(dish_descriptions)
+	
+	# 保存记忆
+	if has_node("/root/UnifiedMemorySaver"):
+		var memory_saver = get_node("/root/UnifiedMemorySaver")
+		var MemoryTypeEnum = memory_saver.MemoryType
+		# 使用COOK类型
+		await memory_saver.save_memory(
+			memory_content,
+			MemoryTypeEnum.COOK,
+			null,
+			"",
+			{"type": "cook", "dish_count": cooked_dishes.size()}
+		)
+	
+	# 清空记录
+	cooked_dishes.clear()
