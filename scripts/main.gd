@@ -221,6 +221,8 @@ func _connect_dynamic_elements_signals():
 		
 		if element_id == "character_diary_button" and element.has_signal("action_triggered"):
 			element.action_triggered.connect(_on_diary_action_triggered)
+		elif element_id == "cook_button" and element.has_signal("action_triggered"):
+			element.action_triggered.connect(_on_cook_action_triggered)
 		
 		# 可以根据需要添加其他元素的信号连接
 
@@ -413,6 +415,53 @@ func _start_gomoku_game():
 func _on_gomoku_ended():
 	for child in get_children():
 		if child.name == "GomokuGame":
+			child.queue_free()
+	
+	game_state_manager.show_main_scene()
+	
+	# 等待背景完全加载后再更新角色状态
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# 确保背景纹理已加载
+	if background.texture:
+		ui_layout_manager.update_all_layouts()
+		# 重新加载角色（此时背景已准备好）
+		character.load_character_for_scene(scene_manager.current_scene)
+	else:
+		print("警告: 背景纹理未加载，等待加载...")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		ui_layout_manager.update_all_layouts()
+		character.load_character_for_scene(scene_manager.current_scene)
+
+func _on_cook_action_triggered(action: String):
+	"""烹饪按钮动作触发"""
+	if action == "start_cook":
+		_start_cook_game()
+
+func _start_cook_game():
+	"""开始烹饪游戏"""
+	print("开始加载烹饪游戏")
+	var cook_scene = load("res://scenes/cook_game.tscn")
+	if cook_scene:
+		print("烹饪场景加载成功")
+		var cook = cook_scene.instantiate()
+		cook.game_ended.connect(_on_cook_ended)
+		
+		game_state_manager.hide_main_scene()
+		
+		add_child(cook)
+		cook.z_index = 100
+		cook.show_cook_ui()
+		print("烹饪游戏已添加到场景树")
+	else:
+		print("错误：无法加载烹饪场景")
+
+func _on_cook_ended():
+	"""烹饪游戏结束"""
+	for child in get_children():
+		if child.name == "CookGame":
 			child.queue_free()
 	
 	game_state_manager.show_main_scene()

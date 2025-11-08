@@ -5,9 +5,11 @@ extends Node
 
 const INVENTORY_SIZE = 30  # 背包格子数量
 const WAREHOUSE_SIZE=60
+const COOK_PREP_SIZE = 20  # 烹饪准备栏格子数量
 
 var inventory_container: StorageContainer
 var warehouse_container: StorageContainer
+var cook_prep_container: StorageContainer  # 烹饪准备栏
 
 var items_config: Dictionary = {}  # 物品配置
 var unique_items: Array = []  # 唯一物品列表
@@ -78,6 +80,9 @@ func _manage_unique_items():
 	
 	# 扫描仓库
 	_scan_container_for_unique_items(warehouse_container, "warehouse", item_counts, item_locations)
+	
+	# 扫描烹饪准备栏
+	_scan_container_for_unique_items(cook_prep_container, "cook_prep", item_counts, item_locations)
 	
 	# 只处理重复的唯一物品（删除多余的）
 	for item_id in unique_items:
@@ -239,6 +244,8 @@ func _initialize_storage():
 	inventory_container = StorageContainer.new(INVENTORY_SIZE, items_config, true)
 	# 仓库物品
 	warehouse_container = StorageContainer.new(WAREHOUSE_SIZE, items_config, false)
+	# 烹饪准备栏（无武器栏）
+	cook_prep_container = StorageContainer.new(COOK_PREP_SIZE, items_config, false)
 
 func get_item_config(item_id: String) -> Dictionary:
 	"""获取物品配置"""
@@ -256,7 +263,8 @@ func get_storage_data() -> Dictionary:
 	"""获取存储数据用于保存"""
 	return {
 		"inventory": inventory_container.get_data(),
-		"warehouse": warehouse_container.get_data()
+		"warehouse": warehouse_container.get_data(),
+		"cook_prep": cook_prep_container.get_data()
 	}
 
 func load_storage_data(data: Dictionary):
@@ -265,6 +273,8 @@ func load_storage_data(data: Dictionary):
 		inventory_container.load_data(data.inventory)
 	if data.has("warehouse"):
 		warehouse_container.load_data(data.warehouse)
+	if data.has("cook_prep"):
+		cook_prep_container.load_data(data.cook_prep)
 	
 	# 加载后检查并管理唯一物品
 	_manage_unique_items()
