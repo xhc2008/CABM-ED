@@ -855,15 +855,15 @@ func _calculate_word_limit(conversation_count: int) -> int:
     - 9条及以上：110字
 	"""
 	if conversation_count <= 2:
-		return 20
+		return 30
 	elif conversation_count <= 4:
-		return 40
+		return 50
 	elif conversation_count <= 6:
-		return 60
+		return 70
 	elif conversation_count <= 8:
-		return 80
+		return 90
 	else:
-		return 100
+		return 110
 
 func _save_temp_conversation():
 	"""保存当前对话到临时文件"""
