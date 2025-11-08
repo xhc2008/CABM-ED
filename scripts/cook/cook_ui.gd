@@ -44,7 +44,7 @@ var selected_prep_slot_index: int = -1
 var fire_sprite: AnimatedSprite2D = null
 var fire_sprite_frames: SpriteFrames = null
 # 火焰位置偏移
-var fire_position_offset: Vector2 = Vector2(-55, -230)  # 默认偏移：向右0，向下20像素
+var fire_position_offset: Vector2 = Vector2(-55, -240)  # 默认偏移：向右，向下
 # 火焰音效
 var fire_audio_player: AudioStreamPlayer = null
 var crack_audio_player: AudioStreamPlayer = null  # 火力变化音效
@@ -680,8 +680,8 @@ func _update_fire_animation():
 			if fire_sprite.animation != "fire" or not fire_sprite.is_playing():
 				fire_sprite.play("fire")
 		
-		# 根据火力调整大小（0.3到1.0倍）
-		var fire_scale = 0.3 + (heat_level * 0.7)
+		# 根据火力调整大小（0.5到1.2倍）
+		var fire_scale = 0.6 + (heat_level * 0.6)
 		fire_sprite.scale = Vector2(fire_scale, fire_scale)
 		
 		# 调整动画速度（火力越大，动画越快）
@@ -758,89 +758,30 @@ func _record_dish(ingredients: Array):
 	if ingredients.is_empty():
 		return
 	
-	# 统计食材（模糊记录，只记录类型）
-	var ingredient_types = {}
-	var has_cooked = false
-	var has_burnt = false
-	
-	for ingredient in ingredients:
-		var item_id = ingredient.item_id
-		var item_config = items_config.get(item_id, {})
-		var item_name = item_config.get("name", item_id)
-		
-		# 模糊记录：只记录食材名称的一部分或简化名称
-		# 这里简单记录食材名称的前两个字或整个名称（如果很短）
-		var simple_name = item_name
-		if item_name.length() > 2:
-			simple_name = item_name.substr(0, 2) + "..."
-		
-		if simple_name in ingredient_types:
-			ingredient_types[simple_name] += 1
-		else:
-			ingredient_types[simple_name] = 1
-		
-		# 检查是否熟了或焦了
-		if ingredient.state == cook_manager.IngredientState.COOKED:
-			has_cooked = true
-		elif ingredient.state == cook_manager.IngredientState.BURNT:
-			has_burnt = true
-	
-	# 构建食材描述（模糊）
-	var ingredients_desc = ""
-	var ingredient_list = []
-	for ingredient_name in ingredient_types:
-		var count = ingredient_types[ingredient_name]
-		if count > 1:
-			ingredient_list.append("%s×%d" % [ingredient_name, count])
-		else:
-			ingredient_list.append(ingredient_name)
-	
-	if ingredient_list.size() > 0:
-		ingredients_desc = "、".join(ingredient_list)
-	else:
-		ingredients_desc = "未知食材"
-	
-	# 记录菜品
-	var dish = {
-		"dish_name": "蜜汁炖菜",  # 默认名称，会在关闭结果面板时更新
-		"ingredients": ingredients_desc,
-		"is_cooked": has_cooked,
-		"is_burnt": has_burnt
-	}
-	
-	cooked_dishes.append(dish)
-	print("记录菜品: ", dish)
+	var dish = cook_manager.record_dish(ingredients, items_config)
+	if not dish.is_empty():
+		cooked_dishes.append(dish)
+		print("记录菜品: ", dish)
 
 func _save_cook_memory():
 	"""保存烹饪记忆"""
 	if cooked_dishes.size() == 0:
 		return
 	
+	# 获取用户名和角色所在场景
+	var user_name = "未设置"
+	var character_scene = ""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		user_name = save_mgr.get_user_name()
+		character_scene = save_mgr.get_character_scene()
+	
 	# 构建记忆内容
-	var memory_content = "做了%d道菜：" % cooked_dishes.size()
-	var dish_descriptions = []
+	var memory_content = cook_manager.build_cook_memory_content(cooked_dishes, user_name, character_scene)
 	
-	for dish in cooked_dishes:
-		var desc = dish.dish_name
-		var details = []
-		
-		if dish.has("ingredients"):
-			details.append("用了" + dish.ingredients)
-		
-		if dish.has("is_cooked"):
-			if dish.is_cooked:
-				details.append("熟了")
-			elif dish.has("is_burnt") and dish.is_burnt:
-				details.append("焦了")
-			else:
-				details.append("没熟")
-		
-		if details.size() > 0:
-			desc += "（" + "，".join(details) + "）"
-		
-		dish_descriptions.append(desc)
-	
-	memory_content += "；".join(dish_descriptions)
+	if memory_content.is_empty():
+		cooked_dishes.clear()
+		return
 	
 	# 保存记忆
 	if has_node("/root/UnifiedMemorySaver"):

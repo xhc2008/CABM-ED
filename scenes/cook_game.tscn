@@ -56,8 +56,8 @@ anchor_top = 0.5
 anchor_bottom = 0.5
 offset_left = 30.0
 offset_top = -250.0
-offset_right = 320.0
-offset_bottom = 250.0
+offset_right = 300.0
+offset_bottom = 220.0
 grow_vertical = 2
 
 [node name="VBox" type="VBoxContainer" parent="PrepPanel"]
@@ -92,7 +92,7 @@ anchor_bottom = 0.5
 offset_left = -280.0
 offset_top = -200.0
 offset_right = -30.0
-offset_bottom = 200.0
+offset_bottom = 0.0
 grow_horizontal = 0
 grow_vertical = 2
 
@@ -102,13 +102,13 @@ layout_mode = 2
 [node name="Title" type="Label" parent="ControlPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "控制"
+text = "操作"
 horizontal_alignment = 1
 
 [node name="HeatLabel" type="Label" parent="ControlPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "火力: 50%"
+text = "火力: 0%"
 horizontal_alignment = 1
 
 [node name="HeatSlider" type="HSlider" parent="ControlPanel/VBox"]
