@@ -37,6 +37,10 @@ var result_panel: PanelContainer = null
 # 防止清理时的循环触发
 var is_cleaning: bool = false
 
+# 在类变量中添加选中状态
+var selected_prep_slot_index: int = -1
+
+
 func _ready():
 	# 设置全屏
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -63,9 +67,10 @@ func _ready():
 	if close_button:
 		close_button.pressed.connect(_on_close_pressed)
 	
-	# 初始化火力显示
+	# 初始化火力显示 - 默认值改为0
 	if heat_slider:
-		heat_slider.value = cook_manager.heat_level * 100.0
+		heat_slider.value = 0.0
+		cook_manager.heat_level = 0.0
 		_update_heat_label()
 	
 	# 加载锅的图片
@@ -74,11 +79,38 @@ func _ready():
 		if ResourceLoader.exists(pan_path):
 			pan_texture.texture = load(pan_path)
 	
+	# 调整准备栏布局 - 设置固定列数避免滚动条
+	if prep_grid:
+		prep_grid.columns = 4
+	
 	# 创建食材准备栏格子
 	_create_prep_slots()
 	_refresh_prep_slots()
 	
 	hide()
+
+func _refresh_prep_slots():
+	"""刷新食材准备栏格子"""
+	if not prep_container:
+		return
+	
+	for i in range(prep_slots.size()):
+		if i < prep_container.storage.size():
+			prep_slots[i].set_item(prep_container.storage[i])
+		else:
+			prep_slots[i].set_item(null)
+	
+	# 更新选中状态
+	_update_prep_slots_selection()
+
+func _update_prep_slots_selection():
+	"""更新准备栏格子的选中状态"""
+	for i in range(prep_slots.size()):
+		var slot = prep_slots[i]
+		if i == selected_prep_slot_index:
+			slot.modulate = Color.YELLOW  # 选中状态用黄色高亮
+		else:
+			slot.modulate = Color.WHITE
 
 func _process(delta):
 	if not visible:
@@ -104,8 +136,7 @@ func _create_prep_slots():
 		var slot = SLOT_SCENE.instantiate()
 		slot.setup(i, "prep")
 		slot.slot_clicked.connect(_on_prep_slot_clicked)
-		slot.drag_started.connect(_on_prep_drag_started)
-		slot.drag_ended.connect(_on_prep_drag_ended)
+		# 移除拖拽相关的信号连接
 		prep_grid.add_child(slot)
 		prep_slots.append(slot)
 
@@ -151,26 +182,40 @@ func _cleanup_non_ingredient_items():
 	# 清除清理标志
 	is_cleaning = false
 
-func _refresh_prep_slots():
-	"""刷新食材准备栏格子"""
+func _on_prep_slot_clicked(slot_index: int, _storage_type: String):
+	"""准备栏格子被点击"""
+	if selected_prep_slot_index == slot_index:
+		# 再次点击选中的格子，放入锅中
+		_try_add_selected_ingredient_to_pan()
+	else:
+		# 选中该格子
+		selected_prep_slot_index = slot_index
+		_update_prep_slots_selection()
+
+func _try_add_selected_ingredient_to_pan():
+	"""尝试将选中的食材放入锅中"""
+	if selected_prep_slot_index == -1:
+		return
+	
 	if not prep_container:
 		return
 	
-	for i in range(prep_slots.size()):
-		if i < prep_container.storage.size():
-			prep_slots[i].set_item(prep_container.storage[i])
-		else:
-			prep_slots[i].set_item(null)
-
-func _on_prep_slot_clicked(_slot_index: int, _storage_type: String):
-	"""准备栏格子被点击"""
-	# 可以添加选中逻辑
-	pass
-
-func _on_prep_drag_started(_slot_index: int, _storage_type: String):
-	"""开始拖拽准备栏物品"""
-	# 可以添加拖拽预览
-	pass
+	var item = prep_container.storage[selected_prep_slot_index]
+	if item == null:
+		return
+	
+	# 检查是否是食材
+	var item_config = items_config.get(item.item_id, {})
+	if item_config.get("type") != "食材":
+		return
+	
+	# 尝试添加到锅中
+	if _add_ingredient_to_pan(item.item_id):
+		# 消耗物品
+		prep_container.remove_item(selected_prep_slot_index, 1)
+		# 取消选中
+		selected_prep_slot_index = -1
+		_update_prep_slots_selection()
 
 func _on_prep_drag_ended(slot_index: int, _storage_type: String):
 	"""结束拖拽准备栏物品"""
@@ -192,24 +237,32 @@ func _on_prep_drag_ended(slot_index: int, _storage_type: String):
 				# 消耗物品
 				prep_container.remove_item(slot_index, 1)
 
-func _add_ingredient_to_pan(item_id: String):
-	"""添加食材到锅中"""
+func _add_ingredient_to_pan(item_id: String) -> bool:
+	"""添加食材到锅中，返回是否成功"""
 	if not cook_manager or not pan_texture:
-		return
+		return false
+	
+	# 检查最大数量
+	if cook_manager.pan_ingredients.size() >= 20:
+		# 可以在这里显示提示信息
+		print("锅内食材已满，最多只能放入20个食材")
+		return false
 	
 	var pan_rect = _get_pan_rect()
 	cook_manager.add_ingredient_to_pan(item_id, pan_rect)
 	
 	# 创建食材精灵
 	_create_ingredient_sprite(item_id)
+	return true
 
 func _get_pan_rect() -> Rect2:
 	"""获取锅的矩形区域（相对于锅容器）"""
 	if not pan_texture:
 		return Rect2()
 	
-	# 返回相对于pan_texture的矩形
-	return Rect2(Vector2(0, 0), pan_texture.size)
+	# 返回相对于pan_texture的矩形，范围调小到锅的实际区域
+	var margin = pan_texture.size * 0.3  # 缩小的边距
+	return Rect2(margin, pan_texture.size - margin * 2)
 
 func _create_ingredient_sprite(item_id: String):
 	"""创建食材精灵"""
@@ -220,9 +273,9 @@ func _create_ingredient_sprite(item_id: String):
 	if item_config.is_empty():
 		return
 	
-	# 创建精灵节点
+	# 创建精灵节点 - 放大食材大小
 	var sprite = Control.new()
-	sprite.custom_minimum_size = Vector2(32, 32)
+	sprite.custom_minimum_size = Vector2(80, 80)  # 从32x32放大到64x64
 	sprite.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	
 	var icon = TextureRect.new()
@@ -243,7 +296,7 @@ func _create_ingredient_sprite(item_id: String):
 	# 设置位置（使用最后一个食材的位置，相对于锅）
 	if cook_manager.pan_ingredients.size() > 0:
 		var last_ingredient = cook_manager.pan_ingredients[-1]
-		sprite.position = last_ingredient.position - Vector2(16, 16)
+		sprite.position = last_ingredient.position - Vector2(32, 32)  # 调整居中偏移量
 		sprite.rotation = last_ingredient.rotation
 	
 	ingredient_sprites.append(sprite)
@@ -279,7 +332,7 @@ func _open_inventory_for_prep():
 	
 	# 设置玩家背包和准备栏
 	inventory_ui.setup_player_inventory(inv_mgr.inventory_container, "背包")
-	inventory_ui.setup_other_container(prep_container, "食材准备栏")
+	inventory_ui.setup_other_container(prep_container, "食材准备")
 	
 	# 打开背包UI
 	inventory_ui.open_with_container()
@@ -324,10 +377,15 @@ func _on_serve_pressed():
 	if cook_manager.pan_ingredients.is_empty():
 		return
 	
+	# 先移除锅中食材
+	var ingredients_to_show = cook_manager.get_finished_ingredients()
+	cook_manager.clear_pan()
+	_clear_ingredient_sprites()
+	
 	# 显示结果
-	_show_result()
+	_show_result(ingredients_to_show)
 
-func _show_result():
+func _show_result(ingredients: Array):
 	"""显示出锅结果"""
 	if result_panel:
 		result_panel.queue_free()
@@ -335,23 +393,32 @@ func _show_result():
 	# 创建结果面板
 	result_panel = PanelContainer.new()
 	result_panel.custom_minimum_size = Vector2(600, 400)
+	
+	# 确保居中显示
 	result_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	var viewport_size = get_viewport_rect().size
+	result_panel.position = Vector2(
+		(viewport_size.x - result_panel.custom_minimum_size.x) * 0.5,
+		(viewport_size.y - result_panel.custom_minimum_size.y) * 0.5
+	)
+	
 	add_child(result_panel)
 	
+	# 其余代码保持不变...
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.size = result_panel.custom_minimum_size
 	result_panel.add_child(vbox)
 	
 	# 标题
 	var title = Label.new()
-	title.text = "出锅结果"
+	title.text = "出锅"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	
 	# 结果容器（使用bowl.png作为背景）
 	var result_container = Control.new()
 	result_container.custom_minimum_size = Vector2(500, 300)
-	result_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	
 	# 背景图片
 	var bowl_bg = TextureRect.new()
@@ -370,10 +437,9 @@ func _show_result():
 	await get_tree().process_frame
 	
 	# 显示食材
-	var ingredients = cook_manager.get_finished_ingredients()
 	for ingredient in ingredients:
 		var sprite = Control.new()
-		sprite.custom_minimum_size = Vector2(32, 32)
+		sprite.custom_minimum_size = Vector2(80, 80)  # 同样放大显示
 		sprite.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		
 		var icon = TextureRect.new()
@@ -391,7 +457,6 @@ func _show_result():
 		sprite.add_child(icon)
 		
 		# 将位置映射到result_container中（相对位置）
-		# ingredient.position是相对于锅的位置，需要映射到碗的尺寸
 		var pan_size = pan_texture.size if pan_texture else Vector2(500, 400)
 		var bowl_size = result_container.size
 		var scale_x = bowl_size.x / pan_size.x
@@ -401,7 +466,7 @@ func _show_result():
 			ingredient.position.y * scale_y
 		)
 		
-		sprite.position = mapped_pos - Vector2(16, 16)  # 居中
+		sprite.position = mapped_pos - Vector2(32, 32)  # 居中，调整偏移量
 		sprite.rotation = ingredient.rotation
 		sprite.modulate = cook_manager.get_ingredient_color(ingredient)
 		result_container.add_child(sprite)
@@ -417,11 +482,6 @@ func _on_result_closed():
 	if result_panel:
 		result_panel.queue_free()
 		result_panel = null
-	
-	# 清空锅
-	if cook_manager:
-		cook_manager.clear_pan()
-		_clear_ingredient_sprites()
 
 func _clear_ingredient_sprites():
 	"""清空食材精灵"""
@@ -445,4 +505,3 @@ func hide_cook_ui():
 	_clear_ingredient_sprites()
 	if cook_manager:
 		cook_manager.clear_pan()
-

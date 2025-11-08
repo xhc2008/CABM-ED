@@ -33,10 +33,14 @@ func _init(config: Dictionary):
 
 func add_ingredient_to_pan(item_id: String, pan_rect: Rect2):
 	"""添加食材到锅中"""
-	# 随机位置和角度
+	# 检查最大数量限制
+	if pan_ingredients.size() >= 20:
+		return
+	
+	# 随机位置和角度，偏左上角（锅柄在右下角）
 	var rand_pos = Vector2(
-		randf_range(pan_rect.position.x + 50, pan_rect.position.x + pan_rect.size.x - 50),
-		randf_range(pan_rect.position.y + 50, pan_rect.position.y + pan_rect.size.y - 50)
+		randf_range(pan_rect.position.x + 30, pan_rect.position.x + pan_rect.size.x * 0.7),  # 调整范围，更偏左
+		randf_range(pan_rect.position.y + 30, pan_rect.position.y + pan_rect.size.y * 0.7)   # 调整范围，更偏上
 	)
 	var rand_rot = randf() * PI * 2
 	
@@ -46,17 +50,22 @@ func add_ingredient_to_pan(item_id: String, pan_rect: Rect2):
 func update_cooking(delta: float):
 	"""更新烹饪状态"""
 	for ingredient in pan_ingredients:
+		# 获取该食材的烹饪时间配置
+		var item_config = items_config.get(ingredient.item_id, {})
+		var total_cook_time = item_config.get("cook_time", 9.0)  # 默认9秒
+		
 		ingredient.cook_time += delta * heat_level
 		
-		# 根据烹饪时间改变状态
-		# 假设：0-3秒生，3-6秒半熟，6-9秒熟，9秒以上焦糊
-		if ingredient.cook_time < 3.0:
+		# 根据烹饪时间占总时间的比例改变状态
+		var progress = ingredient.cook_time / total_cook_time
+		
+		if progress < 0.33:  # 0-33%
 			ingredient.state = IngredientState.RAW
-		elif ingredient.cook_time < 6.0:
+		elif progress < 0.66:  # 33-66%
 			ingredient.state = IngredientState.MEDIUM
-		elif ingredient.cook_time < 9.0:
+		elif progress < 1.0:  # 66-100%
 			ingredient.state = IngredientState.COOKED
-		else:
+		else:  # 超过100%
 			ingredient.state = IngredientState.BURNT
 
 func get_ingredient_color(ingredient: PanIngredient) -> Color:

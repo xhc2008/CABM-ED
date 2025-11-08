@@ -99,7 +99,8 @@
       "description": "能做金苹果嘛……？",
       "icon": "apple.png",
       "weight": 0.2,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 8.0
     },
     "beef": {
       "name": "牛肉",
@@ -107,7 +108,8 @@
       "description": "新鲜的牛肉",
       "icon": "beef.png",
       "weight": 0.5,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "beetroot": {
       "name": "甜菜根",
@@ -115,7 +117,8 @@
       "description": "可食用的根茎类蔬菜",
       "icon": "beetroot.png",
       "weight": 0.3,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "bread": {
       "name": "面包",
@@ -123,7 +126,8 @@
       "description": "新鲜烤制的面包",
       "icon": "bread.png",
       "weight": 0.4,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "cake": {
       "name": "蛋糕",
@@ -131,7 +135,8 @@
       "description": "上面三个小麦，下面三桶牛奶，中间一个糖两个鸡蛋……补兑！",
       "icon": "cake.png",
       "weight": 0.8,
-      "max_stack": 1
+      "max_stack": 1,
+      "cook_time": 3.0
     },
     "carrot": {
       "name": "胡萝卜",
@@ -139,7 +144,8 @@
       "description": "富含维生素的胡萝卜",
       "icon": "carrot.png",
       "weight": 0.2,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 10.0
     },
     "chicken": {
       "name": "鸡肉",
@@ -147,7 +153,8 @@
       "description": "新鲜的鸡肉",
       "icon": "chicken.png",
       "weight": 0.4,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "cookie": {
       "name": "曲奇",
@@ -155,7 +162,8 @@
       "description": "香甜的曲奇饼干",
       "icon": "cookie.png",
       "weight": 0.1,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 3.0
     },
     "mutton": {
       "name": "羊肉",
@@ -163,7 +171,8 @@
       "description": "新鲜的羊肉",
       "icon": "mutton.png",
       "weight": 0.5,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "porkchop": {
       "name": "猪肉",
@@ -171,7 +180,8 @@
       "description": "新鲜的猪肉",
       "icon": "porkchop.png",
       "weight": 0.5,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 12.0
     },
     "potato": {
       "name": "土豆",
@@ -179,7 +189,8 @@
       "description": "可烹饪的土豆",
       "icon": "potato.png",
       "weight": 0.3,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 10.0
     },
     "pumpkin_pie": {
       "name": "南瓜派",
@@ -187,7 +198,8 @@
       "description": "香甜的南瓜派",
       "icon": "pumpkin_pie.png",
       "weight": 0.6,
-      "max_stack": 16
+      "max_stack": 16,
+      "cook_time": 6.0
     },
     "rabbit": {
       "name": "兔肉",
@@ -195,7 +207,8 @@
       "description": "她好像很喜欢吃这个，难道说……？",
       "icon": "rabbit.png",
       "weight": 0.3,
-      "max_stack": 64
+      "max_stack": 64,
+      "cook_time": 10.0
     },
     "amethyst": {
       "name": "紫水晶",
