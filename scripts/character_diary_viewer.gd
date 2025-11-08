@@ -278,74 +278,57 @@ func _display_records():
 	for record in current_records:
 		_add_diary_card(record)
 
-func _create_record_content(record: Dictionary) -> VBoxContainer:
+# --- 通用辅助函数 ---
+func _get_icon_and_content_for_record(record: Dictionary) -> Dictionary:
 	"""
-	通用函数：根据记录类型创建卡片内容容器 (VBoxContainer)
-	适用于 chat, games, offline, cook 等类型。
+	根据记录类型，返回图标和内容文本的字典。
+	适用于 cook, games, offline 类型。
 	"""
 	var record_type = record.get("type", "offline")
-	var card_vbox = VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 8)
-	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var time_str = record.get("time", "")
+	var event_text = record.get("event", "")
 
-	var time_str = record.get("time", "") # games, offline, cook
-	var timestamp = record.get("timestamp", "") # chat
-	var event_text = record.get("event", "") # games, offline, cook
-	var summary = record.get("summary", "无总结") # chat, cook (if summary exists)
-	var conversation = record.get("conversation", "") # chat
-	var cook_details = record.get("details", "") # cook
-
-	# 格式化时间显示
-	var display_time = ""
-	if record_type == "chat":
-		display_time = _format_chat_time_display(timestamp)
-	else: # games, offline, cook
-		display_time = _format_time_display(time_str)
-
-	# 创建时间标签
-	var time_label = Label.new()
-	if record_type == "games":
-		time_label.text = "🎮 " + display_time
-	elif record_type == "chat":
-		time_label.text = "💬 " + display_time
-	elif record_type == "cook":
-		time_label.text = "🍳 " + display_time
-	else: # offline
-		time_label.text = "⏰ " + display_time
-
-	time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	time_label.custom_minimum_size.x = 700
-	time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_vbox.add_child(time_label)
-
-	# 创建内容标签
-	var content_label = Label.new()
-	content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	content_label.custom_minimum_size.x = 700
-	content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon = ""
+	var content_text = event_text # 默认内容为 event
 
 	match record_type:
 		"games":
-			content_label.text = event_text
-		"chat":
-			var display_summary = summary
-			if summary.length() > 150:
-				display_summary = summary.substr(0, 150) + "..."
-			content_label.text = display_summary
+			icon = "🎮"
 		"cook":
-			# 优先显示详情，如果没有则显示事件
-			var display_content = cook_details if not cook_details.is_empty() else event_text
-			content_label.text = display_content
+			icon = "🍳"
+			# 如果 cook 类型有 details 字段，优先使用
+			var details = record.get("details", "")
+			if not details.is_empty():
+				content_text = details
 		"offline":
-			content_label.text = event_text
+			icon = "⏰"
 		_:
-			content_label.text = "未知类型: " + str(record)
+			icon = "❓" # 未知类型图标
 
-	card_vbox.add_child(content_label)
-	return card_vbox
+	return {
+		"icon": icon,
+		"display_time": _format_time_display(time_str),
+		"content_text": content_text
+	}
+
+func _create_panel_style() -> StyleBoxFlat:
+	"""创建一个通用的卡片面板样式"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.15, 0.5)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.3, 0.3, 0.3, 0.7)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.content_margin_left = 15
+	style.content_margin_top = 15
+	style.content_margin_right = 15
+	style.content_margin_bottom = 15
+	return style
 
 func _add_diary_card(record: Dictionary):
 	"""添加一个日记卡片"""
@@ -354,32 +337,40 @@ func _add_diary_card(record: Dictionary):
 	# 创建卡片容器
 	var card_panel = PanelContainer.new()
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_panel.add_theme_stylebox_override("panel", _create_panel_style())
 
-	# 设置样式
-	var style_normal = StyleBoxFlat.new()
-	style_normal.bg_color = Color(0.15, 0.15, 0.15, 0.5)
-	style_normal.border_width_left = 2
-	style_normal.border_width_top = 2
-	style_normal.border_width_right = 2
-	style_normal.border_width_bottom = 2
-	style_normal.border_color = Color(0.3, 0.3, 0.3, 0.7)
-	style_normal.corner_radius_top_left = 8
-	style_normal.corner_radius_top_right = 8
-	style_normal.corner_radius_bottom_left = 8
-	style_normal.corner_radius_bottom_right = 8
-	style_normal.content_margin_left = 15
-	style_normal.content_margin_top = 15
-	style_normal.content_margin_right = 15
-	style_normal.content_margin_bottom = 15
-	card_panel.add_theme_stylebox_override("panel", style_normal)
+	# 创建内容容器
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 8)
+	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE # 内容区域忽略鼠标事件
 
-	# 使用通用函数创建内容
-	var card_vbox = _create_record_content(record)
-
-	# --- 类型特定的处理 ---
 	if record_type == "chat":
-		# chat类型：可点击查看详情
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# chat类型：显示总结，可点击查看详情
+		var timestamp = record.get("timestamp", "")
+		var summary = record.get("summary", "无总结")
+		# 格式化时间显示（只显示到分钟）
+		var display_time = _format_chat_time_display(timestamp)
+		# 时间标签（带💬标记）
+		var time_label = Label.new()
+		time_label.text = "💬 " + display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		# 总结内容（截断显示）
+		var summary_label = Label.new()
+		var display_summary = summary
+		if summary.length() > 150:
+			display_summary = summary.substr(0, 150) + "..."
+		summary_label.text = display_summary
+		summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		summary_label.custom_minimum_size.x = 700
+		summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(summary_label)
 		card_panel.add_child(card_vbox)
 
 		# 使用Control代替Button，手动处理触摸事件以改善移动端滑动体验
@@ -390,24 +381,41 @@ func _add_diary_card(record: Dictionary):
 		card_panel.add_child(click_area)
 
 		# 手动处理触摸/点击事件
-		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, style_normal, click_area))
+		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, _create_panel_style(), click_area))
 
 		# 鼠标悬停效果（仅桌面端）
 		click_area.mouse_entered.connect(func():
 			if not is_dragging:
-				var style_hover = style_normal.duplicate()
+				var style_hover = _create_panel_style().duplicate()
 				style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
 				style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
 				card_panel.add_theme_stylebox_override("panel", style_hover)
 		)
 		click_area.mouse_exited.connect(func():
-			card_panel.add_theme_stylebox_override("panel", style_normal)
+			card_panel.add_theme_stylebox_override("panel", _create_panel_style())
 		)
 	else:
-		# games, offline, cook 类型：不可点击
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# cook, games, offline 类型：不可点击，使用通用函数
+		var data = _get_icon_and_content_for_record(record)
+		# 时间标签
+		var time_label = Label.new()
+		time_label.text = data.icon + " " + data.display_time
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		# 内容标签
+		var content_label = Label.new()
+		content_label.text = data.content_text
+		content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		content_label.custom_minimum_size.x = 700
+		content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(content_label)
 		card_panel.add_child(card_vbox)
-		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE # 整个卡片不可点击
 
 	content_vbox.add_child(card_panel)
 
@@ -679,26 +687,20 @@ func _record_contains_keyword(record: Dictionary, keyword: String) -> bool:
 	var keyword_lower = keyword.to_lower()
 	var record_type = record.get("type", "offline")
 
-	var search_fields = []
 	if record_type == "chat":
 		# 搜索总结和对话内容
-		search_fields.append(record.get("summary", "").to_lower())
-		search_fields.append(record.get("conversation", "").to_lower())
+		var summary = record.get("summary", "").to_lower()
+		var conversation = record.get("conversation", "").to_lower()
+		return keyword_lower in summary or keyword_lower in conversation
 	elif record_type == "cook":
-		# 搜索总结、详情、事件、食材（如果存在）
-		search_fields.append(record.get("summary", "").to_lower())
-		search_fields.append(record.get("details", "").to_lower())
-		search_fields.append(record.get("event", "").to_lower())
-		search_fields.append(record.get("ingredients", "").to_lower()) # 假设 cook 类型可能有此字段
+		# 搜索事件内容和详情
+		var event = record.get("event", "").to_lower()
+		var details = record.get("details", "").to_lower()
+		return keyword_lower in event or keyword_lower in details
 	else:
 		# 搜索事件内容 (games, offline)
-		search_fields.append(record.get("event", "").to_lower())
-
-	for field in search_fields:
-		if keyword_lower in field:
-			return true
-
-	return false
+		var event = record.get("event", "").to_lower()
+		return keyword_lower in event
 
 func _display_search_results():
 	"""显示搜索结果"""
@@ -742,29 +744,13 @@ func _add_search_result_card(record: Dictionary):
 	# 创建卡片容器
 	var card_panel = PanelContainer.new()
 	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	# 设置样式
-	var style_normal = StyleBoxFlat.new()
-	style_normal.bg_color = Color(0.15, 0.15, 0.15, 0.5)
-	style_normal.border_width_left = 2
-	style_normal.border_width_top = 2
-	style_normal.border_width_right = 2
-	style_normal.border_width_bottom = 2
-	style_normal.border_color = Color(0.3, 0.3, 0.3, 0.7)
-	style_normal.corner_radius_top_left = 8
-	style_normal.corner_radius_top_right = 8
-	style_normal.corner_radius_bottom_left = 8
-	style_normal.corner_radius_bottom_right = 8
-	style_normal.content_margin_left = 15
-	style_normal.content_margin_top = 15
-	style_normal.content_margin_right = 15
-	style_normal.content_margin_bottom = 15
-	card_panel.add_theme_stylebox_override("panel", style_normal)
+	card_panel.add_theme_stylebox_override("panel", _create_panel_style())
 
 	# 创建内容容器
 	var card_vbox = VBoxContainer.new()
 	card_vbox.add_theme_constant_override("separation", 8)
 	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE # 内容区域忽略鼠标事件
 
 	# 添加日期标签
 	var date_label_widget = Label.new()
@@ -775,41 +761,13 @@ func _add_search_result_card(record: Dictionary):
 	date_label_widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_vbox.add_child(date_label_widget)
 
-	# --- 根据类型创建内容并高亮关键词 ---
-	if record_type == "games":
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var time_str = record.get("time", "")
-		var event_text = record.get("event", "")
-		var display_time = _format_time_display(time_str)
-
-		var time_label = Label.new()
-		time_label.text = "🎮 " + display_time
-		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		time_label.custom_minimum_size.x = 700
-		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_vbox.add_child(time_label)
-
-		# 创建高亮后的事件标签
-		var event_label = RichTextLabel.new()
-		event_label.bbcode_enabled = true
-		event_label.text = _highlight_keyword(event_text, current_search_keyword) # 直接高亮原始文本
-		event_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		event_label.fit_content = true # 根据内容调整大小
-		event_label.scroll_active = false # 禁用滚动
-		event_label.custom_minimum_size.x = 700
-		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_vbox.add_child(event_label)
-
-		card_panel.add_child(card_vbox)
-		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	elif record_type == "chat":
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if record_type == "chat":
+		# chat类型：显示总结，可点击查看详情
 		var timestamp = record.get("timestamp", "")
 		var summary = record.get("summary", "无总结")
+		# 格式化时间显示（只显示到分钟）
 		var display_time = _format_chat_time_display(timestamp)
-
+		# 时间标签（带💬标记）
 		var time_label = Label.new()
 		time_label.text = "💬 " + display_time
 		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
@@ -817,21 +775,19 @@ func _add_search_result_card(record: Dictionary):
 		time_label.custom_minimum_size.x = 700
 		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(time_label)
-
-		# 创建高亮后的总结标签
+		# 总结内容（截断显示，并高亮关键词）
 		var summary_label = RichTextLabel.new()
 		summary_label.bbcode_enabled = true
 		var display_summary = summary
 		if summary.length() > 150:
 			display_summary = summary.substr(0, 150) + "..."
-		summary_label.text = _highlight_keyword(display_summary, current_search_keyword) # 高亮截断后的文本
+		summary_label.text = _highlight_keyword(display_summary, current_search_keyword)
 		summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		summary_label.fit_content = true
 		summary_label.scroll_active = false
 		summary_label.custom_minimum_size.x = 700
 		summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(summary_label)
-
 		card_panel.add_child(card_vbox)
 
 		# 使用Control代替Button，手动处理触摸事件
@@ -842,50 +798,44 @@ func _add_search_result_card(record: Dictionary):
 		card_panel.add_child(click_area)
 
 		# 手动处理触摸/点击事件
-		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, style_normal, click_area))
+		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, _create_panel_style(), click_area))
 
 		# 鼠标悬停效果
 		click_area.mouse_entered.connect(func():
 			if not is_dragging:
-				var style_hover = style_normal.duplicate()
+				var style_hover = _create_panel_style().duplicate()
 				style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
 				style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
 				card_panel.add_theme_stylebox_override("panel", style_hover)
 		)
 		click_area.mouse_exited.connect(func():
-			card_panel.add_theme_stylebox_override("panel", style_normal)
+			card_panel.add_theme_stylebox_override("panel", _create_panel_style())
 		)
-
-	else: # offline
-		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var time_str = record.get("time", "")
-		var event_text = record.get("event", "")
-		var display_time = _format_time_display(time_str)
-
+	else:
+		# cook, games, offline 类型：不可点击，使用通用函数处理内容和高亮
+		var data = _get_icon_and_content_for_record(record)
+		# 时间标签
 		var time_label = Label.new()
-		time_label.text = "⏰ " + display_time
+		time_label.text = data.icon + " " + data.display_time
 		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		time_label.custom_minimum_size.x = 700
 		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(time_label)
-
-		# 创建高亮后的事件标签
-		var event_label = RichTextLabel.new()
-		event_label.bbcode_enabled = true
-		event_label.text = _highlight_keyword(event_text, current_search_keyword) # 直接高亮原始文本
-		event_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		event_label.fit_content = true
-		event_label.scroll_active = false
-		event_label.custom_minimum_size.x = 700
-		event_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_vbox.add_child(event_label)
-
+		# 内容标签（使用 RichTextLabel 高亮关键词）
+		var content_label = RichTextLabel.new()
+		content_label.bbcode_enabled = true
+		content_label.text = _highlight_keyword(data.content_text, current_search_keyword)
+		content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_label.fit_content = true
+		content_label.scroll_active = false
+		content_label.custom_minimum_size.x = 700
+		content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(content_label)
 		card_panel.add_child(card_vbox)
-		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE # 整个卡片不可点击
 
 	content_vbox.add_child(card_panel)
-
 
 func _highlight_keyword(text: String, keyword: String) -> String:
 	"""高亮显示关键词（使用BBCode）"""
