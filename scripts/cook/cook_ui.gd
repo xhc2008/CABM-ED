@@ -275,7 +275,7 @@ func _create_ingredient_sprite(item_id: String):
 	
 	# 创建精灵节点 - 放大食材大小
 	var sprite = Control.new()
-	sprite.custom_minimum_size = Vector2(80, 80)  # 从32x32放大到64x64
+	sprite.custom_minimum_size = Vector2(80, 80) 
 	sprite.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	
 	var icon = TextureRect.new()
@@ -394,31 +394,33 @@ func _show_result(ingredients: Array):
 	result_panel = PanelContainer.new()
 	result_panel.custom_minimum_size = Vector2(600, 400)
 	
-	# 确保居中显示
-	result_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	# 获取视口尺寸
 	var viewport_size = get_viewport_rect().size
+	
+	# 直接计算居中位置
 	result_panel.position = Vector2(
 		(viewport_size.x - result_panel.custom_minimum_size.x) * 0.5,
 		(viewport_size.y - result_panel.custom_minimum_size.y) * 0.5
 	)
 	
 	add_child(result_panel)
-	
-	# 其余代码保持不变...
+
+	# 内部容器使用正确的预设
 	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.size = result_panel.custom_minimum_size
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_KEEP_SIZE)
 	result_panel.add_child(vbox)
 	
 	# 标题
 	var title = Label.new()
-	title.text = "出锅"
+	title.text = "蜜汁炖菜"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	
-	# 结果容器（使用bowl.png作为背景）
+	# 结果容器
 	var result_container = Control.new()
 	result_container.custom_minimum_size = Vector2(500, 300)
+	result_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_KEEP_SIZE)
+	vbox.add_child(result_container)
 	
 	# 背景图片
 	var bowl_bg = TextureRect.new()
@@ -431,15 +433,17 @@ func _show_result(ingredients: Array):
 		bowl_bg.texture = load(bowl_path)
 	
 	result_container.add_child(bowl_bg)
-	vbox.add_child(result_container)
 	
 	# 等待一帧让容器尺寸更新
 	await get_tree().process_frame
 	
-	# 显示食材
+	# 获取碗的矩形区域（和锅一样的逻辑，但没有偏移）
+	var bowl_rect = _get_bowl_rect(result_container)
+	
+	# 显示食材（随机放置在碗中）
 	for ingredient in ingredients:
 		var sprite = Control.new()
-		sprite.custom_minimum_size = Vector2(80, 80)  # 同样放大显示
+		sprite.custom_minimum_size = Vector2(100, 100)
 		sprite.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 		
 		var icon = TextureRect.new()
@@ -456,26 +460,35 @@ func _show_result(ingredients: Array):
 		
 		sprite.add_child(icon)
 		
-		# 将位置映射到result_container中（相对位置）
-		var pan_size = pan_texture.size if pan_texture else Vector2(500, 400)
-		var bowl_size = result_container.size
-		var scale_x = bowl_size.x / pan_size.x
-		var scale_y = bowl_size.y / pan_size.y
-		var mapped_pos = Vector2(
-			ingredient.position.x * scale_x,
-			ingredient.position.y * scale_y
+		# 随机位置和角度（和放入锅一样的逻辑）
+		var rand_pos = Vector2(
+			randf_range(bowl_rect.position.x, bowl_rect.position.x + bowl_rect.size.x),
+			randf_range(bowl_rect.position.y, bowl_rect.position.y + bowl_rect.size.y)
 		)
+		var rand_rot = randf() * PI * 2
 		
-		sprite.position = mapped_pos - Vector2(32, 32)  # 居中，调整偏移量
-		sprite.rotation = ingredient.rotation
+		# 关键修改：使用中心点作为位置，而不是左上角
+		sprite.position = rand_pos - Vector2(50, 50)  # 居中偏移（食材大小80x80）
+		sprite.pivot_offset = Vector2(50, 50)  # 设置旋转中心为食材中心
+		sprite.rotation = rand_rot
 		sprite.modulate = cook_manager.get_ingredient_color(ingredient)
 		result_container.add_child(sprite)
 	
 	# 关闭按钮
 	var close_btn = Button.new()
-	close_btn.text = "关闭"
+	close_btn.text = "确认"
 	close_btn.pressed.connect(_on_result_closed)
 	vbox.add_child(close_btn)
+
+func _get_bowl_rect(bowl_container: Control) -> Rect2:
+	"""获取碗的矩形区域（相对于碗容器）"""
+	if not bowl_container:
+		return Rect2()
+	
+	# 返回相对于碗容器的矩形，范围调小到碗的实际区域
+	var margin = bowl_container.size * 0.3  # 缩小的边距
+	return Rect2(margin, bowl_container.size - margin * 2)
+
 
 func _on_result_closed():
 	"""结果面板关闭"""
