@@ -44,7 +44,7 @@ var selected_prep_slot_index: int = -1
 var fire_sprite: AnimatedSprite2D = null
 var fire_sprite_frames: SpriteFrames = null
 # 火焰位置偏移
-var fire_position_offset: Vector2 = Vector2(-55, -240)  # 默认偏移：向右，向下
+var fire_position_offset: Vector2 = Vector2(-55, -250)  # 默认偏移：向右，向下
 # 火焰音效
 var fire_audio_player: AudioStreamPlayer = null
 var crack_audio_player: AudioStreamPlayer = null  # 火力变化音效
