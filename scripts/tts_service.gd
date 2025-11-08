@@ -368,18 +368,38 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 		tts_error.emit(error_msg)
 
 func _remove_parentheses(text: String) -> String:
-	"""移除文本中的括号及其内容（包括中文和英文括号）"""
+	"""移除文本中的括号及其内容（包括各种括号）"""
 	var result = text
 	
 	# 移除英文括号及其内容
 	var regex_en = RegEx.new()
 	regex_en.compile("\\([^)]*\\)")
 	result = regex_en.sub(result, "", true)
-	
+
 	# 移除中文括号及其内容
 	var regex_cn = RegEx.new()
 	regex_cn.compile("（[^）]*）")
 	result = regex_cn.sub(result, "", true)
+
+	# 移除方括号 [] 及其内容
+	var regex_bracket = RegEx.new()
+	regex_bracket.compile("\\[[^]]*\\]")
+	result = regex_bracket.sub(result, "", true)
+
+	# 移除【】括号及其内容
+	var regex_cn_bracket = RegEx.new()
+	regex_cn_bracket.compile("【[^】]*】")
+	result = regex_cn_bracket.sub(result, "", true)
+
+	# 移除花括号 {} 及其内容
+	var regex_brace = RegEx.new()
+	regex_brace.compile("\\{[^}]*\\}")
+	result = regex_brace.sub(result, "", true)
+
+	# 移除尖括号 <> 及其内容
+	var regex_angle = RegEx.new()
+	regex_angle.compile("<[^>]*>")
+	result = regex_angle.sub(result, "", true)
 	
 	return result.strip_edges()
 

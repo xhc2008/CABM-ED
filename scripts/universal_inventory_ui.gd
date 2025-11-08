@@ -494,16 +494,20 @@ func _show_item_info(item_data: Dictionary):
 		details += "最大堆叠: " + str(item_config.max_stack) + "\n"
 	
 	# 武器属性
-	if item_config.get("type") == "weapon":
+	if item_config.get("type") == "武器":
 		if item_config.has("damage"):
 			details += "伤害: " + str(item_config.damage) + "\n"
 		if item_config.has("fire_rate"):
 			details += "射速: " + str(item_config.fire_rate) + "\n"
 	
 	# 医疗属性
-	if item_config.get("type") == "medical":
+	if item_config.get("type") == "消耗品":
 		if item_config.has("heal_amount"):
 			details += "恢复量: " + str(item_config.heal_amount) + "\n"
+	# 食材属性
+	if item_config.get("type") == "食材":
+		if item_config.has("cook_time"):
+			details += "烹饪时长: " + str(item_config.cook_time) + "\n"
 	
 	info_desc.text += details
 

@@ -470,7 +470,7 @@ func _show_result(ingredients: Array):
 	
 	# 可编辑的标题输入框
 	var title_input = LineEdit.new()
-	title_input.text = "蜜汁炖菜"
+	title_input.text = "谜之炖菜"
 	title_input.placeholder_text = "请输入菜名"
 	title_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_input)
@@ -561,7 +561,7 @@ func _on_result_closed():
 			if title_input:
 				var dish_name = title_input.text.strip_edges()
 				if dish_name.is_empty():
-					dish_name = "蜜汁炖菜"  # 默认名称
+					dish_name = "谜之炖菜"  # 默认名称
 				cooked_dishes[-1]["dish_name"] = dish_name
 		
 		result_panel.queue_free()

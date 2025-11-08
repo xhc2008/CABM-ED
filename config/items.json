@@ -100,7 +100,7 @@
       "icon": "apple.png",
       "weight": 0.2,
       "max_stack": 64,
-      "cook_time": 8.0
+      "cook_time": 10.0
     },
     "beef": {
       "name": "牛肉",
@@ -109,7 +109,7 @@
       "icon": "beef.png",
       "weight": 0.5,
       "max_stack": 64,
-      "cook_time": 12.0
+      "cook_time": 16.0
     },
     "beetroot": {
       "name": "甜菜根",
@@ -118,7 +118,7 @@
       "icon": "beetroot.png",
       "weight": 0.3,
       "max_stack": 64,
-      "cook_time": 12.0
+      "cook_time": 18.0
     },
     "bread": {
       "name": "面包",
@@ -145,7 +145,7 @@
       "icon": "carrot.png",
       "weight": 0.2,
       "max_stack": 64,
-      "cook_time": 10.0
+      "cook_time": 15.0
     },
     "chicken": {
       "name": "鸡肉",
@@ -154,7 +154,7 @@
       "icon": "chicken.png",
       "weight": 0.4,
       "max_stack": 64,
-      "cook_time": 12.0
+      "cook_time": 25.0
     },
     "cookie": {
       "name": "曲奇",
@@ -163,7 +163,7 @@
       "icon": "cookie.png",
       "weight": 0.1,
       "max_stack": 64,
-      "cook_time": 3.0
+      "cook_time": 5.0
     },
     "mutton": {
       "name": "羊肉",
@@ -172,7 +172,7 @@
       "icon": "mutton.png",
       "weight": 0.5,
       "max_stack": 64,
-      "cook_time": 12.0
+      "cook_time": 26.0
     },
     "porkchop": {
       "name": "猪肉",
@@ -181,7 +181,7 @@
       "icon": "porkchop.png",
       "weight": 0.5,
       "max_stack": 64,
-      "cook_time": 12.0
+      "cook_time": 24.0
     },
     "potato": {
       "name": "土豆",
@@ -190,7 +190,7 @@
       "icon": "potato.png",
       "weight": 0.3,
       "max_stack": 64,
-      "cook_time": 10.0
+      "cook_time": 20.0
     },
     "pumpkin_pie": {
       "name": "南瓜派",
@@ -199,7 +199,7 @@
       "icon": "pumpkin_pie.png",
       "weight": 0.6,
       "max_stack": 16,
-      "cook_time": 6.0
+      "cook_time": 10.0
     },
     "rabbit": {
       "name": "兔肉",
@@ -208,7 +208,7 @@
       "icon": "rabbit.png",
       "weight": 0.3,
       "max_stack": 64,
-      "cook_time": 10.0
+      "cook_time": 20.0
     },
     "amethyst": {
       "name": "紫水晶",
