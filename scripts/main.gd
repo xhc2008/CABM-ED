@@ -24,6 +24,8 @@ var costume_manager: CostumeManager
 var dynamic_elements = {}
 
 func _ready():
+	# 检查离线位置变化
+	_check_pending_offline_position_change()
 	# 检查并迁移旧日记数据
 	_check_and_migrate_diary()
 	
@@ -58,8 +60,6 @@ func _ready():
 	# 更新可交互元素显示状态
 	_update_interactive_elements_visibility()
 	
-	# 检查离线位置变化
-	_check_pending_offline_position_change()
 	
 	# 播放背景音乐
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
