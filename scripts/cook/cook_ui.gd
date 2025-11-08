@@ -43,7 +43,8 @@ var selected_prep_slot_index: int = -1
 # 火焰动画
 var fire_sprite: AnimatedSprite2D = null
 var fire_sprite_frames: SpriteFrames = null
-
+# 火焰位置偏移
+var fire_position_offset: Vector2 = Vector2(-55, -230)  # 默认偏移：向右0，向下20像素
 # 火焰音效
 var fire_audio_player: AudioStreamPlayer = null
 var crack_audio_player: AudioStreamPlayer = null  # 火力变化音效
@@ -115,7 +116,7 @@ func _ready():
 	# 调整准备栏布局 - 设置固定列数避免滚动条
 	if prep_grid:
 		prep_grid.columns = 4
-	
+	call_deferred("_update_fire_position")
 	# 创建食材准备栏格子
 	_create_prep_slots()
 	_refresh_prep_slots()
@@ -603,7 +604,10 @@ func _update_fire_position():
 	# 计算火焰位置（相对于pan_container）
 	# 由于pan_texture填充整个pan_container，火焰位置就是容器中心偏下
 	var container_size = pan_container.size
-	fire_sprite.position = Vector2(container_size.x * 0.5, container_size.y * 0.9)
+	var base_position = Vector2(container_size.x * 0.5, container_size.y * 0.9)
+	
+	# 应用位置偏移
+	fire_sprite.position = base_position + fire_position_offset
 
 func hide_cook_ui():
 	"""隐藏烹饪UI"""
@@ -654,10 +658,10 @@ func _create_fire_animation():
 	
 	# 将火焰添加到锅容器下，放在锅的底部中心
 	pan_container.add_child(fire_sprite)
-	# 设置z_index，确保火焰在背景之上
-	# AnimatedSprite2D是CanvasItem，默认会渲染在Control节点之上
-	# 设置z_index为0，确保在背景（z_index=-1）之上
-	fire_sprite.z_index = 0
+	
+	# 关键修改：设置z_index确保火焰在锅之下
+	# 锅的z_index是0，将火焰设为-1
+	fire_sprite.z_index = -1
 	
 	# 使用call_deferred来在下一帧更新位置
 	call_deferred("_update_fire_position")
