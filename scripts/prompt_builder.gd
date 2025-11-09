@@ -359,19 +359,16 @@ func _format_current_time() -> String:
 
 func _get_trigger_context(trigger_mode: String) -> String:
 	"""获取触发上下文文本"""
-	if not config.has("chat_model") or not config.chat_model.has("trigger_contexts"):
-		# 如果配置中没有trigger_contexts，使用默认值
-		if trigger_mode == "character_initiated":
-			return "现在，你想主动找用户聊天，说点什么吧。"
-		elif trigger_mode == "ongoing":
-			return "你在和用户聊天。"
-		else:
-			return "现在，用户找你聊天。"
 	
 	var trigger_contexts = config.chat_model.trigger_contexts
 	var context = trigger_contexts.get(trigger_mode, "你在和用户聊天。")
 	
 	var save_mgr = get_node("/root/SaveManager")
+	
+	# 如果trigger_context中包含{user_name}占位符，需要替换
+	if context.contains("{user_name}"):
+		var user_name = save_mgr.get_user_name()
+		context = context.replace("{user_name}", user_name)
 	
 	# 如果trigger_context中包含{current_scene}占位符，需要替换
 	if context.contains("{current_scene}"):
