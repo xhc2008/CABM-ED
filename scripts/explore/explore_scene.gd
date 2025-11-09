@@ -2,11 +2,12 @@ extends Node2D
 
 @onready var player = $Player
 @onready var snow_fox = $SnowFox
-@onready var joystick = $UI/VirtualJoystick
 @onready var tilemap_layer = $TileMapLayer
 @onready var interaction_prompt = $UI/InteractionPrompt
 @onready var inventory_button = $UI/InventoryButton
 @onready var exit_button = $UI/ExitButton
+
+var mobile_ui: Control  # 移动端UI (MobileUI)
 
 var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
@@ -71,25 +72,8 @@ func _ready():
 	if snow_fox and player:
 		snow_fox.set_follow_target(player)
 	
-	# 连接摇杆信号 - 适配 VirtualJoystick 插件
-	if joystick and player:
-		player.joystick_left = joystick
-		# 尝试连接不同的信号名称
-		if joystick.has_signal("updated"):
-			joystick.updated.connect(_on_joystick_updated)
-		elif joystick.has_signal("input_updated"):
-			joystick.input_updated.connect(_on_joystick_updated)
-		elif joystick.has_signal("value_changed"):
-			joystick.value_changed.connect(_on_joystick_updated)
-		else:
-			print("VirtualJoystick 没有找到可用的信号")
-		
-		# 根据平台显示/隐藏摇杆
-		joystick.visible = PlatformManager.is_mobile_platform()
-	
-	# 创建右摇杆（瞄准摇杆）- 只在移动设备上
-	# if player and player.is_mobile:
-	# 	_create_aim_joystick()
+	# 创建移动端UI
+	_create_mobile_ui()
 	
 	# 连接交互检测器信号
 	if player and player.has_method("get_interaction_detector"):
@@ -120,14 +104,17 @@ func _process(_delta):
 	if player and tilemap_layer:
 		_check_nearby_chests()
 	
-	# 自动射击检查（仅PC端）
+	# 自动射击检查
 	if not inventory_ui or not inventory_ui.visible:
+		# PC端：鼠标左键
 		if player and not player.is_mobile:
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				# 检查鼠标是否在UI上
 				var mouse_pos = get_viewport().get_mouse_position()
 				if not _is_click_on_ui(mouse_pos):
 					_handle_shoot()
+		# 移动端：触摸射击区域
+		elif mobile_ui and mobile_ui.is_shooting_active():
+			_handle_shoot()
 
 func _check_nearby_chests():
 	"""检查附近的宝箱"""
@@ -273,7 +260,6 @@ func _on_interactions_changed(_interactions: Array):
 	# 这里可以处理其他类型的交互物体
 	pass
 
-# 适配 VirtualJoystick 插件的新方法
 func _on_joystick_updated(vector: Vector2, _power: float = 1.0):
 	"""处理摇杆输入更新"""
 	if player and player.has_method("set_joystick_direction"):
@@ -359,27 +345,44 @@ func _create_weapon_ui():
 			$UI.add_child(weapon_ui)
 			weapon_ui.setup(weapon_system)
 
-func _create_aim_joystick():
-	"""创建瞄准摇杆（右摇杆）(已废弃）"""
-	if not player:
-		return
-	
-	# 确保加载的是 VirtualJoystick 场景
-	var joystick_scene = load("res://scenes/virtual_joystick.tscn")
-	if ResourceLoader.exists("res://scenes/virtual_joystick.tscn"):
-		var right_joystick = joystick_scene.instantiate()
-		if right_joystick and right_joystick is VirtualJoystick:  # 添加类型检查
-			$UI.add_child(right_joystick)
-			# 设置位置到右侧
-			right_joystick.anchor_left = 1.0
-			right_joystick.anchor_right = 1.0
-			right_joystick.anchor_top = 1.0
-			right_joystick.anchor_bottom = 1.0
-			right_joystick.offset_left = -200.0
-			right_joystick.offset_top = -200.0
-			right_joystick.offset_right = -40.0
-			right_joystick.offset_bottom = -40.0
-			player.joystick_right = right_joystick
+func _create_mobile_ui():
+	"""创建移动端UI"""
+	var mobile_ui_scene = load("res://scenes/mobile_ui.tscn")
+	if ResourceLoader.exists("res://scenes/mobile_ui.tscn"):
+		mobile_ui = mobile_ui_scene.instantiate()
+		if mobile_ui:
+			$UI.add_child(mobile_ui)
+			
+			# 连接摇杆到玩家
+			if player:
+				var joystick = mobile_ui.get_joystick()
+				if joystick:
+					player.joystick_left = joystick
+					# 连接摇杆信号
+					if joystick.has_signal("updated"):
+						joystick.updated.connect(_on_joystick_updated)
+					elif joystick.has_signal("input_updated"):
+						joystick.input_updated.connect(_on_joystick_updated)
+					elif joystick.has_signal("value_changed"):
+						joystick.value_changed.connect(_on_joystick_updated)
+			
+			# 连接射击和换弹信号
+			mobile_ui.shoot_started.connect(_on_mobile_shoot_started)
+			mobile_ui.shoot_stopped.connect(_on_mobile_shoot_stopped)
+			mobile_ui.reload_pressed.connect(_on_mobile_reload_pressed)
+
+func _on_mobile_shoot_started():
+	"""移动端开始射击"""
+	pass  # 在_process中持续射击
+
+func _on_mobile_shoot_stopped():
+	"""移动端停止射击"""
+	pass
+
+func _on_mobile_reload_pressed():
+	"""移动端换弹"""
+	if weapon_system:
+		weapon_system.start_reload()
 
 func _on_exit_button_pressed():
 	# 保存探索模式的背包状态
@@ -463,9 +466,9 @@ func _hide_combat_ui():
 	if weapon_ui:
 		weapon_ui.visible = false
 	
-	# 隐藏摇杆
-	if joystick:
-		joystick.visible = false
+	# 隐藏移动端UI
+	if mobile_ui:
+		mobile_ui.visible = false
 
 func _show_combat_ui():
 	"""显示战斗相关UI（关闭背包时）"""
@@ -474,6 +477,6 @@ func _show_combat_ui():
 	if weapon_ui:
 		weapon_ui.visible = true
 	
-	# 显示摇杆（仅移动端）
-	if joystick:
-		joystick.visible = PlatformManager.is_mobile_platform()
+	# 显示移动端UI（仅移动端）
+	if mobile_ui:
+		mobile_ui.visible = PlatformManager.is_mobile_platform()

@@ -12,7 +12,7 @@ func _ready():
 func _detect_platform():
 	"""检测当前平台"""
 	platform_name = OS.get_name()
-	is_mobile = platform_name == "Android" or platform_name == "IOS"
+	is_mobile = platform_name == "Android" or platform_name == "Windows"
 	
 	print("平台检测: ", platform_name, " | 移动设备: ", is_mobile)
 

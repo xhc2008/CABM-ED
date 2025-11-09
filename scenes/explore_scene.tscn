@@ -2306,30 +2306,4 @@ layout_mode = 2
 offset_right = 8.0
 offset_bottom = 8.0
 
-[node name="VirtualJoystick" type="Control" parent="UI"]
-layout_mode = 3
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 140.0
-offset_top = -160.0
-offset_right = 180.0
-offset_bottom = -120.0
-grow_vertical = 0
-pivot_offset = Vector2(20, 20)
-script = ExtResource("11_wc8on")
-metadata/_custom_type_script = "uid://1yjy7f8qo4cu"
-
-[node name="Base" type="Panel" parent="UI/VirtualJoystick"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-pivot_offset = Vector2(20, 20)
-
-[node name="Tip" type="Panel" parent="UI/VirtualJoystick/Base"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-pivot_offset = Vector2(20, 20)
-
 [connection signal="pressed" from="UI/ExitButton" to="." method="_on_exit_button_pressed"]

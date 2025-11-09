@@ -6,35 +6,8 @@ class_name WeaponUI
 @onready var weapon_icon: TextureRect = $VBox/WeaponIcon
 @onready var ammo_label: Label = $VBox/AmmoLabel
 @onready var reload_progress: ProgressBar = $VBox/ReloadProgress
-@onready var mobile_controls: Control = $MobileControls
-@onready var left_shoot_button: Button = $MobileControls/LeftShootButton
-@onready var right_shoot_button: Button = $MobileControls/RightShootButton
-@onready var reload_button: Button = $MobileControls/ReloadButton
 
 var weapon_system: WeaponSystem
-var is_mobile: bool = false
-
-func _ready():
-	# 检测是否为移动设备
-	is_mobile = PlatformManager.is_mobile_platform()
-	
-	# 根据平台显示/隐藏移动控制
-	if mobile_controls:
-		mobile_controls.visible = is_mobile
-	
-	# 连接按钮信号
-	if left_shoot_button:
-		left_shoot_button.pressed.connect(_on_shoot_pressed)
-		left_shoot_button.button_down.connect(_on_shoot_button_down)
-		left_shoot_button.button_up.connect(_on_shoot_button_up)
-	
-	if right_shoot_button:
-		right_shoot_button.pressed.connect(_on_shoot_pressed)
-		right_shoot_button.button_down.connect(_on_shoot_button_down)
-		right_shoot_button.button_up.connect(_on_shoot_button_up)
-	
-	if reload_button:
-		reload_button.pressed.connect(_on_reload_pressed)
 
 func setup(weapon_sys: WeaponSystem):
 	"""初始化武器UI"""
@@ -45,8 +18,6 @@ func setup(weapon_sys: WeaponSystem):
 		weapon_system.ammo_changed.connect(_on_ammo_changed)
 		_on_weapon_changed(weapon_system.get_current_weapon())
 
-var is_shooting: bool = false
-
 func _process(_delta):
 	# 更新换弹进度
 	if weapon_system and reload_progress:
@@ -54,12 +25,6 @@ func _process(_delta):
 		reload_progress.value = progress
 		if weapon_system.has_method("is_reloading"):
 			reload_progress.visible = weapon_system.is_reloading
-	
-	# 持续射击（如果按住按钮）
-	if is_shooting and weapon_system:
-		var scene = get_tree().current_scene
-		if scene and scene.has_method("_handle_shoot"):
-			scene._handle_shoot()
 
 func _on_weapon_changed(weapon_data: Dictionary):
 	"""武器变化"""
@@ -91,21 +56,3 @@ func _on_ammo_changed(current_ammo: int, max_ammo: int):
 	"""弹药变化"""
 	if ammo_label:
 		ammo_label.text = str(int(current_ammo)) + "/" + str(int(max_ammo))
-
-func _on_shoot_pressed():
-	"""射击按钮按下"""
-	# 由button_down处理
-
-func _on_shoot_button_down():
-	"""射击按钮按下（持续）"""
-	is_shooting = true
-
-func _on_shoot_button_up():
-	"""射击按钮释放"""
-	is_shooting = false
-
-func _on_reload_pressed():
-	"""换弹按钮按下"""
-	if weapon_system:
-		weapon_system.start_reload()
-
