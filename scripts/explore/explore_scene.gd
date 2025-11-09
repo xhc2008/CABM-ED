@@ -87,7 +87,7 @@ func _ready():
 	
 	# 连接背包按钮
 	if inventory_button:
-		inventory_button.text = "背包 (B)"
+		inventory_button.text = "背包 (E)"
 		inventory_button.custom_minimum_size = Vector2(100, 40)
 		
 		# 设置锚点到右上角
@@ -277,9 +277,9 @@ func _input(event: InputEvent):
 	if inventory_ui and inventory_ui.visible:
 		return
 	
-	# B键打开/关闭背包
+	# E键打开/关闭背包
 	if event is InputEventKey:
-		if event.pressed and event.keycode == KEY_B:
+		if event.pressed and event.keycode == KEY_E:
 			if inventory_ui:
 				if inventory_ui.visible:
 					inventory_ui.close_inventory()

@@ -14,7 +14,7 @@ var weapon_config: Dictionary = {}
 var can_shoot: bool = true
 var is_reloading: bool = false
 var reload_time: float = 0.0
-var reload_duration: float = 2.0  # 默认换弹时间2秒
+var reload_duration: float = 3.8  # 默认换弹时间2秒
 var last_shot_time: float = 0.0
 var fire_rate: float = 0.1  # 默认射速
 var shoot_cooldown_timer: float = 0.0
@@ -22,23 +22,34 @@ var shoot_cooldown_timer: float = 0.0
 # 子弹场景
 const BULLET_SCENE = preload("res://scenes/bullet.tscn")
 
-# 音效
-var shoot_sound: AudioStreamPlayer2D
+# 音效系统
+var shoot_sounds: Array = []
 var reload_sound: AudioStreamPlayer2D
 var empty_sound: AudioStreamPlayer2D
+var current_weapon_id: String = ""
+
+# 默认音效路径
+const DEFAULT_SOUND_PATH = "res://assets/audio/explore/"
+
+# 射击音效池大小（根据武器射速调整）
+const SHOOT_SOUND_POOL_SIZE: int = 16
 
 func _ready():
-	# 创建音效播放器
-	shoot_sound = AudioStreamPlayer2D.new()
-	shoot_sound.stream = load("res://assets/audio/explore/shot.mp3")
-	add_child(shoot_sound)
+	# 创建射击音效池
+	for i in range(SHOOT_SOUND_POOL_SIZE):
+		var sound_player = AudioStreamPlayer2D.new()
+		sound_player.bus = "SFX"
+		add_child(sound_player)
+		shoot_sounds.append(sound_player)
 	
+	# 创建换弹音效播放器
 	reload_sound = AudioStreamPlayer2D.new()
-	reload_sound.stream = load("res://assets/audio/explore/reload.mp3")
+	reload_sound.bus = "SFX"
 	add_child(reload_sound)
 	
+	# 创建空仓音效播放器
 	empty_sound = AudioStreamPlayer2D.new()
-	empty_sound.stream = load("res://assets/audio/explore/empty.mp3")
+	empty_sound.bus = "SFX"
 	add_child(empty_sound)
 
 func setup(inventory: PlayerInventory):
@@ -72,20 +83,72 @@ func _update_current_weapon():
 	if weapon_slot.is_empty():
 		current_weapon = {}
 		weapon_config = {}
+		current_weapon_id = ""
 		weapon_changed.emit({})
 		return
 	
 	current_weapon = weapon_slot.duplicate()
 	var item_id = current_weapon.get("item_id", "")
-	weapon_config = player_inventory.get_item_config(item_id)
 	
-	# 更新武器属性
-	if not weapon_config.is_empty():
-		fire_rate = weapon_config.get("fire_rate", 0.1)
-		reload_duration = 2.0  # 可以根据武器类型调整
+	# 只在武器真正改变时更新音效
+	if item_id != current_weapon_id:
+		current_weapon_id = item_id
+		weapon_config = player_inventory.get_item_config(item_id)
+		
+		# 更新武器属性
+		if not weapon_config.is_empty():
+			fire_rate = weapon_config.get("fire_rate", 0.1)
+			reload_duration = weapon_config.get("reload_time", 0.1)  # 可以根据武器类型调整
+			
+			# 更新武器音效
+			_update_weapon_sounds(item_id)
+	else:
+		weapon_config = player_inventory.get_item_config(item_id)
 	
 	weapon_changed.emit(current_weapon.duplicate())
 	_update_ammo_display()
+
+func _update_weapon_sounds(weapon_id: String):
+	"""根据武器ID更新音效"""
+	if weapon_id.is_empty():
+		return
+	
+	print("更新武器音效: " + weapon_id)
+	
+	# 加载射击音效
+	var shoot_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_shot.mp3"
+	var shoot_stream = null
+	if FileAccess.file_exists(shoot_sound_path.replace("res://", "")):
+		shoot_stream = load(shoot_sound_path)
+		print("成功加载射击音效: " + shoot_sound_path)
+	else:
+		# 如果找不到特定武器的音效，使用默认音效
+		shoot_stream = load(DEFAULT_SOUND_PATH + "shot.mp3")
+		print("使用默认射击音效")
+	
+	# 为所有射击音效播放器设置相同的音效
+	for sound_player in shoot_sounds:
+		sound_player.stream = shoot_stream
+	
+	# 加载换弹音效
+	var reload_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_reload.mp3"
+	if FileAccess.file_exists(reload_sound_path.replace("res://", "")):
+		reload_sound.stream = load(reload_sound_path)
+		print("成功加载换弹音效: " + reload_sound_path)
+	else:
+		# 如果找不到特定武器的音效，使用默认音效
+		reload_sound.stream = load(DEFAULT_SOUND_PATH + "reload.mp3")
+		print("使用默认换弹音效")
+	
+	# 加载空仓音效
+	var empty_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_empty.mp3"
+	if FileAccess.file_exists(empty_sound_path.replace("res://", "")):
+		empty_sound.stream = load(empty_sound_path)
+		print("成功加载空仓音效: " + empty_sound_path)
+	else:
+		# 如果找不到特定武器的音效，使用默认音效
+		empty_sound.stream = load(DEFAULT_SOUND_PATH + "empty.mp3")
+		print("使用默认空仓音效")
 
 func _update_ammo_display():
 	"""更新弹药显示"""
@@ -152,8 +215,8 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	# 更新射速计时
 	shoot_cooldown_timer = fire_rate
 	
-	# 播放射击音效
-	shoot_sound.play()
+	# 使用音效池播放射击音效
+	_play_shoot_sound()
 	
 	# 创建子弹
 	var bullet = BULLET_SCENE.instantiate()
@@ -163,6 +226,32 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	
 	_update_ammo_display()
 	return true
+
+func _play_shoot_sound():
+	"""使用音效池播放射击音效"""
+	if shoot_sounds.is_empty():
+		return
+	
+	# 查找第一个不在播放的音效播放器
+	var available_player = null
+	for sound_player in shoot_sounds:
+		if not sound_player.playing:
+			available_player = sound_player
+			break
+	
+	# 如果所有播放器都在播放，使用第一个（允许重叠）
+	if not available_player:
+		available_player = shoot_sounds[0]
+	
+	# 播放音效
+	available_player.play()
+	
+	# 调试信息
+	var playing_count = 0
+	for sound_player in shoot_sounds:
+		if sound_player.playing:
+			playing_count += 1
+	print("播放射击音效，播放器状态: " + str(playing_count) + "/" + str(shoot_sounds.size()) + " 正在播放")
 
 func start_reload() -> bool:
 	"""开始换弹"""

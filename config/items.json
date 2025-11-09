@@ -12,6 +12,7 @@
       "ammo_type": "5.8mm",
       "magazine_size": 30,
       "fire_rate": 0.09,
+      "reload_time":3.7,
       "special_tags":["绑定"]
     },
     "UMP45": {
@@ -25,7 +26,8 @@
       "damage": 48,
       "ammo_type": ".45",
       "magazine_size": 25,
-      "fire_rate": 0.12
+      "fire_rate": 0.12,
+      "reload_time":3.0
     },
     "VSS-SF": {
       "name": "VSS-改",
@@ -39,6 +41,7 @@
       "ammo_type": "9mm",
       "magazine_size": 20,
       "fire_rate": 0.25,
+      "reload_time":3.5,
       "special_tags":["绑定"]
     },
     "5.8mm_ammo": {

@@ -85,9 +85,16 @@ func _update_aim_direction():
 	else:
 		# 电脑：朝向鼠标
 		var mouse_pos = get_global_mouse_position()
-		aim_direction = (mouse_pos - global_position).normalized()
-		if aim_direction.length() > 0.01:
+		var direction_to_mouse = (mouse_pos - global_position).normalized()
+		
+		# 确保方向向量有效
+		if direction_to_mouse.length() > 0.01:
+			aim_direction = direction_to_mouse
 			rotation = aim_direction.angle()
+			
+			# 调试：打印方向信息
+			#print("Mouse pos: ", mouse_pos, " Player pos: ", global_position)
+			#print("Direction to mouse: ", direction_to_mouse, " Rotation: ", rotation)
 
 func _detect_platform():
 	"""检测平台类型"""
@@ -103,9 +110,14 @@ func _create_aim_line():
 	"""创建瞄准辅助线"""
 	aim_line = Line2D.new()
 	aim_line.width = 2.0
-	aim_line.default_color = Color(1.0, 0.5, 0.0, 0.5)  # 半透明橙色
+	aim_line.default_color = Color(1.0, 0.5, 0.0, 0.5)
+	
+	# 关键：设置使用全局坐标
+	aim_line.top_level = true
+	aim_line.global_position = Vector2.ZERO
+	
 	aim_line.add_point(Vector2.ZERO)
-	aim_line.add_point(aim_direction * aim_line_length)
+	aim_line.add_point(Vector2.ZERO)
 	add_child(aim_line)
 
 func _update_aim_line():
@@ -122,10 +134,13 @@ func _update_aim_line():
 	
 	if show_line:
 		aim_line.clear_points()
-		# 从枪口位置开始（角色前方20像素）
-		var start_offset = aim_direction * 20.0
-		aim_line.add_point(start_offset)
-		aim_line.add_point(start_offset + aim_direction * aim_line_length)
+		
+		# 关键：使用全局坐标计算
+		var start_pos = global_position
+		var end_pos = start_pos + aim_direction * aim_line_length
+		
+		aim_line.add_point(start_pos)
+		aim_line.add_point(end_pos)
 
 func setup_weapon_system(weapon_sys: Node):
 	"""设置武器系统"""

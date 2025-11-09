@@ -579,9 +579,9 @@ func _input(event: InputEvent):
 	if not visible:
 		return
 	
-	# B键或ESC键关闭背包
+	# E键或ESC键关闭背包
 	if event is InputEventKey:
-		if event.pressed and (event.keycode == KEY_B or event.keycode == KEY_ESCAPE):
+		if event.pressed and (event.keycode == KEY_E or event.keycode == KEY_ESCAPE):
 			close_inventory()
 			get_viewport().set_input_as_handled()
 
