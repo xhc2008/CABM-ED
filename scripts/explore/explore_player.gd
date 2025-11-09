@@ -98,9 +98,8 @@ func _update_aim_direction():
 
 func _detect_platform():
 	"""检测平台类型"""
-	# 检查是否为Android或iOS
-	var os_name = OS.get_name()
-	is_mobile = os_name == "Android" or os_name == "iOS"
+	# 使用统一的平台管理器
+	is_mobile = PlatformManager.is_mobile_platform()
 	
 	# 如果检测到触摸输入，也认为是移动设备
 	if Input.get_connected_joypads().size() > 0:

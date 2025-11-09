@@ -16,8 +16,7 @@ var is_mobile: bool = false
 
 func _ready():
 	# 检测是否为移动设备
-	var os_name = OS.get_name()
-	is_mobile = os_name == "Android" or os_name == "iOS"
+	is_mobile = PlatformManager.is_mobile_platform()
 	
 	# 根据平台显示/隐藏移动控制
 	if mobile_controls:

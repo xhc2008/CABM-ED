@@ -6,6 +6,7 @@ extends Node2D
 @onready var tilemap_layer = $TileMapLayer
 @onready var interaction_prompt = $UI/InteractionPrompt
 @onready var inventory_button = $UI/InventoryButton
+@onready var exit_button = $UI/ExitButton
 
 var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
@@ -55,8 +56,16 @@ func _ready():
 	$UI.add_child(inventory_ui)
 	inventory_ui.setup(player_inventory, chest_system)
 	
+	# 连接背包关闭信号（只连接一次）
+	if inventory_ui.closed.is_connected(_on_inventory_closed):
+		inventory_ui.closed.disconnect(_on_inventory_closed)
+	inventory_ui.closed.connect(_on_inventory_closed)
+	
 	# 创建武器UI
 	_create_weapon_ui()
+	
+	# 确保战斗UI初始显示
+	_show_combat_ui()
 	
 	# 设置雪狐跟随玩家
 	if snow_fox and player:
@@ -74,10 +83,13 @@ func _ready():
 			joystick.value_changed.connect(_on_joystick_updated)
 		else:
 			print("VirtualJoystick 没有找到可用的信号")
+		
+		# 根据平台显示/隐藏摇杆
+		joystick.visible = PlatformManager.is_mobile_platform()
 	
 	# 创建右摇杆（瞄准摇杆）- 只在移动设备上
-	if player and player.is_mobile:
-		_create_aim_joystick()
+	# if player and player.is_mobile:
+	# 	_create_aim_joystick()
 	
 	# 连接交互检测器信号
 	if player and player.has_method("get_interaction_detector"):
@@ -85,7 +97,6 @@ func _ready():
 		if detector and detector.has_signal("interactions_changed"):
 			detector.interactions_changed.connect(_on_interactions_changed)
 	
-	# 连接背包按钮
 	if inventory_button:
 		inventory_button.text = "背包 (E)"
 		inventory_button.custom_minimum_size = Vector2(100, 40)
@@ -108,10 +119,15 @@ func _process(_delta):
 	# 检查TileMapLayer上的宝箱
 	if player and tilemap_layer:
 		_check_nearby_chests()
+	
+	# 自动射击检查（仅PC端）
 	if not inventory_ui or not inventory_ui.visible:
-		if not player or not player.is_mobile:
+		if player and not player.is_mobile:
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				_handle_shoot()
+				# 检查鼠标是否在UI上
+				var mouse_pos = get_viewport().get_mouse_position()
+				if not _is_click_on_ui(mouse_pos):
+					_handle_shoot()
 
 func _check_nearby_chests():
 	"""检查附近的宝箱"""
@@ -204,13 +220,12 @@ func _open_chest(chest_data: Dictionary):
 		"chest_type": chest_type
 	}
 	
-	# 连接背包UI的关闭信号
-	if inventory_ui and not inventory_ui.closed.is_connected(_on_inventory_closed):
-		inventory_ui.closed.connect(_on_inventory_closed)
-	
 	# 打开背包UI显示宝箱
 	if inventory_ui:
 		inventory_ui.open_chest(chest_storage, chest_name, chest_data.position)
+	
+	# 隐藏战斗UI
+	_hide_combat_ui()
 	
 	# 隐藏交互提示
 	interaction_prompt.hide_interactions()
@@ -223,13 +238,12 @@ func _open_snow_fox_storage():
 	# 获取雪狐的存储（支持新旧格式）
 	var fox_storage_data = snow_fox.get_storage()
 	
-	# 连接背包UI的关闭信号
-	if inventory_ui and not inventory_ui.closed.is_connected(_on_inventory_closed):
-		inventory_ui.closed.connect(_on_inventory_closed)
-	
 	# 打开背包UI显示雪狐背包（启用武器栏）
 	if inventory_ui:
 		inventory_ui.open_chest(fox_storage_data, "雪狐的背包", Vector2i.ZERO, true)
+	
+	# 隐藏战斗UI
+	_hide_combat_ui()
 	
 	# 隐藏交互提示
 	interaction_prompt.hide_interactions()
@@ -241,12 +255,13 @@ func update_snow_fox_storage(storage_data):
 
 func _on_inventory_closed():
 	"""当背包UI关闭时调用"""
-	# 断开信号连接，避免重复调用
-	if inventory_ui and inventory_ui.closed.is_connected(_on_inventory_closed):
-		inventory_ui.closed.disconnect(_on_inventory_closed)
+	print("explore_scene: _on_inventory_closed 被调用")
 	
 	# 重置当前打开的宝箱
 	current_opened_chest = {}
+	
+	# 显示战斗UI
+	_show_combat_ui()
 	
 	# 重新检查附近的交互对象
 	_check_nearby_chests()
@@ -269,8 +284,10 @@ func _on_inventory_button_pressed():
 	if inventory_ui:
 		if inventory_ui.visible:
 			inventory_ui.close_inventory()
+			_show_combat_ui()
 		else:
 			inventory_ui.open_player_inventory()
+			_hide_combat_ui()
 
 func _input(event: InputEvent):
 	# 如果背包打开，不处理其他输入
@@ -293,12 +310,34 @@ func _input(event: InputEvent):
 				weapon_system.start_reload()
 			get_viewport().set_input_as_handled()
 	
-	# 鼠标左键射击（电脑）
+	# 鼠标左键射击（仅PC端）
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed:
-				_handle_shoot()
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			# 移动端不响应鼠标点击射击
+			if player and player.is_mobile:
+				return
+			
+			# 检查是否点击在UI元素上
+			if _is_click_on_ui(event.position):
+				print("点击在UI上，不执行射击")
+				return
+			
+			# 执行射击
+			_handle_shoot()
 			get_viewport().set_input_as_handled()
+
+func _is_click_on_ui(click_position: Vector2) -> bool:
+	"""检查点击位置是否在UI元素上"""
+	# 检查所有UI子节点
+	for child in $UI.get_children():
+		if child is Control and child.visible:
+			# 获取控件的全局矩形
+			var rect = Rect2(child.global_position, child.size)
+			if rect.has_point(click_position):
+				# print("点击在UI元素上: ", child.name)
+				return true
+	
+	return false
 
 func _handle_shoot():
 	"""处理射击"""
@@ -321,15 +360,15 @@ func _create_weapon_ui():
 			weapon_ui.setup(weapon_system)
 
 func _create_aim_joystick():
-	"""创建瞄准摇杆（右摇杆）"""
+	"""创建瞄准摇杆（右摇杆）(已废弃）"""
 	if not player:
 		return
 	
-	# 使用VirtualJoystick插件创建右摇杆
+	# 确保加载的是 VirtualJoystick 场景
 	var joystick_scene = load("res://scenes/virtual_joystick.tscn")
 	if ResourceLoader.exists("res://scenes/virtual_joystick.tscn"):
 		var right_joystick = joystick_scene.instantiate()
-		if right_joystick:
+		if right_joystick and right_joystick is VirtualJoystick:  # 添加类型检查
 			$UI.add_child(right_joystick)
 			# 设置位置到右侧
 			right_joystick.anchor_left = 1.0
@@ -416,3 +455,25 @@ func _save_explore_inventory_state():
 	SaveManager.save_inventory_data()
 	
 	print("已保存探索模式背包状态")
+
+func _hide_combat_ui():
+	"""隐藏战斗相关UI（打开背包时）"""
+	print("隐藏战斗UI")
+	# 隐藏武器UI
+	if weapon_ui:
+		weapon_ui.visible = false
+	
+	# 隐藏摇杆
+	if joystick:
+		joystick.visible = false
+
+func _show_combat_ui():
+	"""显示战斗相关UI（关闭背包时）"""
+	print("显示战斗UI")
+	# 显示武器UI
+	if weapon_ui:
+		weapon_ui.visible = true
+	
+	# 显示摇杆（仅移动端）
+	if joystick:
+		joystick.visible = PlatformManager.is_mobile_platform()

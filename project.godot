@@ -24,6 +24,7 @@ config/icon="res://icon.png"
 
 [autoload]
 
+PlatformManager="*res://scripts/platform_manager.gd"
 SaveManager="*res://scripts/save_manager.gd"
 OfflineTimeManager="*res://scripts/offline_time_manager.gd"
 PromptBuilder="*res://scripts/prompt_builder.gd"

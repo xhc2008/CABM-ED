@@ -247,11 +247,11 @@ func _play_shoot_sound():
 	available_player.play()
 	
 	# 调试信息
-	var playing_count = 0
-	for sound_player in shoot_sounds:
-		if sound_player.playing:
-			playing_count += 1
-	print("播放射击音效，播放器状态: " + str(playing_count) + "/" + str(shoot_sounds.size()) + " 正在播放")
+	# var playing_count = 0
+	# for sound_player in shoot_sounds:
+	# 	if sound_player.playing:
+	# 		playing_count += 1
+	# print("播放射击音效，播放器状态: " + str(playing_count) + "/" + str(shoot_sounds.size()) + " 正在播放")
 
 func start_reload() -> bool:
 	"""开始换弹"""

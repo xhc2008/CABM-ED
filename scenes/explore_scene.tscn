@@ -2184,7 +2184,6 @@ offset_top = 20.0
 offset_right = 140.0
 offset_bottom = 60.0
 text = "返回主场景"
-mouse_filter = 0
 
 [node name="HelpLabel" type="Label" parent="UI"]
 offset_left = 20.0
@@ -2306,7 +2305,6 @@ layout_mode = 2
 [node name="InventoryButton" type="Button" parent="UI"]
 offset_right = 8.0
 offset_bottom = 8.0
-mouse_filter = 0
 
 [node name="VirtualJoystick" type="Control" parent="UI"]
 layout_mode = 3
@@ -2326,10 +2324,12 @@ metadata/_custom_type_script = "uid://1yjy7f8qo4cu"
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
+pivot_offset = Vector2(20, 20)
 
 [node name="Tip" type="Panel" parent="UI/VirtualJoystick/Base"]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
+pivot_offset = Vector2(20, 20)
 
 [connection signal="pressed" from="UI/ExitButton" to="." method="_on_exit_button_pressed"]

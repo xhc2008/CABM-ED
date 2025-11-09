@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://weapon_ui_scene"]
+[gd_scene load_steps=2 format=3 uid="uid://bvurq47yol1d8"]
 
-[ext_resource type="Script" path="res://scripts/explore/weapon_ui.gd" id="1"]
+[ext_resource type="Script" uid="uid://ctuguaiyft57w" path="res://scripts/explore/weapon_ui.gd" id="1"]
 
 [node name="WeaponUI" type="Control"]
 layout_mode = 3
@@ -12,7 +12,6 @@ offset_top = -120.0
 offset_right = 200.0
 offset_bottom = -20.0
 grow_vertical = 0
-mouse_filter = 2
 script = ExtResource("1")
 
 [node name="VBox" type="VBoxContainer" parent="."]
@@ -20,16 +19,18 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+offset_left = 549.0
+offset_top = 5.0
+offset_right = 533.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
 [node name="WeaponIcon" type="TextureRect" parent="VBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(48, 48)
 texture_filter = 1
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
@@ -45,14 +46,12 @@ value = 1.0
 show_percentage = false
 
 [node name="MobileControls" type="Control" parent="."]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 
 [node name="LeftShootButton" type="Button" parent="MobileControls"]
 layout_mode = 1
@@ -61,10 +60,10 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -100.0
-offset_right = -100.0
-offset_bottom = -20.0
+offset_left = 886.0
+offset_top = -207.0
+offset_right = 986.0
+offset_bottom = -107.0
 grow_horizontal = 0
 grow_vertical = 0
 text = "射击"
@@ -74,10 +73,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -100.0
-offset_top = -100.0
-offset_right = -20.0
-offset_bottom = -20.0
+offset_left = -145.0
+offset_top = -342.0
+offset_right = -65.0
+offset_bottom = -262.0
 grow_horizontal = 0
 text = "射击"
 
@@ -88,21 +87,10 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -100.0
-offset_top = -180.0
-offset_right = -20.0
-offset_bottom = -120.0
+offset_left = 682.0
+offset_top = -76.0
+offset_right = 781.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
-text = "换弹 (R)"
-
-[node name="AimJoystick" type="Control" parent="MobileControls"]
-layout_mode = 1
-anchors_preset = 4
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -200.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = 120.0
-
+text = "换弹"
