@@ -8,7 +8,7 @@ signal storage_changed()
 var storage: Array = []  # [{item_id: String, count: int}]
 var size: int = 0
 var items_config: Dictionary = {}
-var weapon_slot: Dictionary = {}  # 武器栏 {item_id: String, count: int}
+var weapon_slot: Dictionary = {}  # 武器栏 {item_id: String, count: int, ammo: int}
 var has_weapon_slot: bool = false  # 是否有武器栏
 
 func _init(container_size: int, config: Dictionary = {}, enable_weapon_slot: bool = false):
@@ -60,7 +60,11 @@ func add_item(item_id: String, count: int = 1) -> bool:
 	# 如果是武器且有武器栏，优先放入武器栏
 	if has_weapon_slot and item_config.get("type") == "武器":
 		if weapon_slot.is_empty():
-			weapon_slot = {"item_id": item_id, "count": 1}
+			# 远程武器初始化时没有弹药，需要手动装弹
+			var ammo = 0
+			if item_config.get("subtype") == "远程":
+				ammo = 0  # 初始弹药为0
+			weapon_slot = {"item_id": item_id, "count": 1, "ammo": ammo}
 			remaining -= 1
 			if remaining <= 0:
 				storage_changed.emit()
@@ -112,6 +116,33 @@ func remove_item(index: int, count: int = 1) -> bool:
 	
 	storage_changed.emit()
 	return true
+
+func remove_item_by_id(item_id: String, count: int = 1) -> int:
+	"""根据物品ID移除物品，返回实际移除的数量"""
+	# 确保数量是整数
+	count = int(count)
+	if count <= 0:
+		return 0
+	
+	var remaining = count
+	
+	# 查找并移除物品
+	for i in range(storage.size()):
+		if storage[i] != null and storage[i].item_id == item_id:
+			var current_count = int(storage[i].count)
+			var to_remove = min(remaining, current_count)
+			storage[i].count = current_count - to_remove
+			remaining -= to_remove
+			
+			if storage[i].count <= 0:
+				storage[i] = null
+			
+			if remaining <= 0:
+				storage_changed.emit()
+				return count
+	
+	storage_changed.emit()
+	return count - remaining
 
 func move_item_internal(from_index: int, to_index: int) -> bool:
 	"""容器内移动物品"""
@@ -211,7 +242,11 @@ func get_data() -> Dictionary:
 	
 	var data = {"storage": result}
 	if has_weapon_slot:
-		data["weapon_slot"] = weapon_slot.duplicate() if not weapon_slot.is_empty() else {}
+		var weapon_data = weapon_slot.duplicate() if not weapon_slot.is_empty() else {}
+		# 确保ammo字段存在
+		if not weapon_data.is_empty() and not weapon_data.has("ammo"):
+			weapon_data["ammo"] = 0
+		data["weapon_slot"] = weapon_data
 	return data
 
 func load_data(data):
@@ -224,6 +259,9 @@ func load_data(data):
 		storage_data = data.get("storage", [])
 		if has_weapon_slot and data.has("weapon_slot"):
 			weapon_slot = data.weapon_slot.duplicate() if data.weapon_slot is Dictionary else {}
+			# 确保ammo字段存在（兼容旧存档）
+			if not weapon_slot.is_empty() and not weapon_slot.has("ammo"):
+				weapon_slot["ammo"] = 0
 	
 	storage.resize(size)
 	for i in range(size):

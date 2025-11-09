@@ -369,24 +369,72 @@ func _move_item(from_index: int, from_type: String, to_index: int, to_type: Stri
 		if from_item == null:
 			return
 		
-		# 检查是否是武器
 		var item_config = from_container.get_item_config(from_item.item_id)
-		if item_config.get("type") != "武器":
-			print("只有武器可以放入武器槽")
-			return
 		
-		# 获取目标武器槽的物品
-		var to_weapon = to_container.weapon_slot
-		
-		# 交换
-		to_container.weapon_slot = from_item.duplicate()
-		if not to_weapon.is_empty():
-			from_container.storage[from_index] = to_weapon.duplicate()
+		# 检查是否是武器
+		if item_config.get("type") == "武器":
+			# 武器放入武器槽
+			var to_weapon = to_container.weapon_slot
+			
+			# 如果是远程武器，初始化ammo字段
+			var new_weapon = from_item.duplicate()
+			if item_config.get("subtype") == "远程" and not new_weapon.has("ammo"):
+				new_weapon["ammo"] = 0
+			
+			# 交换
+			to_container.weapon_slot = new_weapon
+			if not to_weapon.is_empty():
+				from_container.storage[from_index] = to_weapon.duplicate()
+			else:
+				from_container.storage[from_index] = null
+			
+			from_container.storage_changed.emit()
+			to_container.storage_changed.emit()
+		# 检查是否是弹药
+		elif item_config.get("type") == "弹药":
+			# 弹药放入武器栏 - 尝试装弹
+			var weapon = to_container.weapon_slot
+			if weapon.is_empty():
+				print("武器槽中没有武器")
+				return
+			
+			var weapon_config = to_container.get_item_config(weapon.item_id)
+			if weapon_config.get("subtype") != "远程":
+				print("只有远程武器需要弹药")
+				return
+			
+			# 检查弹药类型是否匹配
+			var ammo_type = item_config.get("caliber", "")
+			var weapon_ammo_type = weapon_config.get("ammo_type", "")
+			if ammo_type != weapon_ammo_type:
+				print("弹药类型不匹配: 需要 " + weapon_ammo_type + ", 当前是 " + ammo_type)
+				return
+			
+			# 尝试装弹
+			var magazine_size = weapon_config.get("magazine_size", 30)
+			var current_ammo = weapon.get("ammo", 0)
+			var needed_ammo = magazine_size - current_ammo
+			
+			if needed_ammo <= 0:
+				print("弹匣已满")
+				return
+			
+			# 消耗弹药
+			var ammo_to_use = min(needed_ammo, from_item.count)
+			weapon["ammo"] = current_ammo + ammo_to_use
+			to_container.weapon_slot = weapon
+			
+			# 从背包移除使用的弹药
+			if ammo_to_use >= from_item.count:
+				from_container.storage[from_index] = null
+			else:
+				from_item.count = from_item.count - ammo_to_use
+			
+			from_container.storage_changed.emit()
+			to_container.storage_changed.emit()
 		else:
-			from_container.storage[from_index] = null
-		
-		from_container.storage_changed.emit()
-		to_container.storage_changed.emit()
+			print("只有武器或弹药可以放入武器槽")
+			return
 	elif from_type == to_type:
 		# 同一容器内移动
 		if from_container:
@@ -761,15 +809,26 @@ func _move_weapon_item(from_type: String, to_index: int, to_type: String, to_is_
 			var to_item_config = to_container.get_item_config(to_item.item_id)
 			if to_item_config.get("type") == "武器":
 				# 目标槽有武器，交换
-				to_container.storage[to_index] = from_item.duplicate()
-				from_container.weapon_slot = to_item.duplicate()
+				# 移除武器中的ammo字段（普通槽不存储ammo）
+				var weapon_copy = to_item.duplicate()
+				weapon_copy.erase("ammo")
+				to_container.storage[to_index] = weapon_copy
+				
+				# 武器槽的武器也需要处理ammo字段
+				var weapon_slot_copy = from_item.duplicate()
+				if not weapon_slot_copy.has("ammo"):
+					weapon_slot_copy["ammo"] = 0
+				from_container.weapon_slot = weapon_slot_copy
 			else:
 				# 目标槽不是武器，不能放入
 				print("武器只能与武器交换或放入空槽")
 				return
 		else:
 			# 目标槽为空，移动武器到普通槽
-			to_container.storage[to_index] = from_item.duplicate()
+			# 移除ammo字段
+			var weapon_copy = from_item.duplicate()
+			weapon_copy.erase("ammo")
+			to_container.storage[to_index] = weapon_copy
 			from_container.weapon_slot = {}
 		
 		from_container.storage_changed.emit()

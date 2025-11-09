@@ -3,6 +3,7 @@
     "CMR-951": {
       "name": "九五式-改",
       "type": "武器",
+      "subtype": "远程",
       "description": "你最熟悉的武器，它是████████████████████",
       "icon": "CRM-951.png",
       "weight": 3.5,
@@ -16,6 +17,7 @@
     "UMP45": {
       "name": "UMP45",
       "type": "武器",
+      "subtype": "远程",
       "description": "让敌人的心电图和她一样平",
       "icon": "UMP45.png",
       "weight": 2.3,
@@ -28,6 +30,7 @@
     "VSS-SF": {
       "name": "VSS-改",
       "type": "武器",
+      "subtype": "远程",
       "description": "消音极好的狙击步枪，是她████████████████",
       "icon": "VSS-SF.png",
       "weight": 2.5,

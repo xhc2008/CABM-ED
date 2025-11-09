@@ -10,12 +10,30 @@ class_name ExplorePlayer
 var joystick_direction: Vector2 = Vector2.ZERO
 var interaction_detector: Node  # InteractionDetector
 
+# 武器系统
+var weapon_system: Node  # WeaponSystem
+var aim_direction: Vector2 = Vector2.RIGHT  # 瞄准方向
+var is_mobile: bool = false  # 是否为移动设备
+
+# 瞄准辅助线
+var aim_line: Line2D
+var aim_line_length: float = 100.0
+
 func _ready():
 	# 添加交互检测器
 	var detector_script = load("res://scripts/explore/interaction_detector.gd")
 	interaction_detector = detector_script.new()
 	interaction_detector.detection_radius = 80.0
 	add_child(interaction_detector)
+	
+	# 检测是否为移动设备
+	_detect_platform()
+	
+	# 创建瞄准辅助线
+	_create_aim_line()
+	
+	# 初始化武器系统（由explore_scene设置）
+	# weapon_system将在explore_scene中设置
 
 func _physics_process(_delta):
 	var input_vector = Vector2.ZERO
@@ -45,14 +63,80 @@ func _physics_process(_delta):
 	# 移动
 	move_and_slide()
 	
-	# 朝向控制
-	# 优先使用右摇杆控制朝向
-	if joystick_right and joystick_right.is_pressed:
-		rotation = joystick_right.output.angle()
-	elif joystick_direction.length() > 0.01:
-		# 使用左摇杆移动方向作为朝向
-		look_at(global_position + input_vector)
+	# 瞄准和朝向控制
+	_update_aim_direction()
+	
+	# 更新瞄准辅助线
+	_update_aim_line()
+
+func _update_aim_direction():
+	"""更新瞄准方向"""
+	if is_mobile:
+		# 移动设备：使用右摇杆控制瞄准
+		if joystick_right and joystick_right.is_pressed:
+			var joystick_output = joystick_right.output
+			if joystick_output.length() > 0.1:
+				aim_direction = joystick_output.normalized()
+				rotation = aim_direction.angle()
+		elif joystick_direction.length() > 0.01:
+			# 如果没有右摇杆输入，使用移动方向作为朝向
+			aim_direction = joystick_direction.normalized()
+			rotation = aim_direction.angle()
 	else:
-		# 备用：朝向鼠标（仅在非触摸设备时）
+		# 电脑：朝向鼠标
 		var mouse_pos = get_global_mouse_position()
-		look_at(mouse_pos)
+		aim_direction = (mouse_pos - global_position).normalized()
+		if aim_direction.length() > 0.01:
+			rotation = aim_direction.angle()
+
+func _detect_platform():
+	"""检测平台类型"""
+	# 检查是否为Android或iOS
+	var os_name = OS.get_name()
+	is_mobile = os_name == "Android" or os_name == "iOS"
+	
+	# 如果检测到触摸输入，也认为是移动设备
+	if Input.get_connected_joypads().size() > 0:
+		is_mobile = true
+
+func _create_aim_line():
+	"""创建瞄准辅助线"""
+	aim_line = Line2D.new()
+	aim_line.width = 2.0
+	aim_line.default_color = Color(1.0, 0.5, 0.0, 0.5)  # 半透明橙色
+	aim_line.add_point(Vector2.ZERO)
+	aim_line.add_point(aim_direction * aim_line_length)
+	add_child(aim_line)
+
+func _update_aim_line():
+	"""更新瞄准辅助线"""
+	if not aim_line:
+		return
+	
+	# 只在有武器时显示
+	var show_line = false
+	if weapon_system and weapon_system.has_method("is_weapon_equipped"):
+		show_line = weapon_system.is_weapon_equipped()
+	
+	aim_line.visible = show_line
+	
+	if show_line:
+		aim_line.clear_points()
+		aim_line.add_point(Vector2.ZERO)
+		aim_line.add_point(aim_direction * aim_line_length)
+
+func setup_weapon_system(weapon_sys: Node):
+	"""设置武器系统"""
+	weapon_system = weapon_sys
+
+func get_aim_direction() -> Vector2:
+	"""获取瞄准方向"""
+	return aim_direction
+
+func get_shoot_position() -> Vector2:
+	"""获取射击位置（角色前方）"""
+	return global_position + aim_direction * 20.0  # 在角色前方20像素处
+
+func get_interaction_detector() -> Node:
+	"""获取交互检测器"""
+	return interaction_detector

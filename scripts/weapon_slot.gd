@@ -63,8 +63,13 @@ func update_display():
 		else:
 			icon_texture.texture = null
 		
-		# 武器通常数量为1，不显示
-		count_label.text = ""
+		# 显示弹药信息（如果是远程武器）
+		if item_config.get("subtype") == "远程":
+			var current_ammo = item_data.get("ammo", 0)
+			var magazine_size = item_config.get("magazine_size", 30)
+			count_label.text = str(current_ammo) + "/" + str(magazine_size)
+		else:
+			count_label.text = ""
 		modulate = Color.WHITE
 	
 	# 更新选中状态

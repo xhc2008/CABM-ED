@@ -13,6 +13,10 @@ var chest_system: Node # ChestSystem
 var nearby_chests: Array = []
 var current_opened_chest: Dictionary = {}
 
+# 武器系统
+var weapon_system: WeaponSystem
+var weapon_ui: Control  # 武器UI
+
 # 探索模式的临时背包状态（进入时加载，退出时保存）
 var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
 var temp_snow_fox_inventory = {}  # 可以是 Array 或 Dictionary
@@ -35,11 +39,24 @@ func _ready():
 	# 加载探索模式的背包状态
 	_load_explore_inventory_state()
 	
+	# 初始化武器系统
+	var weapon_system_script = load("res://scripts/explore/weapon_system.gd")
+	weapon_system = weapon_system_script.new()
+	add_child(weapon_system)
+	weapon_system.setup(player_inventory)
+	
+	# 连接武器系统到玩家
+	if player:
+		player.setup_weapon_system(weapon_system)
+	
 	# 创建背包UI
 	var inventory_ui_scene = load("res://scenes/explore_inventory_ui.tscn")
 	inventory_ui = inventory_ui_scene.instantiate()
 	$UI.add_child(inventory_ui)
 	inventory_ui.setup(player_inventory, chest_system)
+	
+	# 创建武器UI
+	_create_weapon_ui()
 	
 	# 设置雪狐跟随玩家
 	if snow_fox and player:
@@ -47,6 +64,7 @@ func _ready():
 	
 	# 连接摇杆信号 - 适配 VirtualJoystick 插件
 	if joystick and player:
+		player.joystick_left = joystick
 		# 尝试连接不同的信号名称
 		if joystick.has_signal("updated"):
 			joystick.updated.connect(_on_joystick_updated)
@@ -56,6 +74,10 @@ func _ready():
 			joystick.value_changed.connect(_on_joystick_updated)
 		else:
 			print("VirtualJoystick 没有找到可用的信号")
+	
+	# 创建右摇杆（瞄准摇杆）- 只在移动设备上
+	if player and player.is_mobile:
+		_create_aim_joystick()
 	
 	# 连接交互检测器信号
 	if player and player.has_method("get_interaction_detector"):
@@ -86,6 +108,10 @@ func _process(_delta):
 	# 检查TileMapLayer上的宝箱
 	if player and tilemap_layer:
 		_check_nearby_chests()
+	if not inventory_ui or not inventory_ui.visible:
+		if not player or not player.is_mobile:
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				_handle_shoot()
 
 func _check_nearby_chests():
 	"""检查附近的宝箱"""
@@ -260,6 +286,61 @@ func _input(event: InputEvent):
 				else:
 					inventory_ui.open_player_inventory()
 				get_viewport().set_input_as_handled()
+		
+		# R键换弹
+		if event.pressed and event.keycode == KEY_R:
+			if weapon_system:
+				weapon_system.start_reload()
+			get_viewport().set_input_as_handled()
+	
+	# 鼠标左键射击（电脑）
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_handle_shoot()
+			get_viewport().set_input_as_handled()
+
+func _handle_shoot():
+	"""处理射击"""
+	if not player or not weapon_system:
+		return
+	
+	var shoot_position = player.get_shoot_position()
+	var aim_direction = player.get_aim_direction()
+	var player_rotation = player.rotation
+	
+	weapon_system.shoot(shoot_position, aim_direction, player_rotation)
+
+func _create_weapon_ui():
+	"""创建武器UI"""
+	var weapon_ui_scene = load("res://scenes/weapon_ui.tscn")
+	if ResourceLoader.exists("res://scenes/weapon_ui.tscn"):
+		weapon_ui = weapon_ui_scene.instantiate()
+		if weapon_ui:
+			$UI.add_child(weapon_ui)
+			weapon_ui.setup(weapon_system)
+
+func _create_aim_joystick():
+	"""创建瞄准摇杆（右摇杆）"""
+	if not player:
+		return
+	
+	# 使用VirtualJoystick插件创建右摇杆
+	var joystick_scene = load("res://scenes/virtual_joystick.tscn")
+	if ResourceLoader.exists("res://scenes/virtual_joystick.tscn"):
+		var right_joystick = joystick_scene.instantiate()
+		if right_joystick:
+			$UI.add_child(right_joystick)
+			# 设置位置到右侧
+			right_joystick.anchor_left = 1.0
+			right_joystick.anchor_right = 1.0
+			right_joystick.anchor_top = 1.0
+			right_joystick.anchor_bottom = 1.0
+			right_joystick.offset_left = -200.0
+			right_joystick.offset_top = -200.0
+			right_joystick.offset_right = -40.0
+			right_joystick.offset_bottom = -40.0
+			player.joystick_right = right_joystick
 
 func _on_exit_button_pressed():
 	# 保存探索模式的背包状态
