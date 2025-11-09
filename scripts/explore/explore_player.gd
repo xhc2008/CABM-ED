@@ -17,7 +17,7 @@ var is_mobile: bool = false  # 是否为移动设备
 
 # 瞄准辅助线
 var aim_line: Line2D
-var aim_line_length: float = 100.0
+var aim_line_length: float = 200.0
 
 func _ready():
 	# 添加交互检测器
@@ -109,7 +109,7 @@ func _create_aim_line():
 	"""创建瞄准辅助线"""
 	aim_line = Line2D.new()
 	aim_line.width = 2.0
-	aim_line.default_color = Color(1.0, 0.5, 0.0, 0.5)
+	aim_line.default_color = Color(1.0, 0.1, 0.0, 0.25)
 	
 	# 关键：设置使用全局坐标
 	aim_line.top_level = true

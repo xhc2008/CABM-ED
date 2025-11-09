@@ -118,37 +118,32 @@ func _update_weapon_sounds(weapon_id: String):
 	# 加载射击音效
 	var shoot_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_shot.mp3"
 	var shoot_stream = null
-	if FileAccess.file_exists(shoot_sound_path.replace("res://", "")):
+	if ResourceLoader.exists(shoot_sound_path):
 		shoot_stream = load(shoot_sound_path)
 		print("成功加载射击音效: " + shoot_sound_path)
 	else:
-		# 如果找不到特定武器的音效，使用默认音效
-		shoot_stream = load(DEFAULT_SOUND_PATH + "shot.mp3")
-		print("使用默认射击音效")
+		print("未找到武器专属射击音效: " + shoot_sound_path)
 	
 	# 为所有射击音效播放器设置相同的音效
-	for sound_player in shoot_sounds:
-		sound_player.stream = shoot_stream
+	if shoot_stream:
+		for sound_player in shoot_sounds:
+			sound_player.stream = shoot_stream
 	
 	# 加载换弹音效
 	var reload_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_reload.mp3"
-	if FileAccess.file_exists(reload_sound_path.replace("res://", "")):
+	if ResourceLoader.exists(reload_sound_path):
 		reload_sound.stream = load(reload_sound_path)
 		print("成功加载换弹音效: " + reload_sound_path)
 	else:
-		# 如果找不到特定武器的音效，使用默认音效
-		reload_sound.stream = load(DEFAULT_SOUND_PATH + "reload.mp3")
-		print("使用默认换弹音效")
+		print("未找到武器专属换弹音效: " + reload_sound_path)
 	
 	# 加载空仓音效
 	var empty_sound_path = DEFAULT_SOUND_PATH + weapon_id + "_empty.mp3"
-	if FileAccess.file_exists(empty_sound_path.replace("res://", "")):
+	if ResourceLoader.exists(empty_sound_path):
 		empty_sound.stream = load(empty_sound_path)
 		print("成功加载空仓音效: " + empty_sound_path)
 	else:
-		# 如果找不到特定武器的音效，使用默认音效
-		empty_sound.stream = load(DEFAULT_SOUND_PATH + "empty.mp3")
-		print("使用默认空仓音效")
+		print("未找到武器专属空仓音效: " + empty_sound_path)
 
 func _update_ammo_display():
 	"""更新弹药显示"""
