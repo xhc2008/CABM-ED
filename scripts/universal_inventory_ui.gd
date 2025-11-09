@@ -376,14 +376,17 @@ func _move_item(from_index: int, from_type: String, to_index: int, to_type: Stri
 			# 武器放入武器槽
 			var to_weapon = to_container.weapon_slot
 			
-			# 如果是远程武器，初始化ammo字段
+			# 保留或初始化ammo字段
 			var new_weapon = from_item.duplicate()
-			if item_config.get("subtype") == "远程" and not new_weapon.has("ammo"):
-				new_weapon["ammo"] = 0
+			if item_config.get("subtype") == "远程":
+				# 如果原来有ammo字段，保留；否则初始化为0
+				if not new_weapon.has("ammo"):
+					new_weapon["ammo"] = 0
 			
 			# 交换
 			to_container.weapon_slot = new_weapon
 			if not to_weapon.is_empty():
+				# 保留原武器槽中武器的ammo字段
 				from_container.storage[from_index] = to_weapon.duplicate()
 			else:
 				from_container.storage[from_index] = null
@@ -534,15 +537,19 @@ func _show_item_info(item_data: Dictionary):
 	# 显示详细属性
 	var details = "\n\n属性\n"
 	details += "类型: " + item_config.get("type", "未知") + "\n"
-	details += "数量: " + str(item_data.count) + "\n"
+	details += "数量: " + str(int(item_data.count)) + "\n"
 	
 	if item_config.has("weight"):
 		details += "重量: " + str(item_config.weight) + "\n"
 	if item_config.has("max_stack"):
-		details += "最大堆叠: " + str(item_config.max_stack) + "\n"
+		details += "最大堆叠: " + str(int(item_config.max_stack)) + "\n"
 	
 	# 武器属性
 	if item_config.get("type") == "武器":
+		if item_config.has("ammo_type"):
+			details += "弹药: " + str(item_config.ammo_type) + "\n"
+		if item_config.has("magazine_size"):
+			details += "弹匣: " + str(int(item_config.magazine_size)) + "\n"
 		if item_config.has("damage"):
 			details += "伤害: " + str(item_config.damage) + "\n"
 		if item_config.has("fire_rate"):
@@ -809,26 +816,24 @@ func _move_weapon_item(from_type: String, to_index: int, to_type: String, to_is_
 			var to_item_config = to_container.get_item_config(to_item.item_id)
 			if to_item_config.get("type") == "武器":
 				# 目标槽有武器，交换
-				# 移除武器中的ammo字段（普通槽不存储ammo）
-				var weapon_copy = to_item.duplicate()
-				weapon_copy.erase("ammo")
-				to_container.storage[to_index] = weapon_copy
+				# 保留武器的ammo字段
+				var to_weapon_copy = to_item.duplicate()
+				# 确保目标武器有ammo字段
+				if not to_weapon_copy.has("ammo"):
+					var to_weapon_config = to_container.get_item_config(to_item.item_id)
+					if to_weapon_config.get("subtype") == "远程":
+						to_weapon_copy["ammo"] = 0
 				
-				# 武器槽的武器也需要处理ammo字段
-				var weapon_slot_copy = from_item.duplicate()
-				if not weapon_slot_copy.has("ammo"):
-					weapon_slot_copy["ammo"] = 0
-				from_container.weapon_slot = weapon_slot_copy
+				to_container.storage[to_index] = from_item.duplicate()
+				from_container.weapon_slot = to_weapon_copy
 			else:
 				# 目标槽不是武器，不能放入
 				print("武器只能与武器交换或放入空槽")
 				return
 		else:
 			# 目标槽为空，移动武器到普通槽
-			# 移除ammo字段
-			var weapon_copy = from_item.duplicate()
-			weapon_copy.erase("ammo")
-			to_container.storage[to_index] = weapon_copy
+			# 保留ammo字段
+			to_container.storage[to_index] = from_item.duplicate()
 			from_container.weapon_slot = {}
 		
 		from_container.storage_changed.emit()

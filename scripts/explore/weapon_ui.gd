@@ -91,7 +91,7 @@ func _on_weapon_changed(weapon_data: Dictionary):
 func _on_ammo_changed(current_ammo: int, max_ammo: int):
 	"""弹药变化"""
 	if ammo_label:
-		ammo_label.text = str(current_ammo) + "/" + str(max_ammo)
+		ammo_label.text = str(int(current_ammo)) + "/" + str(int(max_ammo))
 
 func _on_shoot_pressed():
 	"""射击按钮按下"""

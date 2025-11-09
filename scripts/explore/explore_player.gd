@@ -122,8 +122,10 @@ func _update_aim_line():
 	
 	if show_line:
 		aim_line.clear_points()
-		aim_line.add_point(Vector2.ZERO)
-		aim_line.add_point(aim_direction * aim_line_length)
+		# 从枪口位置开始（角色前方20像素）
+		var start_offset = aim_direction * 20.0
+		aim_line.add_point(start_offset)
+		aim_line.add_point(start_offset + aim_direction * aim_line_length)
 
 func setup_weapon_system(weapon_sys: Node):
 	"""设置武器系统"""

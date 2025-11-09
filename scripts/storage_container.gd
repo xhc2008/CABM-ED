@@ -34,6 +34,21 @@ func has_item(item_id: String) -> bool:
 	
 	return false
 
+func count_item(item_id: String) -> int:
+	"""统计容器中指定物品的总数量"""
+	var total = 0
+	
+	# 检查武器栏
+	if has_weapon_slot and not weapon_slot.is_empty() and weapon_slot.get("item_id") == item_id:
+		total += int(weapon_slot.get("count", 1))
+	
+	# 检查普通格子
+	for item in storage:
+		if item != null and item.get("item_id") == item_id:
+			total += int(item.get("count", 0))
+	
+	return total
+
 func set_items_config(config: Dictionary):
 	"""设置物品配置"""
 	items_config = config

@@ -67,7 +67,7 @@ func update_display():
 		if item_config.get("subtype") == "远程":
 			var current_ammo = item_data.get("ammo", 0)
 			var magazine_size = item_config.get("magazine_size", 30)
-			count_label.text = str(current_ammo) + "/" + str(magazine_size)
+			count_label.text = str(int(current_ammo)) + "/" + str(int(magazine_size))
 		else:
 			count_label.text = ""
 		modulate = Color.WHITE

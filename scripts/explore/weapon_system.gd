@@ -127,8 +127,8 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 		
 		# 空仓音效
 		if weapon_config.get("subtype") == "远程":
-			var ammo = current_weapon.get("ammo", 0)
-			if ammo <= 0 and not is_reloading:
+			var current_ammo = current_weapon.get("ammo", 0)
+			if current_ammo <= 0 and not is_reloading:
 				empty_sound.play()
 		return false
 	
@@ -193,6 +193,13 @@ func start_reload() -> bool:
 		print("没有找到对应的弹药: " + ammo_type)
 		return false
 	
+	# 检查背包中是否有足够的弹药
+	if player_inventory and player_inventory.container:
+		var available_ammo = player_inventory.container.count_item(ammo_item_id)
+		if available_ammo <= 0:
+			print("背包中没有弹药")
+			return false
+	
 	# 开始换弹
 	is_reloading = true
 	reload_time = 0.0
@@ -231,6 +238,8 @@ func _finish_reload():
 			player_inventory.container.weapon_slot = current_weapon.duplicate()
 			player_inventory.container.storage_changed.emit()
 			_update_ammo_display()
+		else:
+			print("换弹失败：无法消耗弹药")
 
 func _find_ammo_item_id(ammo_type: String) -> String:
 	"""根据弹药类型查找弹药物品ID"""

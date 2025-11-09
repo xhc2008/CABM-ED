@@ -47,7 +47,7 @@ func _ready():
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
 
-func setup(start_pos: Vector2, dir: Vector2, player_rot: float, weapon_cfg: Dictionary):
+func setup(start_pos: Vector2, dir: Vector2, _player_rot: float, weapon_cfg: Dictionary):
 	"""初始化子弹"""
 	global_position = start_pos
 	last_position = start_pos
@@ -55,13 +55,17 @@ func setup(start_pos: Vector2, dir: Vector2, player_rot: float, weapon_cfg: Dict
 	
 	# 设置子弹属性
 	damage = weapon_cfg.get("damage", 10)
-	speed = 1500.0  # 固定高速
+	speed = 2000.0  # 更快的速度
 	
 	# 设置旋转
 	rotation = direction.angle()
 	
 	# 设置生命周期（根据射程）
 	max_distance = 2000.0
+	
+	# 设置子弹外观为更细长的形状
+	if sprite:
+		sprite.scale = Vector2(3.0, 0.5)  # 细长的子弹
 
 func _physics_process(delta):
 	# 移动子弹
@@ -101,7 +105,7 @@ func _on_body_entered(body: Node2D):
 	_create_hit_effect(global_position, -direction)
 	queue_free()
 
-func _on_area_entered(area: Area2D):
+func _on_area_entered(_area: Area2D):
 	"""区域碰撞检测"""
 	# 可以处理特殊区域
 	pass
@@ -124,7 +128,7 @@ func _on_hit(hit_position: Vector2, hit_normal: Vector2):
 		if collider.has_method("take_damage"):
 			collider.take_damage(damage)
 
-func _create_hit_effect(position: Vector2, normal: Vector2):
+func _create_hit_effect(hit_pos: Vector2, normal: Vector2):
 	"""创建击中效果（火花动画）"""
 	# 加载火花动画场景
 	var spark_scene = load("res://scenes/spark_effect.tscn")
@@ -132,5 +136,5 @@ func _create_hit_effect(position: Vector2, normal: Vector2):
 		var spark = spark_scene.instantiate()
 		if spark:
 			get_tree().current_scene.add_child(spark)
-			spark.global_position = position
+			spark.global_position = hit_pos
 			spark.rotation = normal.angle() + PI / 2
