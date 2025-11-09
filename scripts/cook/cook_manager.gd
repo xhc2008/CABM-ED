@@ -101,13 +101,13 @@ func get_finished_ingredients() -> Array[PanIngredient]:
 	"""获取出锅的食材列表"""
 	return pan_ingredients.duplicate()
 
-func record_dish(ingredients: Array, p_items_config: Dictionary, dish_name: String = "蜜汁炖菜") -> Dictionary:
+func record_dish(ingredients: Array, p_items_config: Dictionary, dish_name: String = "谜之炖菜") -> Dictionary:
 	"""记录菜品信息"""
 	if ingredients.is_empty():
 		return {}
 	
-	# 统计食材（模糊记录，只记录类型）
-	var ingredient_types = {}
+	# 统计食材类型和数量
+	var ingredient_counts = {}
 	var cook_levels = []  # 记录所有食材的熟度
 	
 	for ingredient in ingredients:
@@ -115,33 +115,36 @@ func record_dish(ingredients: Array, p_items_config: Dictionary, dish_name: Stri
 		var item_config = p_items_config.get(item_id, {})
 		var item_name = item_config.get("name", item_id)
 		
-		# 模糊记录：只记录食材名称的一部分或简化名称
-		var simple_name = item_name
-		if item_name.length() > 2:
-			simple_name = item_name.substr(0, 2) + "..."
-		
-		if simple_name in ingredient_types:
-			ingredient_types[simple_name] += 1
+		# 统计食材数量
+		if item_name in ingredient_counts:
+			ingredient_counts[item_name] += 1
 		else:
-			ingredient_types[simple_name] = 1
+			ingredient_counts[item_name] = 1
 		
 		# 记录熟度
 		cook_levels.append(ingredient.state)
 	
-	# 构建食材描述（模糊）
-	var ingredients_desc = ""
-	var ingredient_list = []
-	for ingredient_name in ingredient_types:
-		var count = ingredient_types[ingredient_name]
-		if count > 1:
-			ingredient_list.append("%s×%d" % [ingredient_name, count])
-		else:
-			ingredient_list.append(ingredient_name)
+	# 按数量排序，取前三个
+	var sorted_ingredients = []
+	for ingredient_name in ingredient_counts:
+		sorted_ingredients.append({
+			"name": ingredient_name,
+			"count": ingredient_counts[ingredient_name]
+		})
 	
-	if ingredient_list.size() > 0:
-		ingredients_desc = "、".join(ingredient_list)
-	else:
-		ingredients_desc = "未知食材"
+	# 按数量降序排序
+	sorted_ingredients.sort_custom(func(a, b): return a["count"] > b["count"])
+	
+	# 构建食材描述（只取前三个，不记录数量）
+	var top_ingredients = []
+	for i in range(min(3, sorted_ingredients.size())):
+		top_ingredients.append(sorted_ingredients[i]["name"])
+	
+	var ingredients_desc = "、".join(top_ingredients)
+	
+	# 如果食材超过三种，加上"等"
+	if sorted_ingredients.size() > 3:
+		ingredients_desc += "等"
 	
 	# 分析整体熟度
 	var overall_cook_state = analyze_overall_cook_state(cook_levels)
@@ -156,11 +159,12 @@ func record_dish(ingredients: Array, p_items_config: Dictionary, dish_name: Stri
 		"medium_count": cook_levels.count(IngredientState.MEDIUM),
 		"well_done_count": cook_levels.count(IngredientState.WELL_DONE),
 		"overcooked_count": cook_levels.count(IngredientState.OVERCOOKED),
-		"burnt_count": cook_levels.count(IngredientState.BURNT)
+		"burnt_count": cook_levels.count(IngredientState.BURNT),
+		"total_ingredients": sorted_ingredients.size()  # 记录总食材种类数
 	}
 	
 	return dish
-
+	
 func analyze_overall_cook_state(cook_levels: Array) -> String:
 	"""分析整体熟度状态"""
 	var raw_count = cook_levels.count(IngredientState.RAW)
@@ -188,9 +192,9 @@ func analyze_overall_cook_state(cook_levels: Array) -> String:
 	elif burnt_count > total * 0.5:
 		return "大部分烧焦了"
 	elif overcooked_count == total:
-		return "全部过熟了"
+		return "熟过头了"
 	elif overcooked_count > total * 0.5:
-		return "大部分过熟了"
+		return "有点过了"
 	elif well_done_count == total:
 		return "完美全熟"
 	elif well_done_count > total * 0.7:
@@ -209,6 +213,7 @@ func analyze_overall_cook_state(cook_levels: Array) -> String:
 		return "大部分没熟"
 	else:
 		return "应该能吃……？"
+		
 func build_cook_memory_content(cooked_dishes: Array, user_name: String, character_scene: String) -> String:
 	"""构建烹饪记忆内容
 	
@@ -235,7 +240,17 @@ func build_cook_memory_content(cooked_dishes: Array, user_name: String, characte
 	var memory_content = "%s做了%d道菜：" % [subject_prefix, cooked_dishes.size()]
 	var dish_descriptions = []
 	
-	for dish in cooked_dishes:
+	# 如果菜品超过3个，随机选择3个详细记录
+	var dishes_to_record = cooked_dishes
+	if cooked_dishes.size() > 3:
+		dishes_to_record = []
+		var shuffled_dishes = cooked_dishes.duplicate()
+		shuffled_dishes.shuffle()
+		for i in range(3):
+			dishes_to_record.append(shuffled_dishes[i])
+	
+	# 构建菜品描述
+	for dish in dishes_to_record:
 		var desc = dish.dish_name
 		var details = []
 		
@@ -245,11 +260,15 @@ func build_cook_memory_content(cooked_dishes: Array, user_name: String, characte
 		if details.size() > 0:
 			desc += "（" + "，".join(details) + "）"
 
-		# 使用新的熟度描述系统
+		# 使用熟度描述
 		if dish.has("cook_state"):
-			desc+="，"+dish.cook_state
+			desc += "，" + dish.cook_state
 		dish_descriptions.append(desc)
 	
 	memory_content += "；".join(dish_descriptions)
+	
+	# 如果菜品超过3个，添加省略号
+	if cooked_dishes.size() > 3:
+		memory_content += "……"
 	
 	return memory_content
