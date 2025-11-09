@@ -286,8 +286,10 @@ func _input(event: InputEvent):
 			if inventory_ui:
 				if inventory_ui.visible:
 					inventory_ui.close_inventory()
+					_show_combat_ui()
 				else:
 					inventory_ui.open_player_inventory()
+					_hide_combat_ui()
 				get_viewport().set_input_as_handled()
 		
 		# R键换弹
