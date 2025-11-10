@@ -846,13 +846,13 @@ func _save_relationship(relationship_summary: String):
 
 func _calculate_word_limit(conversation_count: int) -> int:
 	"""根据对话条数动态计算字数限制
-    
-    规则：
-    - 1-2条对话：30字
-    - 3-4条对话：50字
-    - 5-6条对话：70字
-    - 7-8条对话：90字
-    - 9条及以上：110字
+	
+	规则：
+	- 1-2条对话：30字
+	- 3-4条对话：50字
+	- 5-6条对话：70字
+	- 7-8条对话：90字
+	- 9条及以上：110字
 	"""
 	if conversation_count <= 2:
 		return 30
@@ -913,50 +913,58 @@ func _check_and_recover_interrupted_conversation():
 	
 	print("检测到未完成的对话，开始断点恢复...")
 	
+	# 关键修复：添加全局时间检查
+	var last_time = temp_data.get("last_time", 0.0)
+	var current_time = Time.get_unix_time_from_system()
+	var time_elapsed = current_time - last_time
+	
 	# 检查是否有待总结的数据
 	var pending_summary = temp_data.get("pending_summary", {})
-	if not pending_summary.is_empty():
-		print("检测到待总结的数据，恢复总结流程...")
-		
-		# 恢复对话数据
-		current_conversation = temp_data.get("conversation", [])
-		pending_summary_data = pending_summary
-		summary_retry_count = temp_data.get("summary_retry_count", 0)
-		
-		var conv_text = pending_summary.get("conversation_text", "")
-		var conv_copy = pending_summary.get("conversation_copy", [])
-		
-		if not conv_copy.is_empty():
-			print("恢复的对话包含 %d 条记录，继续总结..." % conv_copy.size())
-			_call_summary_api_with_data(conv_text, conv_copy)
-		else:
-			print("警告: 待总结数据为空，删除临时文件")
-			_delete_temp_conversation()
-		return
 	
-	# 旧版本兼容：如果没有pending_summary，使用旧逻辑
-	var recovered_conversation = temp_data.get("conversation", [])
-	if recovered_conversation.is_empty():
+	# 情况1：超过5分钟且有待总结数据 → 继续总结
+	if time_elapsed > 300 and not pending_summary.is_empty():
+		print("距上次对话超过5分钟且有待总结数据，继续总结流程...")
+		_recover_pending_summary(temp_data)
+		
+	# 情况2：超过5分钟且无待总结数据 → 清除上下文
+	elif time_elapsed > 300 and pending_summary.is_empty():
+		print("距上次对话超过5分钟且无待总结数据，清除上下文")
 		_delete_temp_conversation()
 		return
+		
+	# 情况3：小于5分钟且有待总结数据 → 继续总结（可能是刚刚中断）
+	elif time_elapsed <= 300 and not pending_summary.is_empty():
+		print("距上次对话小于5分钟且有待总结数据，继续总结流程...")
+		_recover_pending_summary(temp_data)
+		
+	# 情况4：小于5分钟且无待总结数据 → 恢复上下文
+	else:
+		print("距上次对话小于5分钟，恢复对话上下文")
+		current_conversation = temp_data.get("conversation", [])
+		last_conversation_time = temp_data.get("last_time", 0.0)
+		is_first_message = temp_data.get("is_first_message", true)
+		print("恢复上下文：%d条对话记录，last_time: %f, is_first_message: %s" % [
+			current_conversation.size(), last_conversation_time, is_first_message
+		])
+		# 不自动总结，等待用户继续对话
+		return
+
+func _recover_pending_summary(temp_data: Dictionary):
+	"""恢复待总结的数据处理流程"""
+	# 恢复对话数据
+	current_conversation = temp_data.get("conversation", [])
+	pending_summary_data = temp_data.get("pending_summary", {})
+	summary_retry_count = temp_data.get("summary_retry_count", 0)
 	
-	# 扁平化对话文本用于总结
-	var conversation_text = _flatten_conversation_from_data(recovered_conversation)
+	var conv_text = pending_summary_data.get("conversation_text", "")
+	var conv_copy = pending_summary_data.get("conversation_copy", [])
 	
-	print("恢复的对话包含 %d 条记录，开始总结..." % recovered_conversation.size())
-	
-	# 设置待总结数据
-	pending_summary_data = {
-		"conversation_copy": recovered_conversation,
-		"conversation_text": conversation_text,
-		"original_count": recovered_conversation.size(),
-		"timestamp": Time.get_unix_time_from_system()
-	}
-	current_conversation = recovered_conversation
-	summary_retry_count = 0
-	
-	# 直接调用总结API，使用恢复的对话数据
-	_call_summary_api_with_data(conversation_text, recovered_conversation)
+	if not conv_copy.is_empty():
+		print("恢复的对话包含 %d 条记录，继续总结..." % conv_copy.size())
+		_call_summary_api_with_data(conv_text, conv_copy)
+	else:
+		print("警告: 待总结数据为空，删除临时文件")
+		_delete_temp_conversation()
 
 func _flatten_conversation_from_data(conversation_data: Array) -> String:
 	"""从指定的对话数据扁平化对话历史"""
