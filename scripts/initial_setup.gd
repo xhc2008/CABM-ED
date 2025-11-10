@@ -93,7 +93,7 @@ func _save_api_key(api_key: String):
 			"api_key": api_key
 		},
 		"summary_model": {
-			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
+			"model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
 			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
 		},

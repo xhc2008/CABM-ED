@@ -255,7 +255,12 @@ func _finalize_stream_response():
 	var full_response = response_parser.get_full_response()
 	var timestamp = Time.get_unix_time_from_system()
 	current_conversation.append({"role": "assistant", "content": full_response, "timestamp": timestamp})
-	_save_temp_conversation()
+	
+	# 实时记录AI回复时间
+	last_conversation_time = timestamp
+	print("记录AI回复时间: %f" % last_conversation_time)
+	_save_temp_conversation()  # 立即保存时间戳
+	
 	print("添加AI回复到历史，当前上下文数量: %d" % current_conversation.size())
 	
 	var messages = http_request.get_meta("messages", [])
@@ -402,7 +407,16 @@ func remove_goto_from_history():
 func _call_summary_api_with_data(conversation_text: String, conversation_data: Array):
 	"""调用总结 API（使用指定的对话数据）"""
 	var summary_config = config_loader.config.summary_model
-	var url = summary_config.base_url + "/chat/completions"
+	# 严格使用用户配置，不进行任何回退
+	var model = summary_config.model
+	var base_url = summary_config.base_url
+	
+	if model.is_empty() or base_url.is_empty():
+		push_error("总结模型配置不完整: model='%s', base_url='%s'" % [model, base_url])
+		_handle_summary_failure("总结模型配置不完整")
+		return
+	
+	var url = base_url + "/chat/completions"
 	
 	var headers = [
 		"Content-Type: application/json",
@@ -420,8 +434,9 @@ func _call_summary_api_with_data(conversation_text: String, conversation_data: A
 	var conversation_count = conversation_data.size()
 	var word_limit = _calculate_word_limit(conversation_count)
 	
-	# 替换system_prompt中的占位符
-	var system_prompt = summary_config.system_prompt
+	# 使用新的配置结构
+	var summary_params = summary_config.summary
+	var system_prompt = summary_params.system_prompt
 	system_prompt = system_prompt.replace("{character_name}", char_name)
 	system_prompt = system_prompt.replace("{user_name}", user_name)
 	system_prompt = system_prompt.replace("{user_address}", user_address)
@@ -433,11 +448,11 @@ func _call_summary_api_with_data(conversation_text: String, conversation_data: A
 	]
 	
 	var body = {
-		"model": summary_config.model,
+		"model": model,  # 严格使用用户配置的模型
 		"messages": messages,
-		"max_tokens": int(summary_config.max_tokens),
-		"temperature": float(summary_config.temperature),
-		"top_p": float(summary_config.top_p)
+		"max_tokens": int(summary_params.max_tokens),
+		"temperature": float(summary_params.temperature),
+		"top_p": float(summary_params.top_p)
 	}
 	
 	var json_body = JSON.stringify(body)
@@ -634,7 +649,15 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 func _call_address_api(conversation_text: String):
 	"""调用称呼模型 API"""
 	var summary_config = config_loader.config.summary_model
-	var url = summary_config.base_url + "/chat/completions"
+	# 严格使用用户配置，不进行任何回退
+	var model = summary_config.model
+	var base_url = summary_config.base_url
+	
+	if model.is_empty() or base_url.is_empty():
+		push_error("称呼模型配置不完整: model='%s', base_url='%s'" % [model, base_url])
+		return
+	
+	var url = base_url + "/chat/completions"
 	
 	var headers = [
 		"Content-Type: application/json",
@@ -649,7 +672,12 @@ func _call_address_api(conversation_text: String):
 	var user_name = save_mgr.get_user_name()
 	var current_address = save_mgr.get_user_address()
 	
-	var system_prompt = summary_config.address_system_prompt.replace("{character_name}", char_name).replace("{user_name}", user_name).replace("{current_address}", current_address)
+	# 使用新的配置结构
+	var address_params = summary_config.address
+	var system_prompt = address_params.system_prompt
+	system_prompt = system_prompt.replace("{character_name}", char_name)
+	system_prompt = system_prompt.replace("{user_name}", user_name)
+	system_prompt = system_prompt.replace("{current_address}", current_address)
 	
 	var messages = [
 		{"role": "system", "content": system_prompt},
@@ -657,11 +685,11 @@ func _call_address_api(conversation_text: String):
 	]
 	
 	var body = {
-		"model": summary_config.model,
+		"model": model,  # 严格使用用户配置的模型
 		"messages": messages,
-		"max_tokens": int(summary_config.max_tokens),
-		"temperature": float(summary_config.temperature),
-		"top_p": float(summary_config.top_p)
+		"max_tokens": int(address_params.max_tokens),
+		"temperature": float(address_params.temperature),
+		"top_p": float(address_params.top_p)
 	}
 	
 	var json_body = JSON.stringify(body)
@@ -745,18 +773,14 @@ func _handle_address_response(response: Dictionary, address_request: HTTPRequest
 
 func _call_relationship_api():
 	"""调用关系模型 API"""
-	var relationship_config = config_loader.config.relationship_model
+	var summary_config = config_loader.config.summary_model
+	# 严格使用用户配置，不进行任何回退
+	var model = summary_config.model
+	var base_url = summary_config.base_url
 	
-	# 使用relationship_model的配置，如果没有则回退到summary_model
-	var model = relationship_config.get("model", "")
-	var base_url = relationship_config.get("base_url", "")
-	
-	# 如果relationship_model没有配置，使用summary_model的配置
 	if model.is_empty() or base_url.is_empty():
-		var summary_config = config_loader.config.summary_model
-		model = summary_config.model
-		base_url = summary_config.base_url
-		print("relationship_model未配置，使用summary_model的配置")
+		push_error("关系模型配置不完整: model='%s', base_url='%s'" % [model, base_url])
+		return
 	
 	var url = base_url + "/chat/completions"
 	
@@ -769,7 +793,9 @@ func _call_relationship_api():
 	var current_relationship = prompt_builder.get_relationship_context()
 	var memory_context = prompt_builder.get_memory_context()
 	
-	var system_prompt = relationship_config.system_prompt.replace("{relationship}", current_relationship)
+	# 使用新的配置结构
+	var relationship_params = summary_config.relationship
+	var system_prompt = relationship_params.system_prompt.replace("{relationship}", current_relationship)
 	
 	var messages = [
 		{"role": "system", "content": system_prompt},
@@ -777,11 +803,11 @@ func _call_relationship_api():
 	]
 	
 	var body = {
-		"model": model,
+		"model": model,  # 严格使用用户配置的模型
 		"messages": messages,
-		"max_tokens": int(relationship_config.max_tokens),
-		"temperature": float(relationship_config.temperature),
-		"top_p": float(relationship_config.top_p)
+		"max_tokens": int(relationship_params.max_tokens),
+		"temperature": float(relationship_params.temperature),
+		"top_p": float(relationship_params.top_p)
 	}
 	
 	var json_body = JSON.stringify(body)
@@ -920,17 +946,18 @@ func _check_and_recover_interrupted_conversation():
 	
 	# 检查是否有待总结的数据
 	var pending_summary = temp_data.get("pending_summary", {})
-	
+	print("上次时间戳：",last_time)
+	print("目前时间戳：",current_time)
+	print("差值：",time_elapsed)
 	# 情况1：超过5分钟且有待总结数据 → 继续总结
 	if time_elapsed > 300 and not pending_summary.is_empty():
 		print("距上次对话超过5分钟且有待总结数据，继续总结流程...")
 		_recover_pending_summary(temp_data)
 		
-	# 情况2：超过5分钟且无待总结数据 → 清除上下文
+	# 情况2：超过5分钟且无待总结数据 → 先总结再清除
 	elif time_elapsed > 300 and pending_summary.is_empty():
-		print("距上次对话超过5分钟且无待总结数据，清除上下文")
-		_delete_temp_conversation()
-		return
+		print("距上次对话超过5分钟且无待总结数据，开始总结流程...")
+		_start_summary_for_expired_conversation(temp_data)
 		
 	# 情况3：小于5分钟且有待总结数据 → 继续总结（可能是刚刚中断）
 	elif time_elapsed <= 300 and not pending_summary.is_empty():
@@ -966,6 +993,35 @@ func _recover_pending_summary(temp_data: Dictionary):
 		print("警告: 待总结数据为空，删除临时文件")
 		_delete_temp_conversation()
 
+func _start_summary_for_expired_conversation(temp_data: Dictionary):
+	"""为过期的对话开始总结流程"""
+	var recovered_conversation = temp_data.get("conversation", [])
+	if recovered_conversation.is_empty():
+		print("对话记录为空，直接删除临时文件")
+		_delete_temp_conversation()
+		return
+	
+	# 扁平化对话文本用于总结
+	var conversation_text = _flatten_conversation_from_data(recovered_conversation)
+	
+	print("过期的对话包含 %d 条记录，开始总结..." % recovered_conversation.size())
+	
+	# 设置待总结数据
+	pending_summary_data = {
+		"conversation_copy": recovered_conversation,
+		"conversation_text": conversation_text,
+		"original_count": recovered_conversation.size(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	current_conversation = recovered_conversation
+	summary_retry_count = 0
+	
+	# 保存临时文件，标记为待总结状态
+	_save_temp_conversation()
+	
+	# 调用总结API，使用恢复的对话数据
+	_call_summary_api_with_data(conversation_text, recovered_conversation)
+	
 func _flatten_conversation_from_data(conversation_data: Array) -> String:
 	"""从指定的对话数据扁平化对话历史"""
 	var lines = []
@@ -1090,8 +1146,8 @@ func _clear_conversation_context():
 	
 	var original_count = pending_summary_data.get("original_count", current_conversation.size())
 	
-	# 清除前50%的上下文（向下取整），保留后50%（向上取整）
-	var keep_count = max(1, int(ceil(original_count * 0.5))) if original_count > 0 else 0
+	# 修改这里：允许保留条数为0
+	var keep_count = max(0, int(ceil(original_count * 0.5))) if original_count > 0 else 0
 	var clear_count = original_count - keep_count
 	
 	if clear_count > 0 and current_conversation.size() >= original_count:
