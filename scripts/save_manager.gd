@@ -608,8 +608,11 @@ func _add_initial_items_to_warehouse():
 	
 	# 定义初始物品列表 [物品ID, 数量]
 	var initial_items = [
+		["CMR-951", 1],
 		["5.8mm_ammo", 64],
+		["VSS-SF", 1],
 		["9mm_ammo", 64],
+		["UMP45", 1],
 		[".45_ammo", 64],
 	]
 	
