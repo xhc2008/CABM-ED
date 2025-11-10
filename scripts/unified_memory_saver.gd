@@ -90,8 +90,8 @@ func _save_to_archive(content: String, timestamp: String) -> void:
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
 		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
 	
-	# 保存存档（不更新 last_played_at）
-	save_mgr.save_game(save_mgr.current_slot, false)
+	# 保存存档
+	save_mgr.save_game(save_mgr.current_slot)
 	
 	print("✓ 已保存到存档")
 

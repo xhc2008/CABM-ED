@@ -26,13 +26,13 @@ const CONFIG_TEMPLATES = {
 	},
 	"standard": {
 		"name": "标准",
-		"description": "大模型与小模型结合使用，平衡性能与价格",
+		"description": "支持语音，以高性价比获得更佳的体验",
 		"chat_model": {
 			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
 			"base_url": "https://api.siliconflow.cn/v1"
 		},
 		"summary_model": {
-			"model": "Qwen/Qwen3-8B",
+			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
 			"base_url": "https://api.siliconflow.cn/v1"
 		},
 		"tts_model": {

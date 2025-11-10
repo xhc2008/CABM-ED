@@ -673,7 +673,7 @@ func _save_diary_entry_legacy(time_str: String, event_text: String, date_str: St
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
 		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
 	
-	save_mgr.save_game(save_mgr.current_slot, false)
+	save_mgr.save_game(save_mgr.current_slot)
 	
 	if has_node("/root/MemoryManager"):
 		var memory_mgr = get_node("/root/MemoryManager")
