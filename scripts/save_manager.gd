@@ -128,12 +128,16 @@ func _on_auto_save_timeout():
 		save_game(current_slot)
 		print("自动保存完成")
 
-func save_game(slot: int = 1, update_play_time: bool = true) -> bool:
+func save_game(slot: int = 1) -> bool:
 	"""保存游戏数据
 	
 	参数:
 		slot: 存档槽位
-		update_play_time: 是否更新最后游玩时间（默认true）
+	
+	注意：
+		- last_saved_at: 每次保存时更新
+		- last_played_at: 每次保存时更新（记录退出时间，用于离线时间计算）
+		- last_refresh_date: 只在每日刷新时更新（用于判断是否需要刷新）
 	"""
 	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
 	
@@ -145,9 +149,8 @@ func save_game(slot: int = 1, update_play_time: bool = true) -> bool:
 	var now = Time.get_datetime_string_from_system()
 	var now_unix = Time.get_unix_time_from_system()
 	save_data.timestamp.last_saved_at = now
-	if update_play_time:
-		save_data.timestamp.last_played_at = now
-		save_data.timestamp.last_played_at_unix = now_unix
+	save_data.timestamp.last_played_at = now
+	save_data.timestamp.last_played_at_unix = now_unix
 	
 	# 转换为JSON
 	var json_string = JSON.stringify(save_data, "\t")
@@ -229,31 +232,54 @@ func load_game(slot: int = 1) -> bool:
 	return true
 
 func _check_daily_refresh():
-	"""检查是否需要每日刷新地图"""
-	if not save_data.has("timestamp") or not save_data.timestamp.has("last_played_at"):
+	"""检查是否需要每日刷新地图（在游戏启动时调用）
+	
+	使用 last_refresh_date 字段来判断是否需要刷新，而不是 last_played_at
+	这样即使玩家跨越0点保存退出，下次启动时仍能正确刷新
+	"""
+	# 确保 last_refresh_date 字段存在
+	if not save_data.has("timestamp"):
+		save_data.timestamp = {}
+	
+	var now_str = Time.get_datetime_string_from_system()
+	var today = now_str.split("T")[0] if "T" in now_str else now_str.split(" ")[0]
+	
+	if not save_data.timestamp.has("last_refresh_date"):
+		# 首次运行，使用当前日期
+		save_data.timestamp.last_refresh_date = today
+		print("首次运行，初始化刷新日期: ", today)
 		return
 	
-	var last_played = save_data.timestamp.last_played_at
-	var now = Time.get_datetime_string_from_system()
+	var last_refresh_date = save_data.timestamp.last_refresh_date
 	
-	# 提取日期部分（YYYY-MM-DD）
-	var last_date = last_played.split("T")[0] if "T" in last_played else last_played.split(" ")[0]
-	var current_date = now.split("T")[0] if "T" in now else now.split(" ")[0]
-	
-	print("上次游玩日期: ", last_date, ", 当前日期: ", current_date)
+	print("上次刷新日期: ", last_refresh_date, ", 当前日期: ", today)
 	
 	# 如果日期不同，刷新地图
-	if last_date != current_date:
+	if last_refresh_date != today:
 		print("检测到日期变化，刷新地图")
-		
-		# 1. 删除opened_chests（刷新宝箱）
-		if save_data.has("chest_system_data") and save_data.chest_system_data.has("opened_chests"):
-			save_data.chest_system_data.opened_chests = {}
-			print("已删除opened_chests，地图已刷新")
-		
-		# 2. 检查并添加缺失的唯一物品到仓库
-		# 延迟调用以确保 InventoryManager 已加载
-		call_deferred("_add_missing_unique_items_on_daily_refresh")
+		_perform_daily_refresh(today)
+
+func _perform_daily_refresh(new_date: String):
+	"""执行每日刷新操作
+	
+	参数:
+		new_date: 新的日期字符串（YYYY-MM-DD）
+	"""
+	# 1. 删除opened_chests（刷新宝箱）
+	if save_data.has("chest_system_data") and save_data.chest_system_data.has("opened_chests"):
+		save_data.chest_system_data.opened_chests = {}
+		print("已删除opened_chests，地图已刷新")
+	
+	# 2. 更新刷新日期
+	save_data.timestamp.last_refresh_date = new_date
+	print("已更新刷新日期: ", new_date)
+	
+	# 3. 检查并添加缺失的唯一物品到仓库
+	# 延迟调用以确保 InventoryManager 已加载
+	call_deferred("_add_missing_unique_items_on_daily_refresh")
+	
+	# 4. 保存刷新后的数据
+	call_deferred("save_game", current_slot)
 
 # === 角色数据访问方法 ===
 
@@ -398,16 +424,13 @@ func set_bgm_config(config: Dictionary):
 # === 内部方法 ===
 
 func _check_offline_time():
-	"""检查离线时间（延迟调用）"""
+	"""检查离线时间（延迟调用）
+	
+	注意：离线时间计算使用存档中的 last_played_at（上次退出时间）
+	计算完成后不需要立即更新 last_played_at，它会在下次保存时自动更新
+	"""
 	if has_node("/root/OfflineTimeManager"):
 		get_node("/root/OfflineTimeManager").check_and_apply_offline_changes()
-		
-		# 检查完离线时间后，更新最后游玩时间并保存
-		var now = Time.get_unix_time_from_system()
-		save_data.timestamp.last_played_at = Time.get_datetime_string_from_system()
-		save_data.timestamp.last_played_at_unix = now
-		# 保存时不再更新 last_played_at（因为我们刚刚手动更新了）
-		save_game(current_slot, false)
 
 func _auto_save():
 	"""数据变更时自动保存"""

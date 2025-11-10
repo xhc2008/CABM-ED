@@ -19,6 +19,9 @@ var last_shot_time: float = 0.0
 var fire_rate: float = 0.1  # 默认射速
 var shoot_cooldown_timer: float = 0.0
 
+# 空仓音效相关
+var is_empty_sound_playing: bool = false
+
 # 子弹场景
 const BULLET_SCENE = preload("res://scenes/bullet.tscn")
 
@@ -51,6 +54,8 @@ func _ready():
 	empty_sound = AudioStreamPlayer2D.new()
 	empty_sound.bus = "SFX"
 	add_child(empty_sound)
+	# 连接空仓音效播放完成信号
+	empty_sound.finished.connect(_on_empty_sound_finished)
 
 func setup(inventory: PlayerInventory):
 	"""初始化武器系统"""
@@ -183,11 +188,12 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 		if current_weapon.is_empty() or weapon_config.is_empty():
 			return false
 		
-		# 空仓音效
+		# 空仓音效 - 只有在没有播放时才播放
 		if weapon_config.get("subtype") == "远程":
 			var current_ammo = current_weapon.get("ammo", 0)
-			if current_ammo <= 0 and not is_reloading:
+			if current_ammo <= 0 and not is_reloading and not is_empty_sound_playing:
 				empty_sound.play()
+				is_empty_sound_playing = true
 		return false
 	
 	# 只有远程武器可以射击
@@ -197,7 +203,10 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	# 消耗弹药
 	var ammo = current_weapon.get("ammo", 0)
 	if ammo <= 0:
-		empty_sound.play()
+		# 空仓音效 - 只有在没有播放时才播放
+		if not is_empty_sound_playing:
+			empty_sound.play()
+			is_empty_sound_playing = true
 		return false
 	
 	current_weapon["ammo"] = ammo - 1
@@ -337,6 +346,10 @@ func _find_ammo_item_id(ammo_type: String) -> String:
 			return item_id
 	
 	return ""
+
+func _on_empty_sound_finished():
+	"""空仓音效播放完成"""
+	is_empty_sound_playing = false
 
 func get_current_weapon() -> Dictionary:
 	"""获取当前武器数据"""
