@@ -616,18 +616,17 @@ func _on_ai_config_pressed():
 	"""打开AI配置面板"""
 	# 检查是否已经存在配置面板
 	for child in get_tree().root.get_children():
-		if child.get_script() and child.get_script().resource_path == "res://scripts/ai_config_panel.gd":
-			# 如果已存在，切换显示状态
-			if child.visible:
-				child.queue_free()
-			else:
-				child.visible = true
+		if child is Panel and child.name == "AIConfigPanel":  # 根据你的实际节点名称调整
+			# 如果已存在，直接显示并返回
+			child.show()
+			child.move_to_front()  # 确保显示在最前面
 			return
 	
 	# 如果不存在，创建新面板
 	var config_panel_scene = load("res://scenes/ai_config_panel.tscn")
 	if config_panel_scene:
 		var config_panel = config_panel_scene.instantiate()
+		config_panel.name = "AIConfigPanel"  # 设置一个固定的名称便于识别
 		get_tree().root.add_child(config_panel)
 		# 面板关闭后刷新状态显示
 		config_panel.tree_exited.connect(_load_api_key_display)

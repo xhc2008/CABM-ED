@@ -26,7 +26,7 @@
       "damage": 48,
       "ammo_type": ".45",
       "magazine_size": 25,
-      "fire_rate": 0.12,
+      "fire_rate": 0.06,
       "reload_time":3.0
     },
     "VSS-SF": {
@@ -40,7 +40,7 @@
       "damage": 65,
       "ammo_type": "9mm",
       "magazine_size": 20,
-      "fire_rate": 0.25,
+      "fire_rate": 0.30,
       "reload_time":3.5,
       "special_tags":["绑定"]
     },
