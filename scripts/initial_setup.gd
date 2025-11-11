@@ -49,35 +49,12 @@ func _on_start_pressed():
 
 func _save_initial_data(user_name: String, character_name: String, api_key: String):
 	"""保存初始数据到配置和存档"""
-	_update_app_config(character_name)
-	
 	if api_key != "":
 		_save_api_key(api_key)
 	
 	_create_initial_save(user_name, character_name)
 
-func _update_app_config(character_name: String):
-	"""更新应用配置文件"""
-	var config_path = "res://config/app_config.json"
-	var config = {}
-	var file
-	
-	if FileAccess.file_exists(config_path):
-		file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			config = json.data
-	
-	config["character_name"] = character_name
-	
-	file = FileAccess.open(config_path, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(config, "\t"))
-		file.close()
-		print("角色名称已保存: ", character_name)
+
 
 func _save_api_key(api_key: String):
 	"""保存API密钥并应用标准模板"""
@@ -135,8 +112,9 @@ func _create_initial_save(user_name: String, character_name: String):
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 直接设置用户名到save_data，不触发自动保存
+	# 直接设置用户名和角色名到save_data，不触发自动保存
 	save_mgr.save_data.user_data.user_name = user_name
+	save_mgr.save_data.character_name = character_name
 	
 	var now = Time.get_datetime_string_from_system()
 	var now_unix = Time.get_unix_time_from_system()

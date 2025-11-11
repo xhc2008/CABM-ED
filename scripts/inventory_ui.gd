@@ -49,18 +49,20 @@ func _create_switch_button():
 		vbox.add_child(switch_button)
 		vbox.move_child(switch_button, 1)
 	
-	switch_button.text = "切换到雪狐背包"
+	var character_name = _get_character_name()
+	switch_button.text = "切换到" + character_name + "背包"
 	switch_button.pressed.connect(_on_switch_button_pressed)
 
 func _on_switch_button_pressed():
 	"""切换按钮点击"""
 	is_showing_warehouse = !is_showing_warehouse
+	var character_name = _get_character_name()
 	
 	if is_showing_warehouse:
 		setup_other_container(InventoryManager.warehouse_container, "仓库")
-		switch_button.text = "切换到雪狐背包"
+		switch_button.text = "切换到" + character_name + "背包"
 	else:
-		setup_other_container(snow_fox_container, "雪狐的背包")
+		setup_other_container(snow_fox_container, character_name + "的背包")
 		switch_button.text = "切换到仓库"
 	
 	_refresh_all_slots()
@@ -84,6 +86,14 @@ func toggle_visibility():
 		is_showing_warehouse = true
 		setup_other_container(InventoryManager.warehouse_container, "仓库")
 		if switch_button:
-			switch_button.text = "切换到雪狐背包"
+			switch_button.text = "切换到"+_get_character_name()+"背包"
 		
 		open_with_container()
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if not has_node("/root/SaveManager"):
+		return "角色"
+	
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()

@@ -20,10 +20,8 @@ var history_vbox: VBoxContainer
 var is_history_visible: bool = false
 var is_animating: bool = false
 
-var app_config: Dictionary = {}
-
 func setup(dialog: Panel, main_vbox: VBoxContainer, input_cont: HBoxContainer,
-		   input_fld: LineEdit, send_btn: Button, end_btn: Button, hist_btn: Button, config: Dictionary):
+		   input_fld: LineEdit, send_btn: Button, end_btn: Button, hist_btn: Button):
 	parent_dialog = dialog
 	vbox = main_vbox
 	input_container = input_cont
@@ -31,7 +29,6 @@ func setup(dialog: Panel, main_vbox: VBoxContainer, input_cont: HBoxContainer,
 	send_button = send_btn
 	end_button = end_btn
 	history_button = hist_btn
-	app_config = config
 	
 	_create_history_panel()
 
@@ -194,8 +191,8 @@ func _update_history_content():
 		history_vbox.add_child(empty_label)
 		return
 	
-	var character_name = app_config.get("character_name", "角色")
 	var save_mgr = parent_dialog.get_node("/root/SaveManager")
+	var character_name = save_mgr.get_character_name() if save_mgr else "角色"
 	var user_name = save_mgr.get_user_name() if save_mgr else "用户"
 	
 	for msg in conversation:

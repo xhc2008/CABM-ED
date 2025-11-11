@@ -15,7 +15,6 @@ var input_field: LineEdit
 var send_button: Button
 var history_button: Button
 
-var app_config: Dictionary = {}
 var is_input_mode: bool = true
 var waiting_for_continue: bool = false
 
@@ -187,32 +186,11 @@ func _init_modules():
 
 func _init_history_manager():
 	history_manager.setup(self, vbox, input_container, input_field,
-						  send_button, end_button, history_button, app_config)
+						  send_button, end_button, history_button)
 
 func _load_config():
-	var config_path = "res://config/app_config.json"
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			app_config = json.data
-			print("应用配置已加载")
-		else:
-			print("解析应用配置失败")
-			_set_default_config()
-	else:
-		print("应用配置文件不存在，使用默认配置")
-		_set_default_config()
-
-func _set_default_config():
-	app_config = {
-		"user_name": "用户",
-		"character_name": "小助手",
-		"preset_replies": ["你好！", "我在听呢", "有趣！"]
-	}
+	# app_config.json已废弃，不再需要加载配置
+	pass
 
 func _setup_input_mode():
 	is_input_mode = true
@@ -260,12 +238,6 @@ func show_dialog(mode: String = "passive"):
 		if has_node("/root/AIService"):
 			var ai_service = get_node("/root/AIService")
 			ai_service.start_chat("", mode)
-		else:
-			var replies = app_config.get("preset_replies", ["你好！"])
-			var active_reply = replies[randi() % replies.size()]
-			typing_manager.start_stream()
-			typing_manager.add_stream_content(active_reply)
-			typing_manager.end_stream()
 	else:
 		if is_input_mode:
 			input_field.grab_focus()
@@ -278,7 +250,7 @@ func _setup_reply_mode():
 	end_button.visible = false
 	character_name_label.modulate.a = 1.0
 	message_label.modulate.a = 1.0
-	character_name_label.text = app_config.get("character_name", "角色")
+	character_name_label.text = _get_character_name()
 	custom_minimum_size.y = 200.0
 
 func hide_dialog():
@@ -346,7 +318,7 @@ func _on_ai_response(response: String):
 func _on_ai_response_completed():
 	"""AI 流式响应完成回调"""
 	if not typing_manager.has_content():
-		var character_name = app_config.get("character_name", "角色")
+		var character_name = _get_character_name()
 		_handle_empty_msg_response(character_name + "欲言又止")
 		return
 	
@@ -357,7 +329,7 @@ func _on_ai_error(error_message: String):
 	print("AI 错误: ", error_message)
 	
 	if error_message.contains("超时"):
-		var character_name = app_config.get("character_name", "角色")
+		var character_name = _get_character_name()
 		_handle_empty_msg_response(character_name + "似乎在思考什么，但没有说出来")
 	else:
 		typing_manager.start_stream()
@@ -413,7 +385,7 @@ func _on_input_submitted(text: String):
 			ai_service.clear_pending_goto()
 			_hide_goto_notification()
 	
-	await ui_manager.transition_to_reply_mode(app_config.get("character_name", "角色"))
+	await ui_manager.transition_to_reply_mode(_get_character_name())
 	
 	if has_node("/root/EventManager"):
 		var event_mgr = get_node("/root/EventManager")
@@ -428,12 +400,6 @@ func _on_input_submitted(text: String):
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.start_chat(text, "user_initiated")
-	else:
-		var replies = app_config.get("preset_replies", ["你好！"])
-		var reply = replies[randi() % replies.size()]
-		typing_manager.start_stream()
-		typing_manager.add_stream_content(reply)
-		typing_manager.end_stream()
 
 func _on_sentence_completed():
 	"""单个句子显示完成"""
@@ -663,7 +629,7 @@ func _get_scene_name(scene_id: String) -> String:
 	return scene_id
 
 func _show_goto_notification(target_scene: String):
-	var character_name = app_config.get("character_name", "角色")
+	var character_name = _get_character_name()
 	var scene_name = _get_scene_name(target_scene)
 	var notification_text = "%s将前往%s" % [character_name, scene_name]
 	
@@ -734,7 +700,7 @@ func _handle_empty_msg_response(message: String):
 		ai_service.add_to_history("assistant", "……")
 
 func _show_refusal_message(message: String = ""):
-	var character_name = app_config.get("character_name", "角色")
+	var character_name = _get_character_name()
 	var refusal_text = message if not message.is_empty() else (character_name + "似乎不想说话")
 	
 	var refusal_label = Label.new()
@@ -762,3 +728,11 @@ func _show_refusal_message(message: String = ""):
 
 func _on_history_button_pressed():
 	history_manager.toggle_history()
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if not has_node("/root/SaveManager"):
+		return "角色"
+	
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()

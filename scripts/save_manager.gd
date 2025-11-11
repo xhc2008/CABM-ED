@@ -402,6 +402,15 @@ func set_user_address(user_address: String):
 	save_data.user_data.user_address = user_address
 	_auto_save()
 
+func get_character_name() -> String:
+	"""获取角色名称"""
+	return save_data.get("character_name", "雪狐")
+
+func set_character_name(character_name: String):
+	"""设置角色名称"""
+	save_data.character_name = character_name
+	_auto_save()
+
 func increment_chat_count():
 	save_data.user_data.total_chat_count += 1
 	_auto_save()
@@ -538,10 +547,27 @@ func _load_inventory_data():
 			"storage": [],
 			"weapon_slot": {}
 		}
-	save_data.snow_fox_inventory.storage.resize(12)
-	for i in range(12):
-		save_data.snow_fox_inventory.storage[i] = null
-	print("[SaveManager] 初始化雪狐背包")
+		save_data.snow_fox_inventory.storage.resize(12)
+		for i in range(12):
+			save_data.snow_fox_inventory.storage[i] = null
+		print("[SaveManager] 初始化雪狐背包")
+	else:
+		# 确保storage数组大小正确（但不清空已有数据）
+		if not save_data.snow_fox_inventory.has("storage"):
+			save_data.snow_fox_inventory.storage = []
+		
+		var current_size = save_data.snow_fox_inventory.storage.size()
+		if current_size < 12:
+			# 只扩展不足的部分
+			save_data.snow_fox_inventory.storage.resize(12)
+			for i in range(current_size, 12):
+				save_data.snow_fox_inventory.storage[i] = null
+		
+		# 确保weapon_slot存在
+		if not save_data.snow_fox_inventory.has("weapon_slot"):
+			save_data.snow_fox_inventory.weapon_slot = {}
+		
+		print("[SaveManager] 雪狐背包已存在，保留数据")
 
 func _should_initialize_items() -> bool:
 	"""检查是否需要初始化物品（所有容器都为空）"""

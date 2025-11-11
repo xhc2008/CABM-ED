@@ -683,20 +683,11 @@ func _get_scene_name(scene_id: String) -> String:
 
 func _get_character_name() -> String:
 	"""获取角色名称"""
-	var app_config_path = "res://config/app_config.json"
-	if not FileAccess.file_exists(app_config_path):
+	if not has_node("/root/SaveManager"):
 		return "角色"
 	
-	var file = FileAccess.open(app_config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		return "角色"
-	
-	var config = json.data
-	return config.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()
 
 func _setup_experimental_section():
 	"""设置实验性玩法部分"""

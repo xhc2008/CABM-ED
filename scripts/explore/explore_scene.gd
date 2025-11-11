@@ -179,8 +179,9 @@ func _update_interaction_prompt():
 		var distance_to_fox = player.global_position.distance_to(snow_fox.global_position)
 		var fox_interaction_distance = 48.0 # 雪狐交互距离设置为50像素
 		if distance_to_fox <= fox_interaction_distance:
+			var character_name = _get_character_name()
 			interactions.append({
-				"text": "F: 雪狐",
+				"text": "F: " + character_name,
 				"callback": func(): _open_snow_fox_storage(),
 				"object": snow_fox,
 				"type": "snow_fox"
@@ -227,7 +228,8 @@ func _open_snow_fox_storage():
 	
 	# 打开背包UI显示雪狐背包（启用武器栏）
 	if inventory_ui:
-		inventory_ui.open_chest(fox_storage_data, "雪狐的背包", Vector2i.ZERO, true)
+		var character_name = _get_character_name()
+		inventory_ui.open_chest(fox_storage_data, character_name + "的背包", Vector2i.ZERO, true)
 	
 	# 隐藏战斗UI
 	_hide_combat_ui()
@@ -482,3 +484,11 @@ func _show_combat_ui():
 	# 显示移动端UI（仅移动端）
 	if mobile_ui:
 		mobile_ui.visible = PlatformManager.is_mobile_platform()
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if not has_node("/root/SaveManager"):
+		return "角色"
+	
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()

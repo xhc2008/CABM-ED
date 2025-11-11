@@ -39,9 +39,8 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 从 app_config.json 读取角色名称
-	var app_config = _load_app_config()
-	var character_name = app_config.get("character_name", "角色")
+	# 从存档读取角色名称
+	var character_name = save_mgr.get_character_name()
 	
 	# 从存档系统读取用户名
 	var user_name = save_mgr.get_user_name()
@@ -222,20 +221,7 @@ func get_scene_id_by_index(index: int) -> String:
 	
 	return ""
 
-func _load_app_config() -> Dictionary:
-	"""加载应用配置"""
-	var config_path = "res://config/app_config.json"
-	if not FileAccess.file_exists(config_path):
-		return {}
-	
-	var file = FileAccess.open(config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) == OK:
-		return json.data
-	return {}
+
 
 func _load_character_preset() -> Dictionary:
 	"""加载当前服装的角色预设配置"""
@@ -492,9 +478,8 @@ func build_offline_diary_prompt(start_time: String, end_time: String, event_coun
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 从 app_config.json 读取角色名称
-	var app_config = _load_app_config()
-	var character_name = app_config.get("character_name", "角色")
+	# 从存档读取角色名称
+	var character_name = save_mgr.get_character_name()
 	
 	# 从存档系统读取用户名和称呼
 	var user_name = save_mgr.get_user_name()

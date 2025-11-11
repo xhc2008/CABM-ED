@@ -664,11 +664,8 @@ func _call_address_api(conversation_text: String):
 		"Authorization: Bearer " + config_loader.api_key
 	]
 	
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var app_config = prompt_builder._load_app_config()
-	var char_name = app_config.get("character_name", "角色")
-	
 	var save_mgr = get_node("/root/SaveManager")
+	var char_name = save_mgr.get_character_name()
 	var user_name = save_mgr.get_user_name()
 	var current_address = save_mgr.get_user_address()
 	
@@ -757,16 +754,13 @@ func _handle_address_response(response: Dictionary, address_request: HTTPRequest
 	logger.log_api_call("ADDRESS_RESPONSE", messages, new_address)
 	
 	# 获取角色名称用于验证
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var app_config = prompt_builder._load_app_config()
-	var char_name = app_config.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	var char_name = save_mgr.get_character_name()
 	
 	# 检查返回的称呼是否包含角色名，如果包含则认为是模型出错，抛弃此次更新
 	if new_address.contains(char_name):
 		print("称呼模型返回包含角色名 '%s'，判定为错误，抛弃此次更新: %s" % [char_name, new_address])
 		return
-	
-	var save_mgr = get_node("/root/SaveManager")
 	save_mgr.set_user_address(new_address)
 	
 	print("称呼已更新: ", new_address)
@@ -1026,11 +1020,8 @@ func _flatten_conversation_from_data(conversation_data: Array) -> String:
 	"""从指定的对话数据扁平化对话历史"""
 	var lines = []
 	
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var app_config = prompt_builder._load_app_config()
-	var char_name = app_config.get("character_name", "角色")
-	
 	var save_mgr = get_node("/root/SaveManager")
+	var char_name = save_mgr.get_character_name()
 	var user_name = save_mgr.get_user_name()
 	
 	for msg in conversation_data:
