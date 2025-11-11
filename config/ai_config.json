@@ -85,27 +85,30 @@
         "model": "",
         "base_url": "",
         "timeout": 30,
-        "enable_thinking": false,
-        
+        "enable_thinking": false,    
         "summary": {
             "max_tokens": 512,
             "temperature": 0.6,
             "top_p": 0.7,
             "system_prompt": "你是一个总结专家。请你以{character_name}的视角，用内心独白的形式总结你和{user_name}的对话。保持主语清晰，不要出现动作描写。保持精炼，不超过{word_limit}字。"
-        },
-        
+        },   
         "address": {
             "max_tokens": 128,
             "temperature": 0.1,
             "top_p": 0.7,
-            "system_prompt": "你是一个总结专家。请根据对话内容更新**{character_name}对{user_name}**的称呼。\n当前称呼是：{current_address}\n如果对话中没有明确要求改变或提及称呼，就直接回复「{current_address}」。只输出称呼，不要输出任何解释或多余文字。"
+            "system_prompt": "你是一个总结专家。请根据对话内容更新**{character_name}对{user_name}**的称呼（注意**不是**{user_name}对{character_name}）。\n当前称呼是：{current_address}\n如果对话中没有明确要求改变或提及称呼，就直接回复「{current_address}」。只输出称呼，不要输出任何解释或多余文字。"
         },
-        
         "relationship": {
             "max_tokens": 256,
             "temperature": 0.3,
             "top_p": 0.7,
             "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过100字。目前的关系：{relationship}"
+        },
+        "translation": {
+            "max_tokens": 256,
+            "temperature": 0.2,
+            "top_p": 0.7,
+            "system_prompt": "你是一个翻译专家。把用户输入的句子翻译成**{language}**。直接给出结果，不要多余的输出或解释。"
         }
     },
     "embedding_model": {
@@ -143,6 +146,10 @@
     "tts_model": {
         "model": "",
         "base_url": "",
-        "reference_text": "你问我害怕什么？我害怕的不是失败，而是遗忘。害怕有一天，没有人再记得我们为何而战，为何而牺牲。"
+        "reference_text":{
+            "zh":"你问我害怕什么？我害怕的不是失败，而是遗忘。害怕有一天，没有人再记得我们为何而战，为何而牺牲。",
+            "en":"You asked me what I am afraid of? I am not afraid of failure, but of being forgotten.",
+            "ja":"何を恐れてかと聞かれたら、私は失敗を恐れていない恐れ去られることを恐いで言う。" 
+        } 
     }
 }

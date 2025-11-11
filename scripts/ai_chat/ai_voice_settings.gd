@@ -9,6 +9,10 @@ var voice_volume_slider: HSlider
 var voice_volume_label: Label
 var voice_reupload_button: Button
 var voice_status_label: Label
+var voice_language_option: OptionButton
+
+var _lang_index_map = {0: "zh", 1: "en", 2: "ja"}
+var _lang_name_map = {"zh": "汉语", "en": "英语", "ja": "日语"}
 
 ## 加载语音设置
 func load_voice_settings() -> void:
@@ -22,6 +26,22 @@ func load_voice_settings() -> void:
     voice_enable_checkbox.button_pressed = tts.is_enabled
     voice_volume_slider.value = tts.volume
     update_voice_volume_label(tts.volume)
+
+    # 初始化语言选项（如果有挂载）
+    if voice_language_option:
+        voice_language_option.clear()
+        voice_language_option.add_item("汉语")
+        voice_language_option.add_item("英语")
+        voice_language_option.add_item("日语")
+        # 选择当前语言
+        var cur = tts.language
+        var idx = 0
+        for k in _lang_index_map.keys():
+            if _lang_index_map[k] == cur:
+                idx = k
+                break
+        voice_language_option.select(idx)
+        voice_language_option.item_selected.connect(_on_language_selected)
     
     # 连接信号（如果还没连接）
     if not tts.voice_ready.is_connected(_on_voice_ready):
@@ -38,8 +58,8 @@ func load_voice_settings() -> void:
         # 已启用但API密钥未配置
         voice_status_label.text = "⚠ 请先配置API密钥"
         voice_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
-    elif tts.voice_uri.is_empty():
-        # 已启用，有密钥，但声音URI未准备好
+    elif tts.voice_uri.is_empty() and tts.voice_uri_map.get(tts.language, "").is_empty():
+        # 已启用，有密钥，但当前语言的声音URI未准备好
         voice_status_label.text = "⏳ 正在准备声音..."
         voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
     else:
@@ -59,12 +79,28 @@ func on_voice_enable_toggled(enabled: bool) -> void:
         voice_status_label.text = "✓ TTS已启用"
         voice_status_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
         # 如果voice_uri为空，会自动上传
-        if tts.voice_uri.is_empty():
+        if tts.voice_uri_map.get(tts.language, "").is_empty():
             voice_status_label.text = "⏳ 正在上传参考音频..."
             voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
     else:
         voice_status_label.text = "TTS已禁用"
         voice_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+
+func _on_language_selected(index: int) -> void:
+    if not has_node("/root/TTSService"):
+        return
+    var tts = get_node("/root/TTSService")
+    var lang = _lang_index_map.get(index, "zh")
+    tts.language = lang
+    tts.save_tts_settings()
+    # 更新状态 and ensure upload
+    if tts.voice_uri_map.get(lang, "").is_empty() and tts.is_enabled:
+        voice_status_label.text = "⏳ 正在上传参考音频..."
+        voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+        tts.upload_reference_audio(false, lang)
+    else:
+        voice_status_label.text = "语言已切换为 %s" % _lang_name_map.get(lang, lang)
+        voice_status_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0))
 
 ## 音量改变
 func on_voice_volume_changed(value: float) -> void:

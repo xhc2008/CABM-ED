@@ -36,6 +36,7 @@ extends Panel
 @onready var voice_volume_label = $MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/VolumeContainer/VolumeValueLabel
 @onready var voice_reupload_button = $MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/ReuploadButton
 @onready var voice_status_label = $MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/StatusLabel
+@onready var voice_language_option = $MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/LanguageContainer/LanguageOption
 
 # 日志导出引用
 @onready var log_export_button = $MarginContainer/VBoxContainer/TabContainer/日志导出/VBoxContainer/ExportButton
@@ -84,6 +85,7 @@ func _ready():
 	voice_settings.voice_volume_label = voice_volume_label
 	voice_settings.voice_reupload_button = voice_reupload_button
 	voice_settings.voice_status_label = voice_status_label
+	voice_settings.voice_language_option = voice_language_option
 	add_child(voice_settings)
 	
 	# 初始化日志导出器

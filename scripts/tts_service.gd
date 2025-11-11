@@ -12,8 +12,10 @@ var api_key: String = ""
 var tts_model: String = "" # TTS模型名称（从用户配置加载）
 var tts_base_url: String = "" # TTS API地址（从用户配置加载）
 var voice_uri: String = "" # 缓存的声音URI
+var voice_uri_map: Dictionary = {"zh":"", "en":"", "ja":""} # per-language voice URIs
 var is_enabled: bool = false # 是否启用TTS
 var volume: float = 0.8 # 音量 (0.0 - 1.0)
+var language: String = "zh" # 当前选择语言: zh / en / ja
 
 # HTTP请求节点
 var upload_request: HTTPRequest
@@ -21,6 +23,9 @@ var upload_request: HTTPRequest
 # TTS请求管理（并发）
 var tts_requests: Dictionary = {} # {request_id: HTTPRequest}
 var next_request_id: int = 0 # 下一个请求ID
+var translate_requests: Dictionary = {}
+var translate_callbacks: Dictionary = {}
+var next_translate_id: int = 0
 
 # 音频缓冲（按顺序）
 var audio_buffer: Dictionary = {} # {request_id: audio_data}
@@ -47,8 +52,10 @@ func _ready():
 	current_player.finished.connect(_on_audio_finished)
 	
 	# 如果没有缓存的voice_uri，上传参考音频
-	if voice_uri.is_empty() and is_enabled:
-		upload_reference_audio()
+	if is_enabled:
+		# 只上传当前语言的参考音频（如果没有缓存）
+		if voice_uri_map.get(language, "").is_empty():
+			upload_reference_audio(false, language)
 
 func _load_config():
 	"""加载AI配置（包含TTS配置）"""
@@ -76,13 +83,14 @@ func _load_tts_settings():
 		var file = FileAccess.open(settings_path, FileAccess.READ)
 		var json_string = file.get_as_text()
 		file.close()
-		
+
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var settings = json.data
 			is_enabled = settings.get("enabled", false)
 			volume = settings.get("volume", 0.8)
-			print("TTS设置加载成功: enabled=%s, volume=%.2f" % [is_enabled, volume])
+			language = settings.get("language", "zh")
+			print("TTS设置加载成功: enabled=%s, volume=%.2f, language=%s" % [is_enabled, volume, language])
 	
 	# 始终从AI配置加载api_key、model和base_url
 	var ai_keys_path = "user://ai_keys.json"
@@ -136,7 +144,8 @@ func save_tts_settings():
 	"""保存TTS设置（不保存API密钥）"""
 	var settings = {
 		"enabled": is_enabled,
-		"volume": volume
+		"volume": volume,
+		"language": language
 	}
 	
 	var settings_path = "user://tts_settings.json"
@@ -159,35 +168,49 @@ func _load_voice_cache():
 		var json = JSON.new()
 		if json.parse(json_string) == OK:
 			var cache = json.data
-			var cached_uri = cache.get("voice_uri", "")
-			var cached_hash = cache.get("audio_hash", "")
-			
-			if not cached_uri.is_empty():
-				# 计算当前音频文件的哈希值
-				var current_hash = _calculate_audio_hash()
-				
+			# 兼容旧格式
+			if cache.has("voice_uri_map"):
+				voice_uri_map = cache.get("voice_uri_map", {"zh":"", "en":"", "ja":""})
+			else:
+				# 旧字段适配
+				var cached_uri = cache.get("voice_uri", "")
+				if not cached_uri.is_empty():
+					voice_uri_map["zh"] = cached_uri
+
+			# 加载音频哈希映射
+			var audio_hash_map = cache.get("audio_hash_map", {})
+
+			# 仅检查当前语言对应的缓存
+			var cached_hash = audio_hash_map.get(language, "")
+			var cached_lang_uri = voice_uri_map.get(language, "")
+
+			if not cached_lang_uri.is_empty():
+				var current_hash = _calculate_audio_hash_for_lang(language)
 				if current_hash.is_empty():
 					print("无法计算音频哈希值，需要重新上传")
 					return
-				
-				# 比较哈希值
 				if cached_hash == current_hash:
-					voice_uri = cached_uri
-					print("加载缓存的声音URI: ", voice_uri)
+					voice_uri = cached_lang_uri
+					print("加载缓存的声音URI(%s): %s" % [language, voice_uri])
 					print("音频哈希值匹配: ", current_hash)
 					voice_ready.emit(voice_uri)
 				else:
-					print("音频哈希值不匹配，需要重新上传")
+					print("音频哈希值不匹配，需要重新上传(%s)" % language)
 					print("缓存哈希: ", cached_hash)
 					print("当前哈希: ", current_hash)
 
 func _save_voice_cache():
 	"""保存声音URI和音频哈希值到缓存"""
-	var audio_hash = _calculate_audio_hash()
-	
+	var audio_hash_map = {}
+	# 仅为已存在的语言计算哈希
+	for lang in ["zh", "en", "ja"]:
+		var h = _calculate_audio_hash_for_lang(lang)
+		if not h.is_empty():
+			audio_hash_map[lang] = h
+
 	var cache = {
-		"voice_uri": voice_uri,
-		"audio_hash": audio_hash
+		"voice_uri_map": voice_uri_map,
+		"audio_hash_map": audio_hash_map
 	}
 	
 	var cache_path = "user://voice_cache.json"
@@ -198,18 +221,27 @@ func _save_voice_cache():
 		print("声音URI和哈希值已缓存")
 
 func _calculate_audio_hash() -> String:
-	"""计算参考音频文件的SHA256哈希值"""
-	var ref_audio_path = "res://assets/audio/ref.wav"
-	
+	"""计算参考音频文件的SHA256哈希值
+	可选参数: language ("zh","en","ja") 指定哪种参考音频文件
+	如果文件不存在或无法读取返回空字符串
+	"""
+	return _calculate_audio_hash_for_lang("zh")
+
+func _calculate_audio_hash_for_lang(lang: String) -> String:
+	var ref_audio_path = "res://assets/audio/ref_%s.wav" % lang
+
 	if not FileAccess.file_exists(ref_audio_path):
-		push_error("参考音频文件不存在: " + ref_audio_path)
-		return ""
-	
+		# 回退到通用ref.wav（兼容旧项目）
+		ref_audio_path = "res://assets/audio/ref.wav"
+		if not FileAccess.file_exists(ref_audio_path):
+			push_error("参考音频文件不存在: " + ref_audio_path)
+			return ""
+
 	var audio_file = FileAccess.open(ref_audio_path, FileAccess.READ)
 	if audio_file == null:
-		push_error("无法打开参考音频文件")
+		push_error("无法打开参考音频文件: " + ref_audio_path)
 		return ""
-	
+
 	var audio_data = audio_file.get_buffer(audio_file.get_length())
 	audio_file.close()
 	
@@ -218,13 +250,13 @@ func _calculate_audio_hash() -> String:
 	hashing_context.start(HashingContext.HASH_SHA256)
 	hashing_context.update(audio_data)
 	var hash_bytes = hashing_context.finish()
-	
+
 	# 转换为十六进制字符串
 	var hash_string = hash_bytes.hex_encode()
-	
+
 	return hash_string
 
-func upload_reference_audio(force: bool = false):
+func upload_reference_audio(force: bool = false, lang: String = ""):
 	"""上传参考音频
 	
 	参数:
@@ -238,12 +270,17 @@ func upload_reference_audio(force: bool = false):
 		tts_error.emit(error_msg)
 		return
 	
-	# 如果不是强制上传，且已有voice_uri，则跳过
-	if not force and not voice_uri.is_empty():
-		print("声音URI已存在，跳过上传")
+	var chosen_lang = lang if not lang.is_empty() else language
+
+	# 如果不是强制上传，且已有该语言的voice_uri，则跳过
+	if not force and not voice_uri_map.get(chosen_lang, "").is_empty():
+		print("声音URI(%s)已存在，跳过上传" % chosen_lang)
 		return
-	
-	var ref_audio_path = "res://assets/audio/ref.wav"
+
+	var ref_audio_path = "res://assets/audio/ref_%s.wav" % chosen_lang
+	if not FileAccess.file_exists(ref_audio_path):
+		# 兼容旧项目：回退到通用ref.wav
+		ref_audio_path = "res://assets/audio/ref.wav"
 	
 	# 检查音频文件是否存在
 	if not FileAccess.file_exists(ref_audio_path):
@@ -255,8 +292,26 @@ func upload_reference_audio(force: bool = false):
 	# 从配置文件读取参考文本（这个字段只在ai_config.json中，不会被用户配置覆盖）
 	var ref_text = ""
 	if config.has("tts_model") and config.tts_model.has("reference_text"):
-		ref_text = config.tts_model.reference_text
-	
+		var rt = config.tts_model.reference_text
+		# 支持两种配置格式：
+		# 1) 字符串（旧格式）: "reference_text": "some text"
+		# 2) 字典（新格式，按语言区分）: "reference_text": {"zh":"...","en":"...","ja":"..."}
+		if typeof(rt) == TYPE_DICTIONARY:
+			# 优先使用当前要上传的语言
+			ref_text = rt.get(chosen_lang, "")
+			# 回退：尝试常见中文键或第一条可用值
+			if ref_text.is_empty():
+				if rt.has("zh"):
+					ref_text = rt.get("zh", "")
+				else:
+					# 取第一个可用的值
+					for k in rt.keys():
+						ref_text = rt.get(k, "")
+						if not ref_text.is_empty():
+							break
+		elif typeof(rt) == TYPE_STRING:
+			ref_text = rt
+
 	if ref_text.is_empty():
 		var error_msg = "配置文件中未设置参考文本 (tts_model.reference_text)"
 		push_error(error_msg)
@@ -300,7 +355,8 @@ func upload_reference_audio(force: bool = false):
 	
 	# 添加file字段
 	body.append_array(("--" + boundary + "\r\n").to_utf8_buffer())
-	body.append_array("Content-Disposition: form-data; name=\"file\"; filename=\"ref.wav\"\r\n".to_utf8_buffer())
+	var filename = "ref_%s.wav" % chosen_lang
+	body.append_array(("Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n" % filename).to_utf8_buffer())
 	body.append_array("Content-Type: audio/wav\r\n\r\n".to_utf8_buffer())
 	body.append_array(audio_data)
 	body.append_array("\r\n".to_utf8_buffer())
@@ -321,7 +377,10 @@ func upload_reference_audio(force: bool = false):
 		"Content-Type: multipart/form-data; boundary=" + boundary
 	]
 	
-	print("上传参考音频...")
+	# 记录上传语言到请求meta，以便回调时识别
+	upload_request.set_meta("upload_language", chosen_lang)
+
+	print("上传参考音频 (%s)..." % chosen_lang)
 	print("请求URL: ", url)
 	print("音频数据大小: ", audio_data.size(), " 字节")
 	print("参考文本: ", ref_text)
@@ -358,10 +417,16 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 	
 	var response = json.data
 	if response.has("uri"):
-		voice_uri = response.uri
-		print("✓ 声音URI获取成功: ", voice_uri)
+		var returned_uri = response.uri
+		# 从请求meta获取语言
+		var uploaded_lang = upload_request.get_meta("upload_language", language)
+		voice_uri_map[uploaded_lang] = returned_uri
+		print("✓ 声音URI获取成功(%s): %s" % [uploaded_lang, returned_uri])
+		# 如果上传的语言是当前选择语言，更新voice_uri并通知
+		if uploaded_lang == language:
+			voice_uri = returned_uri
+			voice_ready.emit(voice_uri)
 		_save_voice_cache()
-		voice_ready.emit(voice_uri)
 	else:
 		var error_msg = "响应中没有URI字段，响应内容: " + response_text
 		push_error(error_msg)
@@ -403,77 +468,175 @@ func _remove_parentheses(text: String) -> String:
 	
 	return result.strip_edges()
 
-func synthesize_speech(text: String):
-	"""合成语音（并发请求）"""
+func synthesize_speech(text: String, lang: String = ""):
+	"""合成语音（入口）
+	- 如果 lang 为空，使用当前self.language
+	- 如果语言不是中文（zh），先调用翻译（summary_model.translation）再合成
+	"""
 	if not is_enabled:
-		print("TTS未启用，跳过合成")
 		return
-	
+
+	if text.strip_edges().is_empty():
+		return
+
+	var chosen_lang = lang if not lang.is_empty() else language
+
+	# 移除括号及其内容
+	text = _remove_parentheses(text)
+	if text.is_empty():
+		return
+
+	# 如果目标语言不是中文，先进行翻译
+	if chosen_lang != "zh":
+		translate_text(chosen_lang, text, func(translated_text: String) -> void:
+			if translated_text.strip_edges().is_empty():
+				print("翻译结果为空，跳过TTS")
+				return
+			_synthesize_with_voice(translated_text, chosen_lang)
+		)
+	else:
+		_synthesize_with_voice(text, chosen_lang)
+
+func translate_text(target_lang: String, text: String, callback: Callable) -> void:
+	"""使用 summary_model.translation 配置将 text 翻译到 target_lang，回调呼回传入翻译后的文本"""
+	var ai_service = get_node_or_null("/root/AIService")
+	var summary_conf = {}
+	if ai_service and ai_service.config.has("summary_model"):
+		summary_conf = ai_service.config.summary_model
+	else:
+		push_error("未配置 summary_model，无法进行翻译")
+		callback.call("")
+		return
+
+	var model = summary_conf.get("model", "")
+	var base_url = summary_conf.get("base_url", "")
+	var trans_params = summary_conf.get("translation", {})
+
+
+	var system_prompt = trans_params.get("system_prompt", "")
+	system_prompt = system_prompt.replace("{language}", target_lang)
+
+	var messages = [
+		{"role":"system","content": system_prompt},
+		{"role":"user","content": text}
+	]
+
+	var body = {
+		"model": model,
+		"messages": messages,
+		"max_tokens": int(trans_params.get("max_tokens", 256)),
+		"temperature": float(trans_params.get("temperature", 0.2)),
+		"top_p": float(trans_params.get("top_p", 0.7))
+	}
+
+	var tid = next_translate_id
+	next_translate_id += 1
+
+	var http_request = HTTPRequest.new()
+	add_child(http_request)
+	translate_requests[tid] = http_request
+	translate_callbacks[tid] = callback
+	http_request.request_completed.connect(_on_translate_completed.bind(tid, http_request))
+
+	var url = base_url + "/chat/completions"
+	var auth_key = ""
+	if ai_service:
+		auth_key = ai_service.api_key
+	var headers = ["Content-Type: application/json", "Authorization: Bearer " + auth_key]
+	var json_body = JSON.stringify(body)
+	var err = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	if err != OK:
+		push_error("翻译请求发送失败: %s" % str(err))
+		translate_requests.erase(tid)
+		var cb = translate_callbacks.get(tid, null)
+		translate_callbacks.erase(tid)
+		if cb:
+			cb.call("")
+
+func _on_translate_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, tid: int, http_request: HTTPRequest):
+	print("翻译请求完成: tid=%d, result=%d, code=%d" % [tid, result, response_code])
+	var cb = translate_callbacks.get(tid, null)
+	translate_requests.erase(tid)
+	translate_callbacks.erase(tid)
+	if http_request:
+		http_request.queue_free()
+
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		if cb:
+			cb.call("")
+		return
+
+	var response_text = body.get_string_from_utf8()
+	var json = JSON.new()
+	if json.parse(response_text) != OK:
+		if cb:
+			cb.call("")
+		return
+
+	var response = json.data
+	# 修复这里：将 empty() 改为 is_empty()
+	if not response.has("choices") or response.choices.is_empty():
+		if cb:
+			cb.call("")
+		return
+
+	var message = response.choices[0].get("message", null)
+	var translated = ""
+	if message and message.has("content"):
+		translated = message.content
+
+	if cb:
+		cb.call(translated)
+
+func _synthesize_with_voice(text: String, lang: String):
+	"""真正发送TTS请求，使用 lang 对应的 voice_uri"""
 	if api_key.is_empty():
 		push_error("TTS API密钥未配置")
 		return
-	
-	if voice_uri.is_empty():
-		push_error("声音URI未准备好")
+
+	var voice_for_lang = voice_uri_map.get(lang, "")
+	if voice_for_lang.is_empty():
+		push_error("声音URI(%s)未准备好" % lang)
 		return
-	
-	if text.strip_edges().is_empty():
-		return
-	
-	# 移除括号及其内容
-	text = _remove_parentheses(text)
-	
-	if text.is_empty():
-		print("移除括号后文本为空，跳过TTS")
-		return
-	
+
 	# 分配请求ID
 	var request_id = next_request_id
 	next_request_id += 1
-	
-	print("=== 创建TTS请求 #%d ===" % request_id)
+
+	print("=== 创建TTS请求 #%d (%s) ===" % [request_id, lang])
 	print("文本: ", text)
-	
-	# 创建独立的HTTPRequest节点
+
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
-	
-	# 保存请求ID到节点
+
 	http_request.set_meta("request_id", request_id)
 	http_request.set_meta("text", text)
-	
-	# 连接完成信号
+
 	http_request.request_completed.connect(_on_tts_completed.bind(request_id, http_request))
-	
-	# 保存到字典
 	tts_requests[request_id] = http_request
-	
-	# 必须从用户配置加载
+
 	if tts_base_url.is_empty() or tts_model.is_empty():
 		push_error("TTS配置不完整（model或base_url未配置）")
-		# 清理失败的请求
 		tts_requests.erase(request_id)
 		http_request.queue_free()
 		return
-	
+
 	var url = tts_base_url + "/v1/audio/speech"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: application/json"
 	]
-	
+
 	var request_body = {
 		"model": tts_model,
 		"input": text,
-		"voice": voice_uri
+		"voice": voice_for_lang
 	}
-	
+
 	var json_body = JSON.stringify(request_body)
-	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
 		push_error("TTS请求 #%d 发送失败: %s" % [request_id, str(error)])
-		# 清理失败的请求
 		tts_requests.erase(request_id)
 		http_request.queue_free()
 	else:
@@ -704,8 +867,8 @@ func set_enabled(enabled: bool):
 	is_enabled = enabled
 	save_tts_settings()
 	
-	if enabled and voice_uri.is_empty():
-		upload_reference_audio()
+	if enabled and voice_uri_map.get(language, "").is_empty():
+		upload_reference_audio(false, language)
 
 func set_volume(vol: float):
 	"""设置音量"""
