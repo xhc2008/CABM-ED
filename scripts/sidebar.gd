@@ -95,10 +95,7 @@ func _ready():
 	add_child(auto_save_timer)
 	auto_save_timer.start()
 	
-	# 等待自动加载节点准备好
-	await get_tree().process_frame
-	
-	# 监听SaveManager的数据变化信号
+	# 立即连接SaveManager信号（不等待），确保不会错过任何信号
 	if has_node("/root/SaveManager"):
 		var save_mgr = get_node("/root/SaveManager")
 		save_mgr.affection_changed.connect(_update_character_stats)
@@ -109,10 +106,16 @@ func _ready():
 		if save_mgr.has_signal("character_scene_changed"):
 			save_mgr.character_scene_changed.connect(_update_character_stats)
 	
+	# 等待自动加载节点准备好
+	await get_tree().process_frame
+	
 	# 监听AI服务的字段提取信号以实时更新
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.chat_fields_extracted.connect(_on_ai_fields_updated)
+	
+	# 强制刷新一次角色状态显示，确保启动时显示正确
+	_update_character_stats()
 
 func _setup_clock_and_auto():
 	# 在场景列表顶部添加时钟和自动选项
@@ -424,6 +427,7 @@ func _update_character_stats(_new_value = null):
 	var scene_name = _get_scene_name(character_scene)
 	var character_name = _get_character_name()
 	character_location_label.text = "%s位于: %s" % [character_name, scene_name]
+	print("[边栏] 更新角色位置显示: %s 位于 %s (场景ID: %s)" % [character_name, scene_name, character_scene])
 	
 	# 好感度
 	var affection = save_mgr.get_affection()

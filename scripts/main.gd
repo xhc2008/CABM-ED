@@ -24,10 +24,13 @@ var costume_manager: CostumeManager
 var dynamic_elements = {}
 
 func _ready():
-	# 检查离线位置变化
-	_check_pending_offline_position_change()
 	# 检查并迁移旧日记数据
 	_check_and_migrate_diary()
+	
+	# 延迟检查离线位置变化，确保边栏已经初始化并连接了信号
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check_pending_offline_position_change()
 	
 	# 初始化管理器
 	await _setup_managers()
@@ -227,11 +230,12 @@ func _connect_dynamic_elements_signals():
 		# 可以根据需要添加其他元素的信号连接
 
 func _process(_delta):
-	# 持续更新场景区域信息
-	scene_manager.calculate_scene_rect()
+	# 持续更新场景区域信息（确保 scene_manager 已初始化）
+	if scene_manager:
+		scene_manager.calculate_scene_rect()
 	
-	# 如果聊天框可见，持续更新其位置
-	if chat_dialog.visible:
+	# 如果聊天框可见，持续更新其位置（确保 ui_layout_manager 已初始化）
+	if ui_layout_manager and chat_dialog.visible:
 		ui_layout_manager.update_chat_dialog_layout()
 
 func _on_viewport_size_changed():
@@ -251,6 +255,9 @@ func _on_scene_loaded(scene_id: String, weather_id: String, time_id: String):
 
 func _update_interactive_elements_visibility():
 	"""更新所有可交互元素的显示状态"""
+	if not scene_manager:
+		return
+	
 	var current_scene = scene_manager.current_scene
 	
 	# 更新所有动态元素的可见性
@@ -277,6 +284,10 @@ func _on_scene_changed(scene_id: String, weather_id: String, time_id: String):
 	# 如果正在聊天，忽略场景切换请求
 	if chat_dialog.visible or character.is_chatting:
 		print("正在聊天，忽略场景切换请求")
+		return
+	
+	if not scene_manager:
+		print("scene_manager 未初始化，忽略场景切换")
 		return
 	
 	var old_scene = scene_manager.current_scene
@@ -314,6 +325,10 @@ func _on_scene_menu_selected(scene_id: String):
 		print("正在聊天，忽略场景切换请求")
 		return
 	
+	if not scene_manager:
+		print("scene_manager 未初始化，忽略场景切换")
+		return
+	
 	var old_scene = scene_manager.current_scene
 	
 	# 场景切换时取消待触发的聊天
@@ -342,6 +357,10 @@ func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 			if result.message != "":
 				message_display_manager.show_failure_message(result.message)
 			return
+	
+	if not scene_manager:
+		print("scene_manager 未初始化，无法显示菜单")
+		return
 	
 	# 显示选项菜单
 	var scene_rect = scene_manager.scene_rect
@@ -528,8 +547,12 @@ func _on_right_area_input(event: InputEvent):
 				print("正在聊天，忽略场景切换点击")
 				return
 			
-			if interaction_handler.is_scene_switch_locked():
+			if not interaction_handler or interaction_handler.is_scene_switch_locked():
 				print("场景切换锁定中，忽略点击")
+				return
+			
+			if not scene_manager:
+				print("scene_manager 未初始化，忽略点击")
 				return
 			
 			var click_pos = event.position
