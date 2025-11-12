@@ -104,6 +104,12 @@
           "probability": 0.8
         },
         {
+          "item_id": "beetroot",
+          "min_count": 3,
+          "max_count": 8,
+          "probability": 0.8
+        },
+        {
           "item_id": "bread",
           "min_count": 2,
           "max_count": 5,

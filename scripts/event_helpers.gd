@@ -63,8 +63,8 @@ func get_energy_modifier() -> float:
 		return -0.30
 
 # === 边界常量 ===
-const AFFECTION_MIN = 0
-const AFFECTION_MAX = 100
+const AFFECTION_MIN = -65536
+const AFFECTION_MAX = 65535
 const WILLINGNESS_MIN = 0
 const WILLINGNESS_MAX = 100  # 回复意愿上限为100
 const ENERGY_MIN = 0

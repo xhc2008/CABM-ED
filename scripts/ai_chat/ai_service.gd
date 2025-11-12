@@ -1138,7 +1138,7 @@ func _clear_conversation_context():
     var original_count = pending_summary_data.get("original_count", current_conversation.size())
 
     # 修改这里：允许保留条数为0
-    var keep_count = max(0, int(ceil(original_count * 0.5))) if original_count > 0 else 0
+    var keep_count = max(0, int(floor(original_count * 0.5))) if original_count > 0 else 0
     var clear_count = original_count - keep_count
 
     if clear_count > 0 and current_conversation.size() >= original_count:

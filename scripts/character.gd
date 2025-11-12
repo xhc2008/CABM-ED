@@ -275,6 +275,11 @@ func start_chat():
 	is_chatting = true
 	print("开始聊天，锁定角色状态")
 	
+	# 先清空表情层，避免之前的纹理残留
+	if expression_layer:
+		expression_layer.texture = null
+		expression_layer.visible = false
+	
 	# 消失动画
 	var fade_tween = create_tween()
 	fade_tween.tween_property(self, "modulate:a", 0.0, 0.3)
@@ -282,6 +287,11 @@ func start_chat():
 	
 	visible = false
 	await get_tree().create_timer(0.7).timeout
+	
+	# 如果聊天被提前结束，不再加载聊天图片
+	if not is_chatting:
+		print("聊天被提前结束，跳过聊天图片加载")
+		return
 	
 	# 加载聊天图片（根据当前心情）
 	_load_chat_image_for_mood()
@@ -299,6 +309,11 @@ func start_chat():
 	
 	# 等待背景完全准备好
 	await get_tree().process_frame
+	
+	# 如果聊天被提前结束，不再继续
+	if not is_chatting:
+		print("聊天被提前结束，跳过位置计算")
+		return
 	
 	# 获取实际渲染的背景区域
 	var bg_rect = _get_actual_background_rect()
