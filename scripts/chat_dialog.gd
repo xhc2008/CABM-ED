@@ -174,6 +174,7 @@ func _init_modules():
 	typing_manager.name = "TypingManager"
 	add_child(typing_manager)
 	typing_manager.setup(self, message_label)
+	typing_manager.sentence_ready_for_tts.connect(_on_sentence_ready_for_tts)
 	typing_manager.sentence_completed.connect(_on_sentence_completed)
 	typing_manager.all_sentences_completed.connect(_on_all_sentences_completed)
 	
@@ -401,6 +402,19 @@ func _on_input_submitted(text: String):
 		var ai_service = get_node("/root/AIService")
 		ai_service.start_chat(text, "user_initiated")
 
+func _on_sentence_ready_for_tts(text: String):
+	"""句子准备好进行TTS处理 - 立即发送到TTS服务
+	这发生在句子从流中提取时，不等待显示完成
+	这样可以在用户等待时预先进行翻译和语音合成
+	"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	if tts.is_enabled and not text.is_empty():
+		tts.synthesize_speech(text)
+		print("ChatDialog: 发送TTS（早期处理） - ", text)
+
 func _on_sentence_completed():
 	"""单个句子显示完成"""
 	waiting_for_continue = true
@@ -449,7 +463,14 @@ func _on_continue_clicked():
 	
 	if typing_manager.has_more_sentences():
 		# 有更多句子，显示下一句
-		typing_manager.show_next_sentence()
+		var next_sentence_id = typing_manager.show_next_sentence()
+		print("显示句子 #%d" % next_sentence_id)
+		
+		# 通知 TTS 系统用户显示了新句子
+		if has_node("/root/TTSService") and next_sentence_id >= 0:
+			var tts = get_node("/root/TTSService")
+			tts.on_new_sentence_displayed(next_sentence_id)
+			print("已通知TTS系统显示句子 #%d" % next_sentence_id)
 	elif typing_manager.is_receiving_stream:
 		# 流还在继续，但暂时没有新句子
 		# 重新设置等待状态，等待新句子到来

@@ -20,18 +20,21 @@ var language: String = "zh" # 当前选择语言: zh / en / ja
 # HTTP请求节点
 var upload_request: HTTPRequest
 
-# TTS请求管理（并发）
-var tts_requests: Dictionary = {} # {request_id: HTTPRequest}
-var next_request_id: int = 0 # 下一个请求ID
+# TTS请求管理（句子为单位）
+var tts_requests: Dictionary = {} # {sentence_id: HTTPRequest}
 var translate_requests: Dictionary = {}
 var translate_callbacks: Dictionary = {}
 var next_translate_id: int = 0
 
-# 音频缓冲（按顺序）
-var audio_buffer: Dictionary = {} # {request_id: audio_data}
-var next_play_id: int = 0 # 下一个要播放的ID
+# 句子跟踪系统（改进版）
+var current_sentence_id: int = 0 # 当前正在显示的句子ID
+var next_sentence_id: int = 0 # 下一个待处理的句子ID
+var sentence_audio: Dictionary = {} # {sentence_id: audio_data 或 null}
+var sentence_state: Dictionary = {} # {sentence_id: "pending"|"ready"|"abandoned"|"playing"}
+
 var current_player: AudioStreamPlayer
 var is_playing: bool = false
+var playing_sentence_id: int = -1 # 正在播放的句子ID
 
 # 中文标点符号
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
@@ -486,16 +489,46 @@ func synthesize_speech(text: String, lang: String = ""):
 	if text.is_empty():
 		return
 
+	# 分配句子ID
+	var sentence_id = next_sentence_id
+	next_sentence_id += 1
+
+	# 初始化句子状态
+	sentence_state[sentence_id] = "pending"
+	sentence_audio[sentence_id] = null
+
+	print("=== 新句子 #%d (%s) ===" % [sentence_id, chosen_lang])
+	print("文本: ", text)
+
 	# 如果目标语言不是中文，先进行翻译
 	if chosen_lang != "zh":
 		translate_text(chosen_lang, text, func(translated_text: String) -> void:
-			if translated_text.strip_edges().is_empty():
-				print("翻译结果为空，跳过TTS")
-				return
-			_synthesize_with_voice(translated_text, chosen_lang)
+			_on_translation_ready(sentence_id, translated_text, chosen_lang)
 		)
 	else:
-		_synthesize_with_voice(text, chosen_lang)
+		_on_translation_ready(sentence_id, text, chosen_lang)
+
+func _on_translation_ready(sentence_id: int, text: String, lang: String):
+	"""翻译完成或无需翻译时触发"""
+	# 检查句子是否已被放弃或已过时
+	if sentence_state.get(sentence_id, "") == "abandoned":
+		print("句子 #%d 已被放弃（翻译后），忽略" % sentence_id)
+		return
+
+	# 重要：检查这个句子是否已经过时（用户已经前进到了更新的句子）
+	# 如果当前要显示的句子ID远大于这个句子ID，说明用户已经向前跳过了
+	if sentence_id < current_sentence_id:
+		print("句子 #%d 已过时（当前: #%d），用户已经前进，忽略翻译结果" % [sentence_id, current_sentence_id])
+		sentence_state[sentence_id] = "abandoned"
+		return
+
+	if text.strip_edges().is_empty():
+		print("句子 #%d 翻译后为空，标记为已放弃" % sentence_id)
+		sentence_state[sentence_id] = "abandoned"
+		return
+
+	print("句子 #%d 已准备翻译，开始合成语音" % sentence_id)
+	_synthesize_with_voice(sentence_id, text, lang)
 
 func translate_text(target_lang: String, text: String, callback: Callable) -> void:
 	"""使用 summary_model.translation 配置将 text 翻译到 target_lang，回调呼回传入翻译后的文本"""
@@ -588,36 +621,51 @@ func _on_translate_completed(result: int, response_code: int, _headers: PackedSt
 	if cb:
 		cb.call(translated)
 
-func _synthesize_with_voice(text: String, lang: String):
-	"""真正发送TTS请求，使用 lang 对应的 voice_uri"""
+func _synthesize_with_voice(sentence_id: int, text: String, lang: String):
+	"""发送TTS请求
+	
+	参数:
+	- sentence_id: 句子ID（用于追踪和跳过被遗弃的句子）
+	- text: 要合成的文本
+	- lang: 目标语言
+	"""
 	if api_key.is_empty():
 		push_error("TTS API密钥未配置")
+		sentence_state[sentence_id] = "abandoned"
+		return
+
+	# 再次检查这个句子是否已过时（特别是对于翻译后的句子）
+	if sentence_id < current_sentence_id:
+		print("句子 #%d 已过时（当前: #%d），放弃TTS合成" % [sentence_id, current_sentence_id])
+		sentence_state[sentence_id] = "abandoned"
 		return
 
 	var voice_for_lang = voice_uri_map.get(lang, "")
 	if voice_for_lang.is_empty():
-		push_error("声音URI(%s)未准备好" % lang)
+		push_error("声音URI(%s)未准备好，跳过句子 #%d" % [lang, sentence_id])
+		sentence_state[sentence_id] = "abandoned"
 		return
 
-	# 分配请求ID
-	var request_id = next_request_id
-	next_request_id += 1
+	if sentence_state.get(sentence_id, "") == "abandoned":
+		print("句子 #%d 已被放弃（合成前），忽略" % sentence_id)
+		return
 
-	print("=== 创建TTS请求 #%d (%s) ===" % [request_id, lang])
+	print("=== 开始TTS请求 句子 #%d (%s) ===" % [sentence_id, lang])
 	print("文本: ", text)
 
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 
-	http_request.set_meta("request_id", request_id)
+	http_request.set_meta("sentence_id", sentence_id)
 	http_request.set_meta("text", text)
 
-	http_request.request_completed.connect(_on_tts_completed.bind(request_id, http_request))
-	tts_requests[request_id] = http_request
+	http_request.request_completed.connect(_on_tts_completed.bind(sentence_id, http_request))
+	tts_requests[sentence_id] = http_request
 
 	if tts_base_url.is_empty() or tts_model.is_empty():
 		push_error("TTS配置不完整（model或base_url未配置）")
-		tts_requests.erase(request_id)
+		sentence_state[sentence_id] = "abandoned"
+		tts_requests.erase(sentence_id)
 		http_request.queue_free()
 		return
 
@@ -636,88 +684,150 @@ func _synthesize_with_voice(text: String, lang: String):
 	var json_body = JSON.stringify(request_body)
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
-		push_error("TTS请求 #%d 发送失败: %s" % [request_id, str(error)])
-		tts_requests.erase(request_id)
+		push_error("TTS请求 #%d 发送失败: %s" % [sentence_id, str(error)])
+		sentence_state[sentence_id] = "abandoned"
+		tts_requests.erase(sentence_id)
 		http_request.queue_free()
 	else:
-		print("TTS请求 #%d 已发送（并发）" % request_id)
+		print("TTS请求 #%d 已发送" % sentence_id)
 
-func _on_tts_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request_id: int, http_request: HTTPRequest):
-	"""TTS请求完成回调（并发）"""
+func _on_tts_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, sentence_id: int, http_request: HTTPRequest):
+	"""TTS请求完成回调"""
 	var text = http_request.get_meta("text", "")
-	print("=== TTS请求 #%d 完成 ===" % request_id)
+	print("=== TTS请求 #%d 完成 ===" % sentence_id)
 	print("文本: ", text)
 	print("result: %d, response_code: %d, body_size: %d" % [result, response_code, body.size()])
 	
 	# 清理请求节点
-	tts_requests.erase(request_id)
+	tts_requests.erase(sentence_id)
 	http_request.queue_free()
+	
+	# 检查句子是否已被放弃
+	if sentence_state.get(sentence_id, "") == "abandoned":
+		print("句子 #%d 已被放弃（TTS回调），忽略音频数据" % sentence_id)
+		sentence_state[sentence_id] = "abandoned"
+		return
 	
 	var request_failed = false
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
-		var error_msg = "TTS请求 #%d 失败: %s" % [request_id, str(result)]
+		var error_msg = "TTS请求 #%d 失败: %s" % [sentence_id, str(result)]
 		print(error_msg)
 		tts_error.emit(error_msg)
 		request_failed = true
 	elif response_code != 200:
 		var error_text = body.get_string_from_utf8()
-		var error_msg = "TTS请求 #%d 错误 (%d): %s" % [request_id, response_code, error_text]
+		var error_msg = "TTS请求 #%d 错误 (%d): %s" % [sentence_id, response_code, error_text]
 		print(error_msg)
 		tts_error.emit(error_msg)
 		request_failed = true
 	elif body.size() == 0:
-		print("错误: TTS请求 #%d 接收到的音频数据为空" % request_id)
+		print("错误: TTS请求 #%d 接收到的音频数据为空" % sentence_id)
 		request_failed = true
 	
-	# 如果请求失败，在缓冲区中标记为空，避免阻塞后续播放
 	if request_failed:
-		audio_buffer[request_id] = PackedByteArray() # 空数据标记
-		print("TTS请求 #%d 失败，已标记为空以避免阻塞" % request_id)
-		# 尝试播放下一个（跳过失败的）
-		_try_play_next()
+		print("句子 #%d 标记为已放弃（请求失败）" % sentence_id)
+		sentence_state[sentence_id] = "abandoned"
 		return
 	
-	print("TTS请求 #%d 接收到音频数据: %d 字节" % [request_id, body.size()])
+	print("句子 #%d 接收到音频数据: %d 字节" % [sentence_id, body.size()])
 	
-	# 将音频数据存入缓冲（按ID顺序）
-	audio_buffer[request_id] = body
+	# 存储音频数据
+	sentence_audio[sentence_id] = body
+	sentence_state[sentence_id] = "ready"
+	
 	audio_chunk_ready.emit(body)
+	print("句子 #%d 状态更新为 ready，当前应播放句子 #%d" % [sentence_id, current_sentence_id])
 	
-	print("音频 #%d 已加入缓冲，缓冲区大小: %d" % [request_id, audio_buffer.size()])
-	
-	# 尝试播放（如果是下一个要播放的）
-	_try_play_next()
+	# 只有当这个句子是当前应该播放的句子时，才尝试播放
+	if sentence_id == current_sentence_id:
+		_try_play_sentence()
+	else:
+		print("句子 #%d 不是当前应播放的句子（当前: #%d），暂不播放" % [sentence_id, current_sentence_id])
 
-func _try_play_next():
-	"""尝试播放下一个音频（如果已准备好）"""
-	# 如果正在播放，不做任何事
+func on_new_sentence_displayed(sentence_id: int):
+	"""用户点击显示新句子时调用
+	
+	此函数会：
+	1. 放弃旧句子的语音（如果正在播放）
+	2. 取消正在进行的旧TTS请求（优化，避免浪费资源）
+	3. 尝试播放新句子的语音
+	"""
+	print("=== 用户显示新句子 #%d ===" % sentence_id)
+	
+	# 如果正在播放的是旧句子，立即中断
+	if is_playing and playing_sentence_id != sentence_id:
+		print("中断旧句子 #%d 的语音播放" % playing_sentence_id)
+		current_player.stop()
+		is_playing = false
+		playing_sentence_id = -1
+	
+	# 标记新句子为当前句子
+	current_sentence_id = sentence_id
+	
+	# 取消比当前句子ID小的、还在进行中的TTS请求（已播放过的或正在播放的旧句子）
+	# 这是一个优化：如果用户向后退，我们不需要等待那些已经过时的句子的TTS响应
+	for old_id in tts_requests.keys():
+		if old_id < sentence_id:  # 旧的句子
+			var http_request = tts_requests[old_id]
+			if http_request:
+				print("取消旧句子 #%d 的TTS请求（当前显示 #%d）" % [old_id, sentence_id])
+				http_request.cancel_request()
+				http_request.queue_free()
+				tts_requests.erase(old_id)
+				# 标记为已放弃
+				if sentence_state.has(old_id):
+					sentence_state[old_id] = "abandoned"
+	
+	# 如果当前句子还没有被创建过（不在状态字典中），初始化它
+	if not sentence_state.has(sentence_id):
+		sentence_state[sentence_id] = "pending"
+		sentence_audio[sentence_id] = null
+		print("初始化句子 #%d 的状态为 pending" % sentence_id)
+	
+	print("新句子 #%d 的状态: %s" % [sentence_id, sentence_state.get(sentence_id, "unknown")])
+	
+	# 立即尝试播放新句子
+	_try_play_sentence()
+
+func _try_play_sentence():
+	"""尝试播放当前句子的语音
+	
+	逻辑：
+	1. 如果正在播放，等待
+	2. 如果当前句子不是ready状态，等待
+	3. 如果当前句子是ready，立即播放
+	4. 如果当前句子是abandoned或其他失败状态，不播放
+	"""
+	# 如果正在播放，先等播放完成
 	if is_playing:
-		print("当前正在播放，等待播放完成")
+		print("正在播放句子 #%d，等待完成" % playing_sentence_id)
 		return
 	
-	# 检查下一个要播放的音频是否已准备好
-	if not audio_buffer.has(next_play_id):
-		print("音频 #%d 还未准备好，等待..." % next_play_id)
+	# 检查当前句子的状态
+	var current_state = sentence_state.get(current_sentence_id, "")
+	
+	if current_state == "abandoned":
+		print("句子 #%d 已被放弃，不播放" % current_sentence_id)
 		return
 	
-	# 获取音频数据
-	var audio_data = audio_buffer[next_play_id]
-	audio_buffer.erase(next_play_id)
-	
-	print("=== 播放音频 #%d ===" % next_play_id)
-	print("数据大小: %d 字节" % audio_data.size())
-	
-	next_play_id += 1
-	
-	# 如果是空数据（失败的请求），直接跳过
-	if audio_data.size() == 0:
-		print("音频 #%d 为空（请求失败），跳过并继续下一个" % (next_play_id - 1))
-		# 递归调用以尝试播放下一个
-		_try_play_next()
+	if current_state != "ready":
+		print("句子 #%d 状态为 %s，等待..." % [current_sentence_id, current_state])
 		return
+	
+	# 开始播放
+	var audio_data = sentence_audio.get(current_sentence_id)
+	if audio_data == null or audio_data.size() == 0:
+		print("错误：句子 #%d 的音频数据为空或null" % current_sentence_id)
+		sentence_state[current_sentence_id] = "abandoned"
+		return
+	
+	print("=== 开始播放句子 #%d ===" % current_sentence_id)
+	print("音频数据大小: %d 字节" % audio_data.size())
 	
 	is_playing = true
+	playing_sentence_id = current_sentence_id
+	sentence_state[current_sentence_id] = "playing"
 	
 	# 将音频数据转换为AudioStream
 	var stream = _create_audio_stream(audio_data)
@@ -734,12 +844,11 @@ func _try_play_next():
 		else:
 			current_player.play()
 		
-		print("开始播放语音 #%d，音频流长度: %.2f 秒" % [next_play_id - 1, stream.get_length()])
+		print("开始播放语音 #%d，音频流长度: %.2f 秒" % [current_sentence_id, stream.get_length()])
 	else:
 		print("音频流创建失败，跳过")
 		is_playing = false
-		# 如果转换失败，尝试播放下一个
-		_try_play_next()
+		playing_sentence_id = -1
 
 func _create_audio_stream(audio_data: PackedByteArray) -> AudioStream:
 	"""将音频数据转换为AudioStream"""
@@ -790,14 +899,12 @@ func _detect_silence_duration(stream: AudioStream) -> float:
 
 func _on_audio_finished():
 	"""音频播放完成"""
-	print("语音播放完成")
+	print("句子 #%d 的语音播放完成" % playing_sentence_id)
 	is_playing = false
+	playing_sentence_id = -1
 	
 	# 通知聊天对话框语音播放完毕（用于重置计时器）
 	_notify_voice_finished()
-	
-	# 尝试播放下一个
-	_try_play_next()
 
 func _notify_voice_finished():
 	"""通知聊天对话框语音播放完毕"""
@@ -841,26 +948,28 @@ func process_text_chunk(text: String):
 func clear_queue():
 	"""清空所有队列和缓冲"""
 	# 取消所有进行中的TTS请求
-	for request_id in tts_requests.keys():
-		var http_request = tts_requests[request_id]
+	for sentence_id in tts_requests.keys():
+		var http_request = tts_requests[sentence_id]
 		if http_request:
 			http_request.cancel_request()
 			http_request.queue_free()
 	tts_requests.clear()
 	
-	# 清空音频缓冲
-	audio_buffer.clear()
+	# 清空句子相关数据
+	sentence_audio.clear()
+	sentence_state.clear()
 	
 	# 停止播放
 	if current_player.playing:
 		current_player.stop()
 	is_playing = false
+	playing_sentence_id = -1
 	
 	# 重置计数器
-	next_request_id = 0
-	next_play_id = 0
+	current_sentence_id = 0
+	next_sentence_id = 0
 	
-	print("所有队列和缓冲已清空（TTS请求 + 音频缓冲）")
+	print("所有队列和缓冲已清空（TTS请求 + 句子数据）")
 
 func set_enabled(enabled: bool):
 	"""设置是否启用TTS"""

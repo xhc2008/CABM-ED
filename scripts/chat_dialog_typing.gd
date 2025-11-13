@@ -5,6 +5,7 @@ extends Node
 
 signal sentence_completed
 signal all_sentences_completed
+signal sentence_ready_for_tts(text: String) # 句子准备好进行TTS处理
 
 const TYPING_SPEED = 0.05
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
@@ -20,9 +21,10 @@ var is_receiving_stream: bool = false
 
 # 分段输出相关
 var sentence_buffer: String = ""
-var sentence_queue: Array = []
+var sentence_queue: Array = [] # Array of {text: String, sentence_id: int}
 var current_sentence_index: int = 0
 var is_showing_sentence: bool = false
+var next_sentence_id: int = 0 # 下一个句子的ID
 
 func _ready():
 	typing_timer = Timer.new()
@@ -40,6 +42,7 @@ func start_stream():
 	sentence_queue = []
 	current_sentence_index = 0
 	is_showing_sentence = false
+	next_sentence_id = 0
 	message_label.text = ""
 
 func add_stream_content(content: String):
@@ -51,7 +54,13 @@ func end_stream():
 	
 	# 处理剩余的句子缓冲
 	if not sentence_buffer.strip_edges().is_empty():
-		sentence_queue.append(sentence_buffer.strip_edges())
+		var sentence_entry = {
+			"text": sentence_buffer.strip_edges(),
+			"sentence_id": next_sentence_id
+		}
+		sentence_queue.append(sentence_entry)
+		next_sentence_id += 1
+		sentence_ready_for_tts.emit(sentence_entry.text)
 		sentence_buffer = ""
 	
 	# 如果还没有开始显示句子，开始显示第一句
@@ -61,7 +70,8 @@ func end_stream():
 func has_content() -> bool:
 	return sentence_queue.size() > 0 or not sentence_buffer.strip_edges().is_empty()
 
-func show_next_sentence():
+func show_next_sentence() -> int:
+	"""显示下一个句子，返回该句子的ID"""
 	# 确保当前句子已经显示完成
 	if not typing_timer.is_stopped():
 		print("警告: 上一句还在显示中，等待完成")
@@ -70,6 +80,11 @@ func show_next_sentence():
 		message_label.text = displayed_text
 	
 	_show_next_sentence()
+	
+	# 返回当前句子的ID
+	if current_sentence_index > 0 and current_sentence_index - 1 < sentence_queue.size():
+		return sentence_queue[current_sentence_index - 1].sentence_id
+	return -1
 
 func has_more_sentences() -> bool:
 	return current_sentence_index < sentence_queue.size()
@@ -100,8 +115,16 @@ func _extract_sentences_from_buffer():
 		var sentence = sentence_buffer.substr(0, end_pos).strip_edges()
 		
 		if not sentence.is_empty():
-			sentence_queue.append(sentence)
-			print("提取句子: ", sentence)
+			# 为每句话分配句子ID
+			var sentence_entry = {
+				"text": sentence,
+				"sentence_id": next_sentence_id
+			}
+			sentence_queue.append(sentence_entry)
+			next_sentence_id += 1
+			print("提取句子 #%d: %s" % [sentence_entry.sentence_id, sentence])
+			# 立即发送TTS准备信号，不等待显示
+			sentence_ready_for_tts.emit(sentence)
 		
 		sentence_buffer = sentence_buffer.substr(end_pos)
 	
@@ -135,17 +158,16 @@ func _show_next_sentence():
 		return
 	
 	is_showing_sentence = true
-	var sentence = sentence_queue[current_sentence_index]
+	var sentence_entry = sentence_queue[current_sentence_index]
 	current_sentence_index += 1
 	
-	print("开始显示句子 #%d: %s" % [current_sentence_index, sentence])
+	print("开始显示句子 #%d: %s" % [sentence_entry.sentence_id, sentence_entry.text])
 	
 	message_label.text = ""
 	displayed_text = ""
-	display_buffer = sentence
+	display_buffer = sentence_entry.text
 	
-	# 发送TTS
-	_send_tts(sentence)
+	# TTS已在sentence_ready_for_tts信号中处理，无需在此重复
 	
 	typing_timer.start(TYPING_SPEED)
 
@@ -158,17 +180,9 @@ func _on_typing_timer_timeout():
 		typing_timer.stop()
 		sentence_completed.emit()
 
-func _send_tts(text: String):
-	if not parent_dialog.has_node("/root/TTSService"):
-		return
-	
-	var tts = parent_dialog.get_node("/root/TTSService")
-	if tts.is_enabled and not text.is_empty():
-		tts.synthesize_speech(text)
-		print("ChatDialog: 发送TTS - ", text)
-
 func stop():
 	if typing_timer:
 		typing_timer.stop()
 	is_receiving_stream = false
 	is_showing_sentence = false
+
