@@ -21,10 +21,9 @@ var is_receiving_stream: bool = false
 
 # 分段输出相关
 var sentence_buffer: String = ""
-var sentence_queue: Array = [] # Array of {text: String, sentence_id: int}
+var sentence_queue: Array = [] # Array of {text: String, sentence_hash: String}
 var current_sentence_index: int = 0
 var is_showing_sentence: bool = false
-var next_sentence_id: int = 0 # 下一个句子的ID
 
 func _ready():
 	typing_timer = Timer.new()
@@ -42,7 +41,7 @@ func start_stream():
 	sentence_queue = []
 	current_sentence_index = 0
 	is_showing_sentence = false
-	next_sentence_id = 0
+    
 	message_label.text = ""
 
 func add_stream_content(content: String):
@@ -54,12 +53,12 @@ func end_stream():
 	
 	# 处理剩余的句子缓冲
 	if not sentence_buffer.strip_edges().is_empty():
+		var txt = sentence_buffer.strip_edges()
 		var sentence_entry = {
-			"text": sentence_buffer.strip_edges(),
-			"sentence_id": next_sentence_id
+			"text": txt,
+			"sentence_hash": _compute_sentence_hash(txt)
 		}
 		sentence_queue.append(sentence_entry)
-		next_sentence_id += 1
 		sentence_ready_for_tts.emit(sentence_entry.text)
 		sentence_buffer = ""
 	
@@ -70,8 +69,9 @@ func end_stream():
 func has_content() -> bool:
 	return sentence_queue.size() > 0 or not sentence_buffer.strip_edges().is_empty()
 
-func show_next_sentence() -> int:
-	"""显示下一个句子，返回该句子的ID"""
+
+func show_next_sentence() -> String:
+	"""显示下一个句子，返回该句子的哈希"""
 	# 确保当前句子已经显示完成
 	if not typing_timer.is_stopped():
 		print("警告: 上一句还在显示中，等待完成")
@@ -79,12 +79,15 @@ func show_next_sentence() -> int:
 		displayed_text = display_buffer
 		message_label.text = displayed_text
 	
+	# 获取下一个句子的哈希（在显示之前）
+	var next_hash = ""
+	if current_sentence_index < sentence_queue.size():
+		next_hash = sentence_queue[current_sentence_index].sentence_hash
+	
 	_show_next_sentence()
 	
-	# 返回当前句子的ID
-	if current_sentence_index > 0 and current_sentence_index - 1 < sentence_queue.size():
-		return sentence_queue[current_sentence_index - 1].sentence_id
-	return -1
+	# 返回下一个句子的哈希
+	return next_hash
 
 func has_more_sentences() -> bool:
 	return current_sentence_index < sentence_queue.size()
@@ -115,14 +118,14 @@ func _extract_sentences_from_buffer():
 		var sentence = sentence_buffer.substr(0, end_pos).strip_edges()
 		
 		if not sentence.is_empty():
-			# 为每句话分配句子ID
+			# 为每句话计算哈希并入队
+			var txt = sentence
 			var sentence_entry = {
-				"text": sentence,
-				"sentence_id": next_sentence_id
+				"text": txt,
+				"sentence_hash": _compute_sentence_hash(txt)
 			}
 			sentence_queue.append(sentence_entry)
-			next_sentence_id += 1
-			print("提取句子 #%d: %s" % [sentence_entry.sentence_id, sentence])
+			print("提取句子 hash:%s: %s" % [sentence_entry.sentence_hash.substr(0,8), sentence])
 			# 立即发送TTS准备信号，不等待显示
 			sentence_ready_for_tts.emit(sentence)
 		
@@ -159,15 +162,20 @@ func _show_next_sentence():
 	
 	is_showing_sentence = true
 	var sentence_entry = sentence_queue[current_sentence_index]
+	
+	# 在开始显示之前，先通知TTS系统当前要显示的句子
+	if has_node("/root/TTSService"):
+		var tts = get_node("/root/TTSService")
+		tts.on_new_sentence_displayed(sentence_entry.sentence_hash)
+		print("已通知TTS系统开始显示句子 hash:%s" % sentence_entry.sentence_hash.substr(0,8))
+	
 	current_sentence_index += 1
 	
-	print("开始显示句子 #%d: %s" % [sentence_entry.sentence_id, sentence_entry.text])
+	print("开始显示句子 hash:%s: %s" % [sentence_entry.sentence_hash.substr(0,8), sentence_entry.text])
 	
 	message_label.text = ""
 	displayed_text = ""
 	display_buffer = sentence_entry.text
-	
-	# TTS已在sentence_ready_for_tts信号中处理，无需在此重复
 	
 	typing_timer.start(TYPING_SPEED)
 
@@ -186,3 +194,13 @@ func stop():
 	is_receiving_stream = false
 	is_showing_sentence = false
 
+
+func _compute_sentence_hash(original_text: String) -> String:
+	"""计算句子原始内容的SHA256哈希（未去除括号、未翻译）"""
+	if original_text == null:
+		return ""
+	var hashing_context = HashingContext.new()
+	hashing_context.start(HashingContext.HASH_SHA256)
+	hashing_context.update(original_text.to_utf8_buffer())
+	var hash_bytes = hashing_context.finish()
+	return hash_bytes.hex_encode()

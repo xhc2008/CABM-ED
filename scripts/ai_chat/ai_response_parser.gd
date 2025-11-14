@@ -61,7 +61,7 @@ func _parse_stream_chunk(json_str: String):
     if delta.has("content"):
         var content = delta.content
         json_response_buffer += content
-        print("接收到内容块: ", content)
+        # print("接收到内容块: ", content)
         _extract_msg_from_buffer()
 
 func _extract_msg_from_buffer():
@@ -145,7 +145,7 @@ func _extract_msg_from_buffer():
         # 只有当真的有新内容时才发送信号
         if extracted_content.length() > old_length:
             if not new_content.is_empty():
-                print("发送新内容: ", new_content)
+                # print("发送新内容: ", new_content)
                 content_received.emit(new_content)
         # 如果msg字段是空字符串，也记录一下
         elif extracted_content.is_empty() and old_length == 0:

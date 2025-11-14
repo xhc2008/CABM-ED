@@ -463,14 +463,14 @@ func _on_continue_clicked():
 	
 	if typing_manager.has_more_sentences():
 		# 有更多句子，显示下一句
-		var next_sentence_id = typing_manager.show_next_sentence()
-		print("显示句子 #%d" % next_sentence_id)
-		
-		# 通知 TTS 系统用户显示了新句子
-		if has_node("/root/TTSService") and next_sentence_id >= 0:
-			var tts = get_node("/root/TTSService")
-			tts.on_new_sentence_displayed(next_sentence_id)
-			print("已通知TTS系统显示句子 #%d" % next_sentence_id)
+		var next_sentence_hash = typing_manager.show_next_sentence()
+		if next_sentence_hash != "":
+			print("显示句子 hash:%s" % next_sentence_hash.substr(0,8))
+			# 通知 TTS 系统用户显示了新句子
+			if has_node("/root/TTSService"):
+				var tts = get_node("/root/TTSService")
+				tts.on_new_sentence_displayed(next_sentence_hash)
+				print("已通知TTS系统显示句子 hash:%s" % next_sentence_hash.substr(0,8))
 	elif typing_manager.is_receiving_stream:
 		# 流还在继续，但暂时没有新句子
 		# 重新设置等待状态，等待新句子到来
