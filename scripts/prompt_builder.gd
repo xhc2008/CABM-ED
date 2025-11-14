@@ -622,12 +622,11 @@ func _get_response_style() -> String:
 	# 从ai_config.json获取对应的风格文本
 	var response_styles = config.chat_model.response_style
 	
-	if response_mode == "narrative" and response_styles.has("narrative"):
-		return response_styles.narrative
-	elif response_mode == "verbal" and response_styles.has("verbal"):
-		return response_styles.verbal
+	# 如果配置中不存在该模式，使用默认值
+	if not response_styles.has(response_mode):
+		response_mode = "verbal"
 	
-	return "请警告用户不要修改配置文件" 
+	return response_styles.get(response_mode, response_styles.verbal)
 
 func _load_response_mode() -> String:
 	"""从用户配置加载回复模式"""
