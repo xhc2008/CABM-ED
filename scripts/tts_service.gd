@@ -742,6 +742,9 @@ func _on_tts_completed(result: int, response_code: int, _headers: PackedStringAr
 
 	print("句子 hash:%s 接收到音频数据: %d 字节" % [_short_hash(sentence_hash), body.size()])
 
+	# 保存音频文件到永久存储
+	_save_audio_to_file(sentence_hash, body)
+
 	# 存储音频数据
 	sentence_audio[sentence_hash] = body
 	sentence_state[sentence_hash] = "ready"
@@ -758,6 +761,35 @@ func _on_tts_completed(result: int, response_code: int, _headers: PackedStringAr
 	else:
 		print("句子 hash:%s 不是当前应播放的句子（当前 hash:%s），暂不播放" % [_short_hash(sentence_hash), _short_hash(current_sentence_hash)])
 
+func _save_audio_to_file(sentence_hash: String, audio_data: PackedByteArray) -> bool:
+	"""保存音频数据到 user://speech/ 目录，使用哈希作为文件名
+	
+	返回: 是否保存成功
+	"""
+	# 确保目录存在
+	var dir_path = "user://speech/"
+	var dir = DirAccess.open("user://")
+	if not dir.dir_exists(dir_path):
+		var error = dir.make_dir_recursive(dir_path)
+		if error != OK:
+			push_error("创建目录失败: user://speech/")
+			return false
+	
+	# 构建文件路径（使用哈希作为文件名，保存为MP3格式）
+	var file_path = dir_path + sentence_hash + ".mp3"
+	var file = FileAccess.open(file_path, FileAccess.WRITE)
+	if file == null:
+		var error = FileAccess.get_open_error()
+		push_error("无法创建音频文件 %s (错误: %d)" % [file_path, error])
+		return false
+	
+	# 写入音频数据
+	file.store_buffer(audio_data)
+	file.close()
+	
+	print("音频文件已保存: %s (%d 字节)" % [file_path, audio_data.size()])
+	return true
+		
 func on_new_sentence_displayed(sentence_hash: String):
 	"""用户通知：某个句子（通过其哈希ID）已被显示。
 

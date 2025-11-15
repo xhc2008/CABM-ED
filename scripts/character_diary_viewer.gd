@@ -26,6 +26,12 @@ var saved_scroll_position: int = 0 # 保存的滚动位置（用于从详情返�
 var search_results: Array = [] # 搜索结果列表
 var current_search_keyword: String = "" # 当前搜索关键词
 
+var CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
+var current_playing_sentences: Array[String] = [] # 当前正在播放的句子列表
+var current_sentence_index: int = 0 # 当前播放的句子索引
+var audio_player: AudioStreamPlayer = null # 音频播放器
+var is_playing_audio: bool = false # 是否正在播放音频
+
 # 触摸手势检测
 var touch_start_pos: Vector2 = Vector2.ZERO
 var touch_start_time: float = 0.0
@@ -54,6 +60,129 @@ func _ready():
 		clear_search_button.pressed.connect(_on_clear_search_pressed)
 	if search_input:
 		search_input.text_submitted.connect(_on_search_submitted)
+	
+	# 创建音频播放器
+	audio_player = AudioStreamPlayer.new()
+	add_child(audio_player)
+	audio_player.finished.connect(_on_audio_finished)
+	
+	# 连接窗口关闭信号
+	diary_closed.connect(_on_diary_closed)
+
+# 新增函数：处理日记窗口关闭
+func _on_diary_closed():
+	"""日记窗口关闭时中断播放"""
+	stop_audio_playback()
+
+func stop_audio_playback():
+	"""停止所有音频播放"""
+	if audio_player and audio_player.playing:
+		audio_player.stop()
+	current_playing_sentences.clear()
+	current_sentence_index = 0
+	is_playing_audio = false
+	# 重置所有播放按钮样式
+	_update_all_play_buttons()
+
+# 新增函数：分句
+func split_sentences(text: String) -> Array[String]:
+	var sentences: Array[String] = []
+	var current_sentence = ""
+	
+	for i in range(text.length()):
+		var char1 = text[i]
+		current_sentence += char1
+		
+		if char1 in CHINESE_PUNCTUATION:
+			sentences.append(current_sentence.strip_edges())
+			current_sentence = ""
+	
+	# 添加最后一句（如果有）
+	if not current_sentence.is_empty():
+		sentences.append(current_sentence.strip_edges())
+	
+	return sentences
+
+# 新增函数：计算句子哈希
+func compute_sentence_hash(text: String) -> String:
+	var hashing_context = HashingContext.new()
+	hashing_context.start(HashingContext.HASH_SHA256)
+	hashing_context.update(text.to_utf8_buffer())
+	var hash_bytes = hashing_context.finish()
+	return hash_bytes.hex_encode()
+
+# 新增函数：获取音频文件路径
+func get_audio_file(sentence_hash: String) -> String:
+	return "user://speech/" + sentence_hash + ".mp3"
+
+# 新增函数：播放角色对话
+func play_character_speech(content: String):
+	"""播放角色的对话语音"""
+	# 停止当前播放
+	stop_audio_playback()
+	
+	# 分句
+	var sentences = split_sentences(content)
+	if sentences.is_empty():
+		return
+	
+	# 过滤掉空句子
+	current_playing_sentences = []
+	for sentence in sentences:
+		if not sentence.strip_edges().is_empty():
+			current_playing_sentences.append(sentence)
+	
+	if current_playing_sentences.is_empty():
+		return
+	
+	# 开始播放第一句
+	current_sentence_index = 0
+	is_playing_audio = true
+	_play_next_sentence()
+
+# 新增函数：播放下一句
+func _play_next_sentence():
+	"""播放下一句语音"""
+	if current_sentence_index >= current_playing_sentences.size() or not is_playing_audio:
+		# 播放完成
+		is_playing_audio = false
+		return
+	
+	var sentence = current_playing_sentences[current_sentence_index]
+	var sentence_hash = compute_sentence_hash(sentence)
+	var audio_path = get_audio_file(sentence_hash)
+	
+	# 检查文件是否存在
+	if not FileAccess.file_exists(audio_path):
+		# 文件不存在，跳过这句
+		print("音频文件不存在: ", audio_path)
+		current_sentence_index += 1
+		_play_next_sentence()
+		return
+	
+	# 加载并播放音频
+	var file = FileAccess.open(audio_path, FileAccess.READ)
+	if file:
+		var audio_stream = AudioStreamMP3.new()
+		audio_stream.data = file.get_buffer(file.get_length())
+		audio_player.stream = audio_stream
+		audio_player.play()
+		print("正在播放: ", sentence)
+	else:
+		# 文件读取失败，跳过这句
+		print("无法读取音频文件: ", audio_path)
+		current_sentence_index += 1
+		_play_next_sentence()
+
+func _on_audio_finished():
+	"""一句音频播放完成"""
+	current_sentence_index += 1
+	if current_sentence_index >= current_playing_sentences.size():
+		# 播放完成，重置所有按钮
+		stop_audio_playback()
+	else:
+		# 播放下一句
+		_play_next_sentence()
 
 func _setup_scrollbar_style():
 	"""设置滚动条样式（加粗）"""
@@ -544,31 +673,102 @@ func _display_detail_view():
 				var speaker = parts[0].strip_edges()
 				var content = parts[1].strip_edges()
 
-				# 创建消息容器
-				var msg_container = VBoxContainer.new()
-				msg_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				msg_container.add_theme_constant_override("separation", 2)
-
-				# 说话者标签
-				var speaker_label = Label.new()
-				speaker_label.text = speaker
-				speaker_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-				msg_container.add_child(speaker_label)
-
-				# 内容标签
-				var content_label = Label.new()
-				content_label.text = content
-				content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				content_label.custom_minimum_size.x = 500
-				msg_container.add_child(content_label)
-
-				content_vbox.add_child(msg_container)
+				# 使用新的带播放按钮的布局
+				var speech_line = _create_speech_with_play_button(speaker, content)
+				content_vbox.add_child(speech_line)
 
 	# 滚动到顶部
 	await get_tree().process_frame
 	if scroll_container:
 		scroll_container.scroll_vertical = 0
+
+# 新增函数：创建带播放按钮的对话内容（保持上下布局）
+func _create_speech_with_play_button(speaker: String, content: String) -> Control:
+	"""创建带播放按钮的对话行（保持上下布局）"""
+	var container = VBoxContainer.new()
+	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	container.add_theme_constant_override("separation", 2)
+
+	# 第一行：说话者 + 播放按钮
+	var speaker_hbox = HBoxContainer.new()
+	speaker_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	speaker_hbox.add_theme_constant_override("separation", 10)
+	
+	# 说话者标签
+	var speaker_label = Label.new()
+	speaker_label.text = speaker
+	speaker_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	speaker_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	speaker_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	speaker_hbox.add_child(speaker_label)
+	
+	# 播放按钮（只有角色对话才有）
+	var is_character = speaker == _get_character_name()
+	if is_character:
+		var play_button = Button.new()
+		play_button.text = "🔊"  # 未播放状态
+		play_button.flat = true  # 扁平样式
+		play_button.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		play_button.add_theme_font_size_override("font_size", 18)
+		play_button.custom_minimum_size = Vector2(30, 30)  # 小一些的按钮
+		play_button.focus_mode = Control.FOCUS_NONE  # 无焦点框
+		play_button.pressed.connect(_on_play_button_pressed.bind(content, play_button))
+		speaker_hbox.add_child(play_button)
+	
+	# 添加弹性空间，让播放按钮靠左
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	speaker_hbox.add_child(spacer)
+	
+	container.add_child(speaker_hbox)
+
+	# 第二行：内容标签
+	var content_label = Label.new()
+	content_label.text = content
+	content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content_label.custom_minimum_size.x = 500
+	content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.add_child(content_label)
+	
+	return container
+
+# 新增函数：播放按钮点击处理
+func _on_play_button_pressed(content: String, button: Button):
+	"""播放按钮点击事件"""
+	if not is_playing_audio:
+		# 开始播放
+		play_character_speech(content)
+		# 更新按钮样式为播放中
+		button.text = "⏹️"  # 播放中状态
+		button.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))
+	else:
+		# 停止播放
+		stop_audio_playback()
+		# 恢复按钮样式
+		_reset_play_button_style(button)
+
+# 新增函数：重置播放按钮样式
+func _reset_play_button_style(button: Button):
+	"""重置播放按钮为默认样式"""
+	button.text = "🔊"
+	button.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+
+# 新增函数：更新所有播放按钮状态
+func _update_all_play_buttons():
+	"""更新所有播放按钮的状态（停止播放时调用）"""
+	for child in content_vbox.get_children():
+		_find_and_reset_play_buttons(child)
+
+# 新增函数：递归查找并重置播放按钮
+func _find_and_reset_play_buttons(node: Node):
+	"""递归查找并重置所有播放按钮"""
+	if node is Button and node.text == "⏹️":
+		_reset_play_button_style(node)
+	
+	for child in node.get_children():
+		_find_and_reset_play_buttons(child)
 
 func _on_back_to_list():
 	"""返回列表视图"""
