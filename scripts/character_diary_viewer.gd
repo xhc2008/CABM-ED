@@ -709,7 +709,7 @@ func _create_speech_with_play_button(speaker: String, content: String) -> Contro
 		play_button.text = "🔊"  # 未播放状态
 		play_button.flat = true  # 扁平样式
 		play_button.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		play_button.add_theme_font_size_override("font_size", 18)
+		play_button.add_theme_font_size_override("font_size", 22)
 		play_button.custom_minimum_size = Vector2(30, 30)  # 小一些的按钮
 		play_button.focus_mode = Control.FOCUS_NONE  # 无焦点框
 		play_button.pressed.connect(_on_play_button_pressed.bind(content, play_button))
