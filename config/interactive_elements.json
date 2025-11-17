@@ -100,13 +100,13 @@
       "name": "商店入口",
       "type": "click_area",
       "size": {
-        "width": 200,
-        "height": 150
+        "width": 150,
+        "height": 220
       },
       "position": {
-        "anchor": "right_center",
-        "offset_x": -240,
-        "offset_y": 30
+        "anchor": "center",
+        "offset_x": -30,
+        "offset_y": 10
       },
       "scenes": [
         "shop"

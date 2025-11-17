@@ -227,7 +227,7 @@
     "credit": {
       "name": "信用点",
       "type": "货币",
-      "description": "用于在商店中购买物品的货币",
+      "description": "另一个世界的通用货币，但是也被这个世界认可",
       "icon": "credit.png",
       "weight": 0,
       "max_stack": 1024

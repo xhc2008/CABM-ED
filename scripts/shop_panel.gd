@@ -12,6 +12,7 @@ var shop_manager: Node
 # 商品相关节点
 var offers_container: GridContainer  # 改为 GridContainer 类型
 var current_offer_rows: Array = []
+var selected_shop_slot: Control = null
 
 func _ready():
 	# 自动获取 ShopManager 单例
@@ -96,57 +97,71 @@ func _load_offers():
 		current_offer_rows.append(row)
 
 func _create_offer_row(offer: Dictionary) -> Control:
-	"""创建单个商品交易行"""
-	var hbox = HBoxContainer.new()
-	hbox.custom_minimum_size = Vector2(0, 80)
-	hbox.add_theme_constant_override("separation", 10)
-	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	
-	# 需求物品区域
+	var vbox = VBoxContainer.new()
+	vbox.custom_minimum_size = Vector2(0, 96)
+	vbox.add_theme_constant_override("separation", 6)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var top_line = HBoxContainer.new()
+	top_line.add_theme_constant_override("separation", 10)
+	top_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
 	var requires_container = HBoxContainer.new()
 	requires_container.add_theme_constant_override("separation", 5)
-	
-	for req in offer.get("requires", []):
+	var _requires = offer.get("requires", [])
+	for req in _requires:
 		var item_slot = _create_item_slot(req.item_id, req.count)
 		requires_container.add_child(item_slot)
-	
-	hbox.add_child(requires_container)
-	
-	# 箭头
+	if _requires.size() == 1:
+		var spacer = Control.new()
+		spacer.custom_minimum_size = Vector2(64, 64)
+		requires_container.add_child(spacer)
+	top_line.add_child(requires_container)
+
 	var arrow_label = Label.new()
 	arrow_label.text = "→"
 	arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	arrow_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	arrow_label.custom_minimum_size = Vector2(40, 0)
-	hbox.add_child(arrow_label)
-	
-	# 奖励物品区域
+	top_line.add_child(arrow_label)
+
 	var gives_container = HBoxContainer.new()
 	gives_container.add_theme_constant_override("separation", 5)
-	
 	for give in offer.get("gives", []):
 		var item_slot = _create_item_slot(give.item_id, give.count)
 		gives_container.add_child(item_slot)
-	
-	hbox.add_child(gives_container)
-	
-	# 交易按钮
+	top_line.add_child(gives_container)
+
+	vbox.add_child(top_line)
+
+	var bottom_line = HBoxContainer.new()
+	bottom_line.add_theme_constant_override("separation", 10)
+	bottom_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
 	var trade_button = Button.new()
 	trade_button.text = "交易"
-	trade_button.custom_minimum_size = Vector2(80, 60)
+	trade_button.custom_minimum_size = Vector2(100, 36)
 	trade_button.pressed.connect(_on_trade_pressed.bind(offer.id))
-	hbox.add_child(trade_button)
-	
-	# 限购信息
+	bottom_line.add_child(trade_button)
+
 	var limit_label = Label.new()
 	var bought = offer.get("bought", 0)
 	var limit = offer.get("limit", 1)
-	limit_label.text = "%d/%d" % [bought, limit]
+	limit_label.text = "限购：%d/%d" % [bought, limit]
+	if int(bought) >= int(limit):
+		limit_label.add_theme_color_override("font_color", Color(1, 0, 0))
 	limit_label.custom_minimum_size = Vector2(60, 0)
 	limit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hbox.add_child(limit_label)
-	
-	return hbox
+	limit_label.add_theme_font_size_override("font_size", 14)
+	bottom_line.add_child(limit_label)
+
+	vbox.add_child(bottom_line)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_child(vbox)
+
+	return margin
 
 func _create_item_slot(item_id: String, count: int) -> Control:
 	"""创建物品格子（复用背包的InventorySlot）"""
@@ -160,13 +175,23 @@ func _create_item_slot(item_id: String, count: int) -> Control:
 	}
 	slot.set_item(item_data)
 	
-	# 禁用交互
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 仅允许点击选中，不处理拖拽/双击
+	if slot.has_signal("slot_clicked"):
+		slot.slot_clicked.connect(_on_shop_slot_clicked.bind(slot))
 	
 	# 设置固定大小
 	slot.custom_minimum_size = Vector2(64, 64)
 	
 	return slot
+
+func _on_shop_slot_clicked(_idx: int, _type: String, slot: Control):
+	if selected_shop_slot and is_instance_valid(selected_shop_slot):
+		selected_shop_slot.set_selected(false)
+	selected_shop_slot = slot
+	if selected_shop_slot and selected_shop_slot.has_method("set_selected"):
+		selected_shop_slot.set_selected(true)
+	if universal_inventory and universal_inventory.has_method("_show_item_info"):
+		universal_inventory._show_item_info(slot.item_data)
 
 func _on_trade_pressed(offer_id: String):
 	"""交易按钮被按下"""
@@ -197,7 +222,10 @@ func _clear_offer_rows():
 		if is_instance_valid(row):
 			row.queue_free()
 	current_offer_rows.clear()
-	
+	selected_shop_slot = null
+	if universal_inventory and universal_inventory.has_method("_clear_item_info"):
+		universal_inventory._clear_item_info()
+		
 	# 清空容器
 	for child in offers_container.get_children():
 		child.queue_free()
