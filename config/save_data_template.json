@@ -50,6 +50,10 @@
         "inventory": [],
         "warehouse": []
       },
+      "shop_system_data": {
+        "active_offers": [],
+        "purchase_counts": {}
+      },
       "snow_fox_inventory": {
         "storage": [],
         "weapon_slot": {}

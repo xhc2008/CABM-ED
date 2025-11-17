@@ -95,6 +95,30 @@
           "signal": "start_cook"
         }
       ]
+    },
+    "shop_button": {
+      "name": "商店入口",
+      "type": "click_area",
+      "size": {
+        "width": 200,
+        "height": 150
+      },
+      "position": {
+        "anchor": "right_center",
+        "offset_x": -240,
+        "offset_y": 30
+      },
+      "scenes": [
+        "shop"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🏪 商店",
+          "action": "enter_shop",
+          "signal": "enter_shop"
+        }
+      ]
     }
   },
   "position_anchors": {

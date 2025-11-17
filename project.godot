@@ -37,6 +37,7 @@ EventManager="*res://scripts/event_manager.gd"
 UIManager="*res://scripts/ui_manager.gd"
 InteractiveElementManager="*res://scripts/interactive_element_manager.gd"
 InventoryManager="*res://scripts/inventory_manager.gd"
+ShopManager="*res://scripts/shop_manager.gd"
 
 [display]
 

@@ -226,6 +226,8 @@ func _connect_dynamic_elements_signals():
 			element.action_triggered.connect(_on_diary_action_triggered)
 		elif element_id == "cook_button" and element.has_signal("action_triggered"):
 			element.action_triggered.connect(_on_cook_action_triggered)
+		elif element_id == "shop_button" and element.has_signal("action_triggered"):
+			element.action_triggered.connect(_on_shop_action_triggered)
 		
 		# 可以根据需要添加其他元素的信号连接
 
@@ -384,6 +386,46 @@ func _on_character_clicked(char_position: Vector2, char_size: Vector2):
 	menu_pos.y = max(menu_pos.y, scene_rect.position.y + 10)
 	
 	action_menu.show_menu(menu_pos, scene_manager.current_scene)
+
+func _on_shop_action_triggered(_action: String):
+	"""处理商店入口动作，打开商店面板"""
+	# 如果已经存在则显示
+	if has_node("ShopPanel"):
+		var panel = get_node("ShopPanel")
+		if panel.has_method("open_shop"):
+			panel.open_shop()
+		else:
+			panel.visible = true
+		return
+
+	# 尝试加载并实例化商店界面
+	var shop_scene_path = "res://scenes/shop/shop_panel.tscn"
+	if not ResourceLoader.exists(shop_scene_path):
+		if message_display_manager:
+			message_display_manager.show_failure_message("商店界面未找到: " + shop_scene_path)
+		else:
+			print("警告: 商店界面未找到: ", shop_scene_path)
+		return
+
+	var shop_scene = load(shop_scene_path)
+	if shop_scene:
+		var shop_panel = shop_scene.instantiate()
+		shop_panel.name = "ShopPanel"
+		add_child(shop_panel)
+		
+		# 确保 UI 布局更新
+		await get_tree().process_frame
+		
+		# 打开商店
+		if shop_panel.has_method("open_shop"):
+			shop_panel.open_shop()
+		else:
+			shop_panel.visible = true
+	else:
+		if message_display_manager:
+			message_display_manager.show_failure_message("无法实例化商店界面")
+		else:
+			print("无法实例化商店界面")
 
 func _on_action_selected(action: String):
 	if action == "chat":

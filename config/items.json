@@ -223,6 +223,14 @@
       "icon": "amethyst.png",
       "weight": 0.4,
       "max_stack": 1
+    },
+    "credit": {
+      "name": "信用点",
+      "type": "货币",
+      "description": "用于在商店中购买物品的货币",
+      "icon": "credit.png",
+      "weight": 0,
+      "max_stack": 1024
     }
   }
 }

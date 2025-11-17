@@ -1,0 +1,45 @@
+{
+  "shop_pool": [
+    {
+      "name": "Credit For Items",
+      "requires": [
+        {"item_id": "apple", "count": [3, 6]}
+      ],
+      "gives": [
+        {"item_id": "credit", "count": [10, 20]}
+      ],
+      "limit": [1, 3]
+    },
+    {
+      "name": "Buy Health Potion Pack",
+      "requires": [
+        {"item_id": "credit", "count": [30, 50]}
+      ],
+      "gives": [
+        {"item_id": "health_potion", "count": [1, 3]}
+      ],
+      "limit": [1, 5]
+    },
+    {
+      "name": "Weapon For Credits",
+      "requires": [
+        {"item_id": "credit", "count": [200, 300]}
+      ],
+      "gives": [
+        {"item_id": "iron_sword", "count": 1}
+      ],
+      "limit": 1
+    },
+    {
+      "name": "Mixed Materials",
+      "requires": [
+        {"item_id": "wood", "count": [5, 10]},
+        {"item_id": "stone", "count": [2, 5]}
+      ],
+      "gives": [
+        {"item_id": "credit", "count": [15, 30]}
+      ],
+      "limit": [1, 4]
+    }
+  ]
+}
