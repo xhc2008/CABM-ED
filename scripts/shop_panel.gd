@@ -8,6 +8,7 @@ signal closed()
 
 var universal_inventory: Node
 var shop_manager: Node
+var shop_background: TextureRect = null
 
 # 商品相关节点
 var offers_container: GridContainer  # 改为 GridContainer 类型
@@ -20,6 +21,19 @@ func _ready():
 		shop_manager = get_node("/root/ShopManager")
 	else:
 		print("警告: 未找到 ShopManager 单例")
+
+	# 商店背景
+	var bg_path = "res://assets/images/shop/internal.png"
+	if ResourceLoader.exists(bg_path):
+		var tex = load(bg_path)
+		var bg = TextureRect.new()
+		bg.name = "ShopBackground"
+		bg.expand = true
+		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.texture = tex
+		add_child(bg)
+		shop_background = bg
 	
 	# 初始化通用背包UI
 	var universal_inventory_scene = preload("res://scenes/universal_inventory_ui.tscn")
@@ -74,6 +88,7 @@ func _setup_shop_mode():
 	
 	# 设置单列布局显示商品
 	offers_container.columns = 1
+	offers_container.add_theme_constant_override("separation", 8)
 	
 	# 加载商品
 	_load_offers()
@@ -142,6 +157,43 @@ func _create_offer_row(offer: Dictionary) -> Control:
 	trade_button.text = "交易"
 	trade_button.custom_minimum_size = Vector2(100, 36)
 	trade_button.pressed.connect(_on_trade_pressed.bind(offer.id))
+	var sb_normal := StyleBoxFlat.new()
+	sb_normal.bg_color = Color(0.18, 0.55, 0.28, 0.95)
+	sb_normal.border_color = Color(0.14, 0.4, 0.22, 1)
+	sb_normal.border_width_left = 2
+	sb_normal.border_width_right = 2
+	sb_normal.border_width_top = 2
+	sb_normal.border_width_bottom = 2
+	sb_normal.corner_radius_top_left = 6
+	sb_normal.corner_radius_top_right = 6
+	sb_normal.corner_radius_bottom_left = 6
+	sb_normal.corner_radius_bottom_right = 6
+	var sb_hover := StyleBoxFlat.new()
+	sb_hover.bg_color = Color(0.22, 0.65, 0.32, 0.95)
+	sb_hover.border_color = Color(0.16, 0.45, 0.25, 1)
+	sb_hover.border_width_left = 2
+	sb_hover.border_width_right = 2
+	sb_hover.border_width_top = 2
+	sb_hover.border_width_bottom = 2
+	sb_hover.corner_radius_top_left = 6
+	sb_hover.corner_radius_top_right = 6
+	sb_hover.corner_radius_bottom_left = 6
+	sb_hover.corner_radius_bottom_right = 6
+	var sb_pressed := StyleBoxFlat.new()
+	sb_pressed.bg_color = Color(0.15, 0.45, 0.24, 0.95)
+	sb_pressed.border_color = Color(0.12, 0.35, 0.2, 1)
+	sb_pressed.border_width_left = 2
+	sb_pressed.border_width_right = 2
+	sb_pressed.border_width_top = 2
+	sb_pressed.border_width_bottom = 2
+	sb_pressed.corner_radius_top_left = 6
+	sb_pressed.corner_radius_top_right = 6
+	sb_pressed.corner_radius_bottom_left = 6
+	sb_pressed.corner_radius_bottom_right = 6
+	trade_button.add_theme_stylebox_override("normal", sb_normal)
+	trade_button.add_theme_stylebox_override("hover", sb_hover)
+	trade_button.add_theme_stylebox_override("pressed", sb_pressed)
+	trade_button.add_theme_color_override("font_color", Color(1, 1, 1))
 	bottom_line.add_child(trade_button)
 
 	var limit_label = Label.new()
@@ -157,11 +209,28 @@ func _create_offer_row(offer: Dictionary) -> Control:
 
 	vbox.add_child(bottom_line)
 
-	var margin = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_child(vbox)
+	var item_panel = PanelContainer.new()
+	item_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item_panel.custom_minimum_size = Vector2(0, 110)
+	var item_style := StyleBoxFlat.new()
+	item_style.bg_color = Color(0.1, 0.1, 0.1, 0.4)
+	item_style.border_color = Color(0.45, 0.45, 0.45, 0.9)
+	item_style.border_width_left = 1
+	item_style.border_width_right = 1
+	item_style.border_width_top = 1
+	item_style.border_width_bottom = 1
+	item_style.corner_radius_top_left = 6
+	item_style.corner_radius_top_right = 6
+	item_style.corner_radius_bottom_left = 6
+	item_style.corner_radius_bottom_right = 6
+	item_style.content_margin_left = 12
+	item_style.content_margin_right = 12
+	item_style.content_margin_top = 10
+	item_style.content_margin_bottom = 10
+	item_panel.add_theme_stylebox_override("panel", item_style)
+	item_panel.add_child(vbox)
 
-	return margin
+	return item_panel
 
 func _create_item_slot(item_id: String, count: int) -> Control:
 	"""创建物品格子（复用背包的InventorySlot）"""
