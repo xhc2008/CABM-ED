@@ -1,14 +1,14 @@
 {
   "shop_pool": [
     {
-      "name": "出售食材换信用点",
+      "name": "出售胡萝卜换信用点",
       "requires": [
         {"item_id": "carrot", "count": [5, 10]}
       ],
       "gives": [
         {"item_id": "credit", "count": [20, 40]}
       ],
-      "limit": [5, 20]
+      "limit": [3, 10]
     },
     {
       "name": "出售紫水晶",

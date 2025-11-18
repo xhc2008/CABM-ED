@@ -299,12 +299,12 @@ func _show_planting_list(idx: int):
 		var h = c.get("harvest", {})
 		var hid = str(h.get("item_id", ""))
 		var cnt = h.get("count", [1,1])
-		var range_txt = str(cnt[0]) + "-" + str(cnt[1])
+		var range_txt = str(int(cnt[0])) + "~" + str(int(cnt[1]))
 		var grow_lbl = Label.new()
 		grow_lbl.text = "生长:" + _format_time_cn(secs)
 		right.add_child(grow_lbl)
 		var harvest_lbl = Label.new()
-		harvest_lbl.text = "收获:" + _get_item_name(hid) + " x" + range_txt
+		harvest_lbl.text = "收获:" + _get_item_name(hid) + " " + range_txt
 		right.add_child(harvest_lbl)
 		row.add_child(right)
 		var spacer = Control.new()
@@ -598,7 +598,7 @@ func _play_harvest_anim(item_id: String, count: int, from_pos: Vector2):
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		icon.size = Vector2(128, 128)
-		icon.global_position = from_pos - icon.size * 0.5 + Vector2(randf()*64.0 - 32.0, randf()*64.0 - 32.0)
+		icon.global_position = from_pos - icon.size * 0.5 + Vector2(randf()*80.0 - 40.0, randf()*80.0 - 40.0)
 		if ipath != "" and ResourceLoader.exists(ipath):
 			icon.texture = load(ipath)
 		add_child(icon)
