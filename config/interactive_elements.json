@@ -119,6 +119,30 @@
           "signal": "enter_shop"
         }
       ]
+    },
+    "farming_button": {
+      "name": "菜园入口",
+      "type": "click_area",
+      "size": {
+        "width": 150,
+        "height": 220
+      },
+      "position": {
+        "anchor": "center",
+        "offset_x": -30,
+        "offset_y": 10
+      },
+      "scenes": [
+        "rooftop"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🥦 菜园",
+          "action": "enter_farming",
+          "signal": "enter_farming"
+        }
+      ]
     }
   },
   "position_anchors": {

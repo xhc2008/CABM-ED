@@ -28,8 +28,8 @@ func _ready():
 		var tex = load(bg_path)
 		var bg = TextureRect.new()
 		bg.name = "ShopBackground"
-		bg.expand = true
 		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		bg.texture = tex
 		add_child(bg)

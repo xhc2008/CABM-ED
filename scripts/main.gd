@@ -228,6 +228,8 @@ func _connect_dynamic_elements_signals():
 			element.action_triggered.connect(_on_cook_action_triggered)
 		elif element_id == "shop_button" and element.has_signal("action_triggered"):
 			element.action_triggered.connect(_on_shop_action_triggered)
+		elif element_id == "farming_button" and element.has_signal("action_triggered"):
+			element.action_triggered.connect(_on_farming_action_triggered)
 		
 		# 可以根据需要添加其他元素的信号连接
 
@@ -426,6 +428,39 @@ func _on_shop_action_triggered(_action: String):
 			message_display_manager.show_failure_message("无法实例化商店界面")
 		else:
 			print("无法实例化商店界面")
+
+func _on_farming_action_triggered(_action: String):
+	if has_node("FarmingPanel"):
+		var panel = get_node("FarmingPanel")
+		if panel.has_method("open_farming"):
+			panel.open_farming()
+		else:
+			panel.visible = true
+		return
+
+	var farming_scene_path = "res://scenes/farming/farming_panel.tscn"
+	if not ResourceLoader.exists(farming_scene_path):
+		if message_display_manager:
+			message_display_manager.show_failure_message("菜园界面未找到: " + farming_scene_path)
+		else:
+			print("警告: 菜园界面未找到: ", farming_scene_path)
+		return
+
+	var farming_scene = load(farming_scene_path)
+	if farming_scene:
+		var farming_panel = farming_scene.instantiate()
+		farming_panel.name = "FarmingPanel"
+		add_child(farming_panel)
+		await get_tree().process_frame
+		if farming_panel.has_method("open_farming"):
+			farming_panel.open_farming()
+		else:
+			farming_panel.visible = true
+	else:
+		if message_display_manager:
+			message_display_manager.show_failure_message("无法实例化菜园界面")
+		else:
+			print("无法实例化菜园界面")
 
 func _on_action_selected(action: String):
 	if action == "chat":

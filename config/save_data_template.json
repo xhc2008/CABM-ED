@@ -51,8 +51,7 @@
         "warehouse": []
       },
       "shop_system_data": {
-        "active_offers": [],
-        "purchase_counts": {}
+        "active_offers": []
       },
       "snow_fox_inventory": {
         "storage": [],

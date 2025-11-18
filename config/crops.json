@@ -1,0 +1,28 @@
+{
+  "crops": [
+    {
+      "id": "carrot",
+      "name": "胡萝卜",
+      "icon": "carrot.png",
+      "stage_base": "carrots_stage",
+      "growth_time_seconds": 1800,
+      "harvest": { "item_id": "carrot", "count": [3, 6] }
+    },
+    {
+      "id": "potato",
+      "name": "土豆",
+      "icon": "potato.png",
+      "stage_base": "potatoes_stage",
+      "growth_time_seconds": 2700,
+      "harvest": { "item_id": "potato", "count": [3, 6] }
+    },
+    {
+      "id": "beetroot",
+      "name": "甜菜根",
+      "icon": "beetroot_seeds.png",
+      "stage_base": "beetroots_stage",
+      "growth_time_seconds": 2400,
+      "harvest": { "item_id": "beetroot", "count": [2, 5] }
+    }
+  ]
+}
