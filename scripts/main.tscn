@@ -221,7 +221,7 @@ custom_minimum_size = Vector2(120, 0)
 layout_mode = 0
 offset_left = 130.0
 offset_right = 250.0
-offset_bottom = 60.0
+offset_bottom = 100.0
 
 [node name="MarginContainer" type="MarginContainer" parent="ActionMenu/GameSubmenu"]
 layout_mode = 1

@@ -24,6 +24,18 @@ var any_game_started: bool = false
 var player_chat_tween: Tween = null
 var ai_chat_tween: Tween = null
 var ai: XiangqiAI = null
+var last_move_from: Vector2i = Vector2i(-1, -1)
+var last_move_to: Vector2i = Vector2i(-1, -1)
+var animating: bool = false
+var anim_from_cell: Vector2i = Vector2i(-1, -1)
+var anim_to_cell: Vector2i = Vector2i(-1, -1)
+var anim_from_pos: Vector2 = Vector2.ZERO
+var anim_to_pos: Vector2 = Vector2.ZERO
+var anim_id: String = ""
+var anim_progress: float = 0.0
+var move_tween: Tween = null
+var pending_captured: String = ""
+var pending_is_player: bool = true
 
 @onready var board_container: Control = $BoardContainer
 @onready var back_button: Button = $BackButton
@@ -125,6 +137,7 @@ func _on_board_draw():
 			board_container.draw_line(Vector2(x, river_bottom), Vector2(x, bottom), Color(0, 0, 0), 1)
 	_draw_palace(origin)
 	_draw_cross(origin)
+	_draw_last_move_highlight(origin)
 	_draw_pieces(origin)
 	if selected.x >= 0:
 		var p = origin + Vector2(selected.x * CELL, selected.y * CELL)
@@ -166,6 +179,8 @@ func _draw_pieces(origin: Vector2):
 		for x in range(COLS):
 			var id = board[y][x]
 			if id != "":
+				if animating and ((x == anim_from_cell.x and y == anim_from_cell.y) or (x == anim_to_cell.x and y == anim_to_cell.y)):
+					continue
 				var pos = origin + Vector2(x * CELL, y * CELL)
 				var color = Color(0.8, 0, 0) if id.begins_with("r") else Color(0.1, 0.1, 0.1)
 				board_container.draw_circle(pos, CELL * 0.38, Color(1, 1, 1))
@@ -173,16 +188,42 @@ func _draw_pieces(origin: Vector2):
 				var text = letters.get(id, "")
 				if font and text != "":
 					var size = int(CELL * 0.6)
-					var sz = font.get_string_size(text, size)
 					var ascent = font.get_ascent(size)
 					var descent = font.get_descent(size)
 					var height = ascent + descent
 					var baseline_y = pos.y + height * 0.5 - descent
-					var text_pos = Vector2(pos.x - sz.x * 0.5, baseline_y)
-					board_container.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+					var box_w = CELL * 0.76
+					var text_pos = Vector2(pos.x - box_w * 0.5, baseline_y)
+					board_container.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, box_w, size, color)
+
+	if animating and anim_id != "":
+		var pos = anim_from_pos.lerp(anim_to_pos, anim_progress)
+		var color = Color(0.8, 0, 0) if anim_id.begins_with("r") else Color(0.1, 0.1, 0.1)
+		board_container.draw_circle(pos, CELL * 0.38, Color(1, 1, 1))
+		board_container.draw_circle(pos, CELL * 0.38, color, false, 2)
+		var text2 = letters.get(anim_id, "")
+		if font and text2 != "":
+			var size2 = int(CELL * 0.6)
+			var ascent2 = font.get_ascent(size2)
+			var descent2 = font.get_descent(size2)
+			var height2 = ascent2 + descent2
+			var baseline_y2 = pos.y + height2 * 0.5 - descent2
+			var box_w2 = CELL * 0.76
+			var text_pos2 = Vector2(pos.x - box_w2 * 0.5, baseline_y2)
+			board_container.draw_string(font, text_pos2, text2, HORIZONTAL_ALIGNMENT_CENTER, box_w2, size2, color)
+
+func _draw_last_move_highlight(origin: Vector2):
+	if last_move_from.x >= 0:
+		var p_from = origin + Vector2(last_move_from.x * CELL, last_move_from.y * CELL)
+		board_container.draw_rect(Rect2(p_from + Vector2(-CELL * 0.45, -CELL * 0.45), Vector2(CELL * 0.9, CELL * 0.9)), Color(1, 0.9, 0.3, 0.25), true)
+	if last_move_to.x >= 0:
+		var p_to = origin + Vector2(last_move_to.x * CELL, last_move_to.y * CELL)
+		board_container.draw_rect(Rect2(p_to + Vector2(-CELL * 0.45, -CELL * 0.45), Vector2(CELL * 0.9, CELL * 0.9)), Color(0.3, 0.8, 1.0, 0.25), true)
 
 func _on_board_input(event):
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if animating:
 		return
 	var origin = Vector2(MARGIN, MARGIN)
 	var p = event.position - origin
@@ -208,24 +249,55 @@ func _on_board_input(event):
 			return
 		if _can_move(selected, Vector2i(x, y)):
 			var captured = board[y][x]
-			board[y][x] = board[selected.y][selected.x]
-			board[selected.y][selected.x] = ""
-			selected = Vector2i(-1, -1)
-			side_to_move = 2
-			total_moves += 1
 			game_started = true
 			game_in_progress = true
 			ai_first_button.visible = false
 			difficulty_buttons_container.visible = false
 			any_game_started = true
-			board_container.queue_redraw()
-			_after_move_update(captured)
-			if not game_over:
-				await get_tree().process_frame
-				_ai_move()
+			_start_move_animation(selected, Vector2i(x, y), board[selected.y][selected.x], captured, true)
+			selected = Vector2i(-1, -1)
 
 func _piece_side(id: String) -> int:
 	return 1 if id.begins_with("r") else 2
+
+func _process(_delta):
+	if animating:
+		board_container.queue_redraw()
+
+func _start_move_animation(from: Vector2i, to: Vector2i, id: String, captured: String, is_player: bool):
+	var origin = Vector2(MARGIN, MARGIN)
+	animating = true
+	anim_from_cell = from
+	anim_to_cell = to
+	anim_id = id
+	anim_from_pos = origin + Vector2(from.x * CELL, from.y * CELL)
+	anim_to_pos = origin + Vector2(to.x * CELL, to.y * CELL)
+	anim_progress = 0.0
+	pending_captured = captured
+	pending_is_player = is_player
+	if move_tween and move_tween.is_valid():
+		move_tween.kill()
+	move_tween = create_tween()
+	move_tween.tween_property(self, "anim_progress", 1.0, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	move_tween.finished.connect(_on_move_animation_finished, CONNECT_ONE_SHOT)
+
+func _on_move_animation_finished():
+	last_move_from = anim_from_cell
+	last_move_to = anim_to_cell
+	if pending_is_player:
+		side_to_move = 2
+	else:
+		side_to_move = 1
+	total_moves += 1
+	board[anim_to_cell.y][anim_to_cell.x] = anim_id
+	board[anim_from_cell.y][anim_from_cell.x] = ""
+	animating = false
+	anim_id = ""
+	board_container.queue_redraw()
+	_after_move_update(pending_captured)
+	_update_game_info()
+	if pending_is_player and not game_over:
+		_ai_move()
 
 func _can_move(from: Vector2i, to: Vector2i) -> bool:
 	var id = board[from.y][from.x]
@@ -407,10 +479,10 @@ func _after_move_update(captured: String):
 		game_in_progress = false
 		if captured == "bK":
 			player_wins += 1
-			_show_result_text("玩家 获胜！")
+			_show_result_text(player_name + " 获胜！")
 		else:
 			ai_wins += 1
-			_show_result_text("角色 获胜！")
+			_show_result_text(character_name + " 获胜！")
 		_update_game_info()
 
 func _ai_move():
@@ -422,13 +494,7 @@ func _ai_move():
 		var t: Vector2i = move.to
 		if board[f.y][f.x] != "" and _piece_side(board[f.y][f.x]) == 2 and _can_move(f, t):
 			var captured = board[t.y][t.x]
-			board[t.y][t.x] = board[f.y][f.x]
-			board[f.y][f.x] = ""
-			side_to_move = 1
-			total_moves += 1
-			board_container.queue_redraw()
-			_after_move_update(captured)
-			_update_game_info()
+			_start_move_animation(f, t, board[f.y][f.x], captured, false)
 
 func _load_names():
 	if has_node("/root/EventHelpers"):
@@ -667,6 +733,8 @@ func _on_restart_pressed():
 		if (child is Button and child.text == "再来一局") or (child is Label and (child.text.contains("获胜") or child.text.contains("平局"))):
 			child.queue_free()
 	_init_board()
+	last_move_from = Vector2i(-1, -1)
+	last_move_to = Vector2i(-1, -1)
 	board_container.queue_redraw()
 	game_started = false
 	game_in_progress = false
