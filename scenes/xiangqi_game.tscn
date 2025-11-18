@@ -34,6 +34,147 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
 
+[node name="PlayerAvatar" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 0.0
+anchor_right = 0.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 130.0
+offset_bottom = 130.0
+
+[node name="PlayerStone" type="ColorRect" parent="PlayerAvatar"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="PlayerInfo" type="RichTextLabel" parent="PlayerAvatar"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 110.0
+offset_right = 100.0
+offset_bottom = 200.0
+theme_override_font_sizes/normal_font_size = 16
+theme_override_colors/default_color = Color(0, 0, 0, 1)
+bbcode_enabled = true
+text = "玩家\n比分: 0"
+fit_content = false
+scroll_active = false
+
+[node name="AIAvatar" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -130.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = 130.0
+grow_horizontal = 0
+
+[node name="AIStoneContainer" type="Control" parent="AIAvatar"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AIStone" type="ColorRect" parent="AIAvatar/AIStoneContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Outline" type="ReferenceRect" parent="AIAvatar/AIStoneContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+border_color = Color(0, 0, 0, 1)
+border_width = 2.0
+
+[node name="AIVideo" type="VideoStreamPlayer" parent="AIAvatar"]
+visible = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
+expand = true
+
+[node name="AIInfo" type="RichTextLabel" parent="AIAvatar"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 110.0
+offset_right = 100.0
+offset_bottom = 200.0
+theme_override_font_sizes/normal_font_size = 16
+theme_override_colors/default_color = Color(0, 0, 0, 1)
+bbcode_enabled = true
+text = "角色\n比分: 0"
+fit_content = false
+scroll_active = false
+
+[node name="LeftButtons" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 30.0
+offset_top = -150.0
+offset_right = 210.0
+offset_bottom = 150.0
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="DifficultyButtons" type="VBoxContainer" parent="LeftButtons"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Spacer" type="Control" parent="LeftButtons"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="AIFirstButton" type="Button" parent="LeftButtons"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "还是你先吧"
+custom_minimum_size = Vector2(160, 50)
+
 [node name="BackButton" type="Button" parent="."]
 layout_mode = 1
 anchors_preset = 2
@@ -46,3 +187,60 @@ offset_bottom = -20.0
 grow_vertical = 0
 theme_override_font_sizes/font_size = 18
 text = "← 返回"
+
+[node name="PlayerChatBubble" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 150.0
+offset_top = 60.0
+offset_right = 350.0
+offset_bottom = 120.0
+
+[node name="BubbleBackground" type="ColorRect" parent="PlayerChatBubble"]
+layout_mode = 2
+color = Color(0.2, 0.6, 1, 0.9)
+
+[node name="Label" type="Label" parent="PlayerChatBubble"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "能放点水吗"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Tail" type="Polygon2D" parent="PlayerChatBubble"]
+position = Vector2(-10, 20)
+color = Color(0.2, 0.6, 1, 0.9)
+polygon = PackedVector2Array(0, 0, 15, 10, 15, -10)
+
+[node name="AIChatBubble" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -350.0
+offset_top = 60.0
+offset_right = -150.0
+offset_bottom = 120.0
+grow_horizontal = 0
+
+[node name="BubbleBackground" type="ColorRect" parent="AIChatBubble"]
+layout_mode = 2
+color = Color(1, 1, 1, 0.95)
+
+[node name="Label" type="Label" parent="AIChatBubble"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
+text = "让我想想..."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Tail" type="Polygon2D" parent="AIChatBubble"]
+position = Vector2(210, 20)
+color = Color(1, 1, 1, 0.95)
+polygon = PackedVector2Array(0, 0, -15, 10, -15, -10)
