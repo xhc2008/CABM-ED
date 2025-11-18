@@ -7,6 +7,7 @@ var crops_config: Array = []
 var bg: TextureRect
 var ui_layer: Control
 var items_cache: Dictionary = {}
+var current_selected_plot_idx: int = -1
 
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -122,6 +123,7 @@ func _create_plots():
 			if ResourceLoader.exists(land_path):
 				land.texture = load(land_path)
 			plot.add_child(land)
+			
 			var crop = TextureRect.new()
 			crop.name = "CropSprite"
 			crop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -132,21 +134,47 @@ func _create_plots():
 			crop.offset_top = -cell_h * 0.3
 			crop.offset_bottom = cell_h * 0.3
 			plot.add_child(crop)
+			
 			var btn = Button.new()
 			btn.text = ""
 			btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			btn.pressed.connect(_on_plot_pressed.bind(idx))
 			btn.modulate = Color(1,1,1,0)
 			plot.add_child(btn)
+			
 			ui_layer.add_child(plot)
 			plots.append(plot)
 
 func _on_plot_pressed(idx: int):
+	# 清除之前的高光
+	_clear_highlight()
+	
+	# 设置当前选中地块
+	current_selected_plot_idx = idx
+	
+	# 添加高光到当前选中地块
+	_highlight_plot(idx)
+	
 	var data = _get_plot_data(idx)
 	if data == null:
 		_show_planting_list(idx)
 	else:
 		_show_planted_options(idx)
+
+# 简单的高亮方法 - 改变颜色
+func _highlight_plot(idx: int):
+	if idx >= 0 and idx < plots.size():
+		var plot = plots[idx]
+		var land = plot.get_child(0)  # 第一个子节点是 land
+		if land:
+			land.modulate = Color(1.4, 1.4, 1.0)  # 轻微变亮和变黄
+
+func _clear_highlight():
+	if current_selected_plot_idx >= 0 and current_selected_plot_idx < plots.size():
+		var plot = plots[current_selected_plot_idx]
+		var land = plot.get_child(0)  # 第一个子节点是 land
+		if land:
+			land.modulate = Color.WHITE  # 恢复原色
 
 func _refresh_ui():
 	for i in range(plots.size()):
@@ -322,6 +350,9 @@ func _show_planting_list(idx: int):
 	vb.add_child(close_btn)
 
 func _close_panel(panel: Control):
+	_clear_highlight()
+	current_selected_plot_idx = -1
+	
 	if is_instance_valid(panel):
 		panel.queue_free()
 	for node in get_children():
@@ -335,6 +366,9 @@ func _plant_crop(idx: int, crop_id: String):
 	var data = {"crop_id": crop_id, "planted_at_unix": Time.get_unix_time_from_system()}
 	_set_plot_data(idx, data)
 	_refresh_ui()
+	_clear_highlight()
+	current_selected_plot_idx = -1
+	
 	for node in get_children():
 		if node.name == "PlantingPanel":
 			node.queue_free()
@@ -512,6 +546,8 @@ func _format_time_cn(secs: int) -> String:
 func _remove(idx: int, panel: Control):
 	_set_plot_data(idx, null)
 	_refresh_ui()
+	_clear_highlight()
+	current_selected_plot_idx = -1
 	if is_instance_valid(panel):
 		panel.queue_free()
 	for node in get_children():
@@ -538,6 +574,8 @@ func _harvest(idx: int, panel: Control):
 	_play_harvest_anim(hid, give, from_pos)
 	_set_plot_data(idx, null)
 	_refresh_ui()
+	_clear_highlight()
+	current_selected_plot_idx = -1
 	if is_instance_valid(panel):
 		panel.queue_free()
 	for node in get_children():

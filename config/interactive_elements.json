@@ -130,7 +130,7 @@
       "position": {
         "anchor": "center",
         "offset_x": 0,
-        "offset_y": 180
+        "offset_y": 200
       },
       "scenes": [
         "rooftop"
