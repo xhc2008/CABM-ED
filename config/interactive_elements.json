@@ -124,12 +124,12 @@
       "name": "菜园入口",
       "type": "click_area",
       "size": {
-        "width": 200,
-        "height": 150
+        "width": 300,
+        "height": 250
       },
       "position": {
         "anchor": "center",
-        "offset_x": 0,
+        "offset_x": 50,
         "offset_y": 200
       },
       "scenes": [

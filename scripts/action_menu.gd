@@ -8,6 +8,7 @@ signal game_selected(game_type: String)
 @onready var game_button: Button = $MarginContainer/VBoxContainer/GameButton
 @onready var game_submenu: Panel = $GameSubmenu
 @onready var gomoku_button: Button = $GameSubmenu/MarginContainer/VBoxContainer/GomokuButton
+@onready var chinese_chess_button: Button = $GameSubmenu/MarginContainer/VBoxContainer/ChineseChessButton
 
 const ANIMATION_DURATION = 0.2
 
@@ -36,6 +37,12 @@ func _ready():
 		print("五子棋按钮信号已连接")
 	else:
 		print("警告：五子棋按钮未找到")
+	
+	if chinese_chess_button:
+		chinese_chess_button.pressed.connect(_on_chinese_chess_button_pressed)
+		print("中国象棋按钮信号已连接")
+	else:
+		print("警告：中国象棋按钮未找到")
 	
 	# 初始隐藏游戏子菜单
 	if game_submenu:
@@ -124,4 +131,9 @@ func _on_game_button_pressed():
 func _on_gomoku_button_pressed():
 	print("五子棋按钮被点击")
 	game_selected.emit("gomoku")
+	hide_menu()
+
+func _on_chinese_chess_button_pressed():
+	print("中国象棋按钮被点击")
+	game_selected.emit("xiangqi")
 	hide_menu()

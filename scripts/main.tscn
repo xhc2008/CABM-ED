@@ -243,6 +243,10 @@ theme_override_constants/separation = 5
 layout_mode = 2
 text = "五子棋"
 
+[node name="ChineseChessButton" type="Button" parent="ActionMenu/GameSubmenu/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "中国象棋"
+
 [node name="SceneMenu" type="Panel" parent="."]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 0

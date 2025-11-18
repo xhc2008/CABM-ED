@@ -486,6 +486,8 @@ func _on_game_selected(game_type: String):
 	print("游戏选择信号接收: ", game_type)
 	if game_type == "gomoku":
 		_start_gomoku_game()
+	elif game_type == "xiangqi":
+		_start_xiangqi_game()
 
 func _on_chat_ended():
 	await character.end_chat()
@@ -511,6 +513,45 @@ func _start_gomoku_game():
 func _on_gomoku_ended():
 	for child in get_children():
 		if child.name == "GomokuGame":
+			child.queue_free()
+	
+	game_state_manager.show_main_scene()
+	
+	# 等待背景完全加载后再更新角色状态
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# 确保背景纹理已加载
+	if background.texture:
+		ui_layout_manager.update_all_layouts()
+		# 重新加载角色（此时背景已准备好）
+		character.load_character_for_scene(scene_manager.current_scene)
+	else:
+		print("警告: 背景纹理未加载，等待加载...")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		ui_layout_manager.update_all_layouts()
+		character.load_character_for_scene(scene_manager.current_scene)
+
+func _start_xiangqi_game():
+	print("开始加载中国象棋游戏")
+	var xiangqi_scene = load("res://scenes/xiangqi_game.tscn")
+	if xiangqi_scene:
+		print("中国象棋场景加载成功")
+		var xiangqi = xiangqi_scene.instantiate()
+		xiangqi.game_ended.connect(_on_xiangqi_ended)
+		
+		game_state_manager.hide_main_scene()
+		
+		add_child(xiangqi)
+		xiangqi.z_index = 100
+		print("中国象棋游戏已添加到场景树")
+	else:
+		print("错误：无法加载中国象棋场景")
+
+func _on_xiangqi_ended():
+	for child in get_children():
+		if child.name == "XiangqiGame":
 			child.queue_free()
 	
 	game_state_manager.show_main_scene()

@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://gomoku_game_scene"]
 
-[ext_resource type="Script" path="res://scripts/gomoku_game.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/game/gomoku_game.gd" id="1"]
 
 [node name="GomokuGame" type="Control"]
 layout_mode = 3
