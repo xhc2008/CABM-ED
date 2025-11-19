@@ -5,7 +5,7 @@
       "name": "胡萝卜",
       "icon": "carrot.png",
       "stage_base": "carrots_stage",
-      "growth_time_seconds": 1800,
+      "growth_time_seconds": 2700,
       "harvest": { "item_id": "carrot", "count": [3, 6] }
     },
     {
@@ -13,7 +13,7 @@
       "name": "土豆",
       "icon": "potato.png",
       "stage_base": "potatoes_stage",
-      "growth_time_seconds": 2700,
+      "growth_time_seconds": 1800,
       "harvest": { "item_id": "potato", "count": [3, 6] }
     },
     {

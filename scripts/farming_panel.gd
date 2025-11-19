@@ -37,6 +37,12 @@ func _ready():
 	_load_crops_config()
 	_ensure_save_data()
 	_create_plots()
+
+	var update_timer = Timer.new()
+	update_timer.wait_time = 5.0  # 每5秒检查一次
+	update_timer.timeout.connect(_refresh_ui)
+	add_child(update_timer)
+	update_timer.start()
 	_refresh_ui()
 
 func open_farming():
