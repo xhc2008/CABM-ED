@@ -216,6 +216,24 @@
       "max_stack": 64,
       "cook_time": 20.0
     },
+    "sweet_berry": {
+      "name": "甜浆果",
+      "type": "食材",
+      "description": "唔……她好像也喜欢这个……？",
+      "icon": "sweet_berries.png", 
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 10.0
+    },
+    "wheat": {
+      "name": "小麦",
+      "type": "食材",
+      "description": "三个可以合成面包……吗？",
+      "icon": "wheat.png", 
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 10.0
+    },
     "amethyst": {
       "name": "紫水晶",
       "type": "收集物",

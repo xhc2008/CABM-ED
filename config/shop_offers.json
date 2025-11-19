@@ -11,6 +11,26 @@
       "limit": [3, 10]
     },
     {
+      "name": "出售小麦换信用点",
+      "requires": [
+        {"item_id": "wheat", "count": [5, 10]}
+      ],
+      "gives": [
+        {"item_id": "credit", "count": [20, 40]}
+      ],
+      "limit": [3, 10]
+    },
+    {
+      "name": "出售甜浆果换信用点",
+      "requires": [
+        {"item_id": "sweet_berry", "count": [5, 10]}
+      ],
+      "gives": [
+        {"item_id": "credit", "count": [20, 40]}
+      ],
+      "limit": [3, 10]
+    },
+    {
       "name": "出售紫水晶",
       "requires": [
         {"item_id": "amethyst", "count": 1}

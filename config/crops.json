@@ -5,6 +5,7 @@
       "name": "胡萝卜",
       "icon": "carrot.png",
       "stage_base": "carrots_stage",
+      "stage_count": 4,
       "growth_time_seconds": 2700,
       "harvest": { "item_id": "carrot", "count": [3, 6] }
     },
@@ -13,6 +14,7 @@
       "name": "土豆",
       "icon": "potato.png",
       "stage_base": "potatoes_stage",
+      "stage_count": 4,
       "growth_time_seconds": 1800,
       "harvest": { "item_id": "potato", "count": [3, 6] }
     },
@@ -21,8 +23,27 @@
       "name": "甜菜根",
       "icon": "beetroot_seeds.png",
       "stage_base": "beetroots_stage",
+      "stage_count": 4,
       "growth_time_seconds": 2400,
       "harvest": { "item_id": "beetroot", "count": [2, 5] }
+    },
+    {
+      "id": "sweet_berry",
+      "name": "甜浆果",
+      "icon": "sweet_berries.png",
+      "stage_base": "sweet_berry_bush_stage",
+      "stage_count": 4,
+      "growth_time_seconds": 3000,
+      "harvest": { "item_id": "sweet_berry", "count": [4, 7] }
+    },
+    {
+      "id": "wheat",
+      "name": "小麦",
+      "icon": "wheat_seeds.png",
+      "stage_base": "wheat_stage",
+      "stage_count": 8,
+      "growth_time_seconds": 2500,
+      "harvest": { "item_id": "wheat", "count": [2, 5] }
     }
   ]
 }

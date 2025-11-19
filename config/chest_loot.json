@@ -29,7 +29,7 @@
         },
         {
           "item_id": "apple",
-          "min_count": 2,
+          "min_count": 1,
           "max_count": 5,
           "probability": 0.6
         },
@@ -41,7 +41,13 @@
         },
         {
           "item_id": "carrot",
-          "min_count": 2,
+          "min_count": 1,
+          "max_count": 6,
+          "probability": 0.4
+        },
+        {
+          "item_id": "sweet_berry",
+          "min_count": 1,
           "max_count": 6,
           "probability": 0.4
         }
@@ -162,7 +168,19 @@
           "min_count": 1,
           "max_count": 1,
           "probability": 0.2
-        }
+        },
+        {
+          "item_id": "sweet_berry",
+          "min_count": 1,
+          "max_count": 8,
+          "probability": 0.6
+        },
+        {
+          "item_id": "wheat",
+          "min_count": 1,
+          "max_count": 8,
+          "probability": 0.6
+        } 
       ]
     }
   },
