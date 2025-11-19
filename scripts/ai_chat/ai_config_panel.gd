@@ -148,10 +148,38 @@ func _ready():
 	template_handler.load_selected_template()
 	voice_settings.load_voice_settings()
 	response_settings.load_response_settings()
+	_apply_android_input_workaround()
 
 func _on_close_pressed():
 	"""关闭面板"""
 	queue_free()
+
+func _apply_android_input_workaround():
+	if has_node("/root/PlatformManager"):
+		var pm = get_node("/root/PlatformManager")
+		if pm.is_android():
+			var inputs: Array = [
+				quick_key_input,
+				chat_model_input,
+				chat_base_url_input,
+				chat_key_input,
+				summary_model_input,
+				summary_base_url_input,
+				summary_key_input,
+				tts_model_input,
+				tts_base_url_input,
+				tts_key_input,
+				embedding_model_input,
+				embedding_base_url_input,
+				embedding_key_input,
+				save_export_api_key_input
+			]
+			for le in inputs:
+				if le and le is LineEdit:
+					le.context_menu_enabled = false
+					le.shortcut_keys_enabled = false
+					if le.has_method("set_selecting_enabled"):
+						le.selecting_enabled = false
 
 func _on_template_selected(template: String):
 	"""选择配置模板"""

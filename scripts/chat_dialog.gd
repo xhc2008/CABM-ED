@@ -133,6 +133,7 @@ func _ready():
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
+		_apply_android_input_workaround_to_line_edit(input_field)
 	
 	_load_config()
 	
@@ -153,6 +154,15 @@ func _ready():
 	visible = false
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+
+func _apply_android_input_workaround_to_line_edit(le: LineEdit):
+	if has_node("/root/PlatformManager"):
+		var pm = get_node("/root/PlatformManager")
+		if pm.is_android():
+			le.context_menu_enabled = false
+			le.shortcut_keys_enabled = false
+			if le.has_method("set_selecting_enabled"):
+				le.selecting_enabled = false
 
 func _init_modules():
 	# 输入处理模块
