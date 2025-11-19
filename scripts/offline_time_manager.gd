@@ -150,7 +150,7 @@ func _apply_medium_offline(hours: float):
 		# 降级方案：直接使用 SaveManager
 		var current_affection = SaveManager.get_affection()
 		var affection_change = randi_range(-20, 10)
-		var new_affection = clamp(current_affection + affection_change, 0, 100)
+		var new_affection = clamp(current_affection + affection_change, -65536, 65535)
 		SaveManager.set_affection(new_affection)
 		print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
 		
@@ -187,7 +187,7 @@ func _apply_long_offline(hours: float):
 		# 降级方案：直接使用 SaveManager
 		var current_affection = SaveManager.get_affection()
 		var affection_change = randi_range(-50, 0)
-		var new_affection = clamp(current_affection + affection_change, 0, 100)
+		var new_affection = clamp(current_affection + affection_change, -65536, 65535)
 		SaveManager.set_affection(new_affection)
 		print("好感度变化: %d -> %d (变化: %+d)" % [current_affection, new_affection, affection_change])
 		
