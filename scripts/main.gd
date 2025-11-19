@@ -66,6 +66,8 @@ func _ready():
 	
 	# 播放背景音乐
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
+	# 检查是否需要打开地图
+	_check_open_map_on_load()
 
 func _input(event):
 	# 按 F12 打开存档调试面板
@@ -206,6 +208,7 @@ func _connect_signals():
 	# 场景菜单
 	scene_menu.scene_selected.connect(_on_scene_menu_selected)
 	scene_menu.character_called.connect(_on_character_called)
+	scene_menu.map_open_requested.connect(_on_open_map_requested)
 	
 	# 右侧点击区域
 	right_click_area.gui_input.connect(_on_right_area_input)
@@ -571,6 +574,34 @@ func _on_xiangqi_ended():
 		await get_tree().process_frame
 		ui_layout_manager.update_all_layouts()
 		character.load_character_for_scene(scene_manager.current_scene)
+
+func _on_open_map_requested():
+	var map_scene = load("res://scenes/map/map_view.tscn")
+	if map_scene:
+		var map_view = map_scene.instantiate()
+		add_child(map_view)
+		game_state_manager.hide_main_scene()
+		map_view.on_go_selected = func(scene_id: String):
+			var data = scene_manager.scenes_config.get(scene_id, {})
+			var cls = data.get("class", "")
+			if cls == "outdoor":
+				map_view.queue_free()
+				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
+			else:
+				await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
+				sidebar.set_current_scene(scene_id)
+				map_view.queue_free()
+				game_state_manager.show_main_scene()
+		map_view.map_closed.connect(func():
+			game_state_manager.show_main_scene())
+
+func _check_open_map_on_load():
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if sm.has_meta("open_map_on_load"):
+			sm.remove_meta("open_map_on_load")
+			await get_tree().process_frame
+			_on_open_map_requested()
 
 func _on_cook_action_triggered(action: String):
 	"""烹饪按钮动作触发"""

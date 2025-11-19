@@ -1,0 +1,14 @@
+{
+  "size": [2000, 1200],
+  "points": [
+    {"id": "livingroom", "x": 300, "y": 600},
+    {"id": "bedroom", "x": 200, "y": 500},
+    {"id": "bathroom", "x": 220, "y": 700},
+    {"id": "studyroom", "x": 180, "y": 620},
+    {"id": "kitchen", "x": 340, "y": 700},
+    {"id": "entryway", "x": 400, "y": 550},
+    {"id": "rooftop", "x": 600, "y": 300},
+    {"id": "shop", "x": 800, "y": 400},
+    {"id": "explore", "type": "explore", "name": "探索区", "x": 1000, "y": 900}
+  ]
+}

@@ -13,6 +13,7 @@ var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
 var chest_system: Node # ChestSystem
 var nearby_chests: Array = []
+var nearby_map_points: Array = []
 var current_opened_chest: Dictionary = {}
 
 # 武器系统
@@ -103,6 +104,7 @@ func _process(_delta):
 	# 检查TileMapLayer上的宝箱
 	if player and tilemap_layer:
 		_check_nearby_chests()
+		_check_nearby_map_points()
 	
 	# 自动射击检查
 	if not inventory_ui or not inventory_ui.visible:
@@ -155,6 +157,17 @@ func _check_nearby_chests():
 	if needs_update:
 		_update_interaction_prompt()
 
+func _check_nearby_map_points():
+	if not player.interaction_detector:
+		return
+	var maps = player.interaction_detector.check_map_points(tilemap_layer)
+	if maps == null:
+		maps = []
+	var changed = maps.size() != nearby_map_points.size()
+	nearby_map_points = maps
+	if changed:
+		_update_interaction_prompt()
+
 func _update_interaction_prompt():
 	"""更新交互提示"""
 	if not interaction_prompt:
@@ -186,6 +199,14 @@ func _update_interaction_prompt():
 				"object": snow_fox,
 				"type": "snow_fox"
 			})
+
+	if not nearby_map_points.is_empty():
+		interactions.append({
+			"text": "F: 撤离",
+			"callback": func(): _open_map_from_explore(),
+			"object": null,
+			"type": "map"
+		})
 	
 	if interactions.is_empty():
 		interaction_prompt.hide_interactions()
@@ -236,6 +257,12 @@ func _open_snow_fox_storage():
 	
 	# 隐藏交互提示
 	interaction_prompt.hide_interactions()
+
+func _open_map_from_explore():
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.set_meta("open_map_on_load", true)
+	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func update_snow_fox_storage(storage_data):
 	"""更新雪狐背包数据（从背包UI回调）"""

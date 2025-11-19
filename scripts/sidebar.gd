@@ -332,12 +332,7 @@ func _build_scene_list():
 	var separator2 = HSeparator.new()
 	scene_list.add_child(separator2)
 	
-	# 实验性玩法部分
-	_setup_experimental_section()
-	
-	# 分隔线
-	var separator_exp = HSeparator.new()
-	scene_list.add_child(separator_exp)
+	# 已移除实验性玩法入口
 	
 	# 天气按钮组
 	if scene_data.has("weathers"):

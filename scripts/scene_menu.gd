@@ -2,6 +2,7 @@ extends Panel
 
 signal scene_selected(scene_id: String)
 signal character_called()
+signal map_open_requested()
 
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 
@@ -32,6 +33,12 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	call_button.text = "💬 呼唤" + character_name
 	call_button.pressed.connect(_on_call_button_pressed)
 	vbox.add_child(call_button)
+
+	if current_scene == "entryway":
+		var map_button = Button.new()
+		map_button.text = "🗺️ 打开地图"
+		map_button.pressed.connect(_on_map_button_pressed)
+		vbox.add_child(map_button)
 	
 	# 获取当前场景的连通场景列表
 	var current_scene_data = scenes_config.get(current_scene, {})
@@ -105,6 +112,10 @@ func _on_scene_button_pressed(scene_id: String):
 
 func _on_call_button_pressed():
 	character_called.emit()
+	hide_menu()
+
+func _on_map_button_pressed():
+	map_open_requested.emit()
 	hide_menu()
 
 func _get_character_name() -> String:

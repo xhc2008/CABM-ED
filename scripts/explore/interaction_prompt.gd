@@ -82,10 +82,12 @@ func _input(event: InputEvent):
 		if event.pressed:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_select_previous()
-				get_viewport().set_input_as_handled()
+				if get_viewport():
+					get_viewport().set_input_as_handled()
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_select_next()
-				get_viewport().set_input_as_handled()
+				if get_viewport():
+					get_viewport().set_input_as_handled()
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				# 检查是否点击了某个选项
 				_check_click_selection(event.position)
@@ -95,10 +97,12 @@ func _input(event: InputEvent):
 		if event.pressed:
 			if event.keycode == KEY_F:
 				_confirm_selection()
-				get_viewport().set_input_as_handled()
+				if get_viewport():
+					get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_ESCAPE:
 				hide_interactions()
-				get_viewport().set_input_as_handled()
+				if get_viewport():
+					get_viewport().set_input_as_handled()
 
 func _select_previous():
 	"""选择上一个"""

@@ -101,3 +101,25 @@ func check_tilemap_interactions(tilemap_layer: TileMapLayer):
 					})
 	
 	return chest_tiles
+
+func check_map_points(tilemap_layer: TileMapLayer):
+	if not tilemap_layer:
+		return []
+	var player_pos = global_position
+	var start_tile = tilemap_layer.local_to_map(tilemap_layer.to_local(player_pos - Vector2(detection_radius, detection_radius)))
+	var end_tile = tilemap_layer.local_to_map(tilemap_layer.to_local(player_pos + Vector2(detection_radius, detection_radius)))
+	var map_tiles = []
+	for x in range(start_tile.x, end_tile.x + 1):
+		for y in range(start_tile.y, end_tile.y + 1):
+			var tile_pos = Vector2i(x, y)
+			var tile_data = tilemap_layer.get_cell_tile_data(tile_pos)
+			if tile_data and tile_data.get_custom_data("is_map_point"):
+				var world_pos = tilemap_layer.to_global(tilemap_layer.map_to_local(tile_pos))
+				var distance = player_pos.distance_to(world_pos)
+				if distance <= detection_radius:
+					map_tiles.append({
+						"position": tile_pos,
+						"world_position": world_pos,
+						"distance": distance
+					})
+	return map_tiles
