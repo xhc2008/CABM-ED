@@ -120,18 +120,13 @@ func _clamp_canvas_position():
 	canvas.position = -canvas_offset
 
 func _on_point_pressed(scene_id: String):
-	var data = scenes_config.get(scene_id, {})
-	var cls = data.get("class", "")
 	if on_go_selected and on_go_selected.is_valid():
 		on_go_selected.call(scene_id)
 		return
-	if cls == "outdoor":
-		get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
-	else:
-		if has_node("/root/SaveManager"):
-			var sm = get_node("/root/SaveManager")
-			sm.set_character_scene(scene_id)
-		get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.set_character_scene(scene_id)
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_explore_point_pressed():
 	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")

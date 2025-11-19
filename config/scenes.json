@@ -42,13 +42,13 @@
     "rooftop": {
       "name": "天台",
       "weight": 1,
-      "class": "home",
+      "class": "outdoor",
       "connect": ["entryway","livingroom"]
     },
     "shop": {
       "name": "超市",
       "weight": 1,
-      "class": "home",
+      "class": "outdoor",
       "connect": ["entryway"]
     },
     "entryway": {

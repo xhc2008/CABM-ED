@@ -582,16 +582,10 @@ func _on_open_map_requested():
 		add_child(map_view)
 		game_state_manager.hide_main_scene()
 		map_view.on_go_selected = func(scene_id: String):
-			var data = scene_manager.scenes_config.get(scene_id, {})
-			var cls = data.get("class", "")
-			if cls == "outdoor":
-				map_view.queue_free()
-				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
-			else:
-				await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
-				sidebar.set_current_scene(scene_id)
-				map_view.queue_free()
-				game_state_manager.show_main_scene()
+			await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
+			sidebar.set_current_scene(scene_id)
+			map_view.queue_free()
+			game_state_manager.show_main_scene()
 		map_view.map_closed.connect(func():
 			game_state_manager.show_main_scene())
 
