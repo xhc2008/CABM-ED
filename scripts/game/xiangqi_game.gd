@@ -488,6 +488,9 @@ func _after_move_update(captured: String):
 func _ai_move():
 	if game_over:
 		return
+	side_to_move = 2
+	_update_game_info()
+	await get_tree().process_frame
 	var move = ai.get_next_move(board, 2, ai_difficulty)
 	if move and move.has("from") and move.has("to"):
 		var f: Vector2i = move.from
@@ -685,8 +688,9 @@ func _on_ai_first_pressed():
 	ai_first_button.visible = false
 	difficulty_buttons_container.visible = false
 	_show_player_chat("还是你先吧")
-	_ai_move()
+	side_to_move = 2
 	_update_game_info()
+	_ai_move()
 
 func _on_back_pressed():
 	var tween = create_tween()
