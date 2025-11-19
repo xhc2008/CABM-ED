@@ -10,6 +10,7 @@ const ANIMATION_DURATION = 0.2
 
 var scene_buttons: Array = []
 var call_button: Button = null
+var map_button: Button = null
 
 func _ready():
 	visible = false
@@ -24,6 +25,9 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	if call_button:
 		call_button.queue_free()
 		call_button = null
+	if map_button:
+		map_button.queue_free()
+		map_button = null
 	
 	# 获取角色名称
 	var character_name = _get_character_name()
@@ -35,7 +39,7 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	vbox.add_child(call_button)
 
 	if current_scene == "entryway":
-		var map_button = Button.new()
+		map_button = Button.new()
 		map_button.text = "🗺️ 打开地图"
 		map_button.pressed.connect(_on_map_button_pressed)
 		vbox.add_child(map_button)
@@ -70,7 +74,9 @@ func show_menu(at_position: Vector2):
 	await get_tree().process_frame
 	
 	# 手动计算所需高度
-	var button_count = 1 + scene_buttons.size()  # 呼唤按钮 + 场景按钮
+	var button_count = 1 + scene_buttons.size()
+	if map_button:
+		button_count += 1
 	var button_height = 40.0  # 按钮默认高度
 	var separation = 5.0  # 按钮间距
 	var total_height = button_count * button_height + (button_count - 1) * separation

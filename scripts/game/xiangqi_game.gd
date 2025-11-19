@@ -50,6 +50,7 @@ var pending_is_player: bool = true
 @onready var ai_chat_label: Label = $AIChatBubble/Label
 @onready var player_info_label: RichTextLabel = $PlayerAvatar/PlayerInfo
 @onready var ai_info_label: RichTextLabel = $AIAvatar/AIInfo
+var check_audio_player: AudioStreamPlayer = null
 
 func _ready():
 	modulate.a = 0.0
@@ -61,6 +62,8 @@ func _ready():
 	_setup_ui()
 	_setup_videos()
 	_setup_difficulty_buttons()
+	check_audio_player = AudioStreamPlayer.new()
+	add_child(check_audio_player)
 	_hide_chat_bubbles()
 	back_button.pressed.connect(_on_back)
 	ai_first_button.pressed.connect(_on_ai_first_pressed)
@@ -296,8 +299,49 @@ func _on_move_animation_finished():
 	board_container.queue_redraw()
 	_after_move_update(pending_captured)
 	_update_game_info()
+	var delay_ai := false
+	if not game_over:
+		var checked_side = side_to_move
+		if _is_check(checked_side):
+			if pending_is_player:
+				_show_player_chat("将军")
+				delay_ai = true
+			else:
+				_show_ai_chat("将军")
+				_play_check_voice()
 	if pending_is_player and not game_over:
+		if delay_ai:
+			await get_tree().create_timer(0.4).timeout
 		_ai_move()
+
+func _is_check(side: int) -> bool:
+	var king_pos = _find_king(side)
+	if king_pos == Vector2i(-1, -1):
+		return false
+	for y in range(ROWS):
+		for x in range(COLS):
+			var piece = board[y][x]
+			if piece != "" and _piece_side(piece) != side:
+				if _can_move(Vector2i(x, y), king_pos):
+					return true
+	return false
+
+func _find_king(side: int) -> Vector2i:
+	var king_id = "rK" if side == 1 else "bK"
+	for y in range(ROWS):
+		for x in range(COLS):
+			if board[y][x] == king_id:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+func _play_check_voice():
+	if not check_audio_player:
+		return
+	var path = "res://assets/audio/voice/check.mp3"
+	if ResourceLoader.exists(path):
+		var stream = load(path)
+		check_audio_player.stream = stream
+		check_audio_player.play()
 
 func _can_move(from: Vector2i, to: Vector2i) -> bool:
 	var id = board[from.y][from.x]
