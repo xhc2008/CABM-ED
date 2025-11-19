@@ -216,13 +216,13 @@ func _calculate_stage(crop: Dictionary, planted_at_unix: int) -> int:
 	var elapsed = max(0, now - planted_at_unix)
 	
 	# 获取阶段数量，默认为3（向后兼容）
-	var stage_count = int(crop.get("stage_count", 3))
+	var stage_count = int(crop.get("stage_count", 4))
 	
 	if elapsed >= total:
 		return stage_count - 1  # 最后一个阶段是成熟阶段
 	
 	var ratio = float(elapsed) / float(total)
-	return clamp(int(floor(ratio * float(stage_count))), 0, stage_count - 1)
+	return clamp(int(floor(ratio * float(stage_count))), 0, stage_count - 2)
 
 func _is_mature(crop: Dictionary, planted_at_unix: int) -> bool:
 	var total = int(crop.get("growth_time_seconds", 0))
