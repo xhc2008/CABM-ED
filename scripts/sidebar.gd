@@ -705,4 +705,8 @@ func _setup_experimental_section():
 func _on_explore_button_pressed():
 	"""探索按钮被点击"""
 	print("进入探索模式")
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if not sm.has_meta("explore_current_id"):
+			sm.set_meta("explore_current_id", "explore")
 	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")

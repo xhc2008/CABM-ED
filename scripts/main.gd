@@ -345,6 +345,10 @@ func _on_scene_menu_selected(scene_id: String):
 	
 	# 切换到选中的场景
 	await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		save_mgr.set_meta("show_move_notification", true)
+		save_mgr.set_character_scene(scene_id)
 	sidebar.set_current_scene(scene_id)
 	
 	await get_tree().process_frame
@@ -578,6 +582,11 @@ func _on_xiangqi_ended():
 func _on_open_map_requested():
 	var map_scene = load("res://scenes/map/map_view.tscn")
 	if map_scene:
+		var origin := ""
+		if has_node("/root/SaveManager"):
+			var sm = get_node("/root/SaveManager")
+			if sm.has_meta("map_origin"):
+				origin = sm.get_meta("map_origin")
 		var map_view = map_scene.instantiate()
 		add_child(map_view)
 		game_state_manager.hide_main_scene()
@@ -586,8 +595,20 @@ func _on_open_map_requested():
 			sidebar.set_current_scene(scene_id)
 			map_view.queue_free()
 			game_state_manager.show_main_scene()
+			if has_node("/root/SaveManager"):
+				var sm2 = get_node("/root/SaveManager")
+				if sm2.has_meta("map_origin"):
+					sm2.remove_meta("map_origin")
 		map_view.map_closed.connect(func():
-			game_state_manager.show_main_scene())
+			map_view.queue_free()
+			if origin == "explore":
+				if has_node("/root/SaveManager"):
+					var sm3 = get_node("/root/SaveManager")
+					if sm3.has_meta("map_origin"):
+						sm3.remove_meta("map_origin")
+				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
+			else:
+				game_state_manager.show_main_scene())
 
 func _check_open_map_on_load():
 	if has_node("/root/SaveManager"):

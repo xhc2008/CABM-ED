@@ -244,9 +244,13 @@ func _center_initial_view():
 		var sm = get_node("/root/SaveManager")
 		if sm.has_meta("map_origin"):
 			var origin = sm.get_meta("map_origin")
-			sm.remove_meta("map_origin")
 			if origin == "explore":
-				var pos = _get_world_point_pos("explore")
+				var eid := ""
+				if sm.has_meta("explore_current_id"):
+					eid = sm.get_meta("explore_current_id")
+				elif sm.has_meta("explore_target_id"):
+					eid = sm.get_meta("explore_target_id")
+				var pos = _get_world_point_pos(eid if eid != "" else "explore")
 				if pos != Vector2.ZERO:
 					_center_on_point(pos)
 				return
@@ -290,11 +294,19 @@ func _on_explore_point_pressed(explore_id: String):
 	sidebar_title.text = explore_data.get("name", "探索区")
 	var intro = explore_data.get("intro", "")
 	sidebar_description.text = intro
-	# 修改：存储当前选中的探索点ID
 	current_explore_id = explore_id
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.set_meta("explore_target_id", explore_id)
 	_show_sidebar()
 
 func _on_enter_explore():
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if current_explore_id != "":
+			sm.set_meta("explore_current_id", current_explore_id)
+		if sm.has_meta("map_origin"):
+			sm.remove_meta("map_origin")
 	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
 
 func _on_backdrop_input(event):

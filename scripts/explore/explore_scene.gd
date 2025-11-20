@@ -263,6 +263,8 @@ func _open_map_from_explore():
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
 		sm.set_meta("map_origin", "explore")
+		if not sm.has_meta("explore_current_id"):
+			sm.set_meta("explore_current_id", "explore")
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func update_snow_fox_storage(storage_data):
