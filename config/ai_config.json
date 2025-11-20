@@ -95,13 +95,13 @@
         },   
         "address": {
             "max_tokens": 128,
-            "temperature": 0.1,
+            "temperature": 0.0,
             "top_p": 0.7,
-            "system_prompt": "你是一个总结专家。请根据对话内容更新**{character_name}对{user_name}**的称呼（注意**不是**{user_name}对{character_name}）。\n当前称呼是：{current_address}\n如果对话中没有明确要求改变或提及称呼，就直接回复「{current_address}」。只输出称呼，不要输出任何解释或多余文字。"
+            "system_prompt": "你是一个信息提取专家。请根据对话内容，更新**{character_name}对{user_name}**的称呼，注意**必须是{character_name}对{user_name}直接使用的、用于指代{user_name}的称谓**）。\n当前称呼是：{current_address}\n如果对话中没有明确要求改变称呼，或根本没有提及称呼，就**直接回复「{current_address}」**。只输出称呼，不要输出任何解释或多余文字。"
         },
         "relationship": {
             "max_tokens": 256,
-            "temperature": 0.3,
+            "temperature": 0.4,
             "top_p": 0.7,
             "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过100字。目前的关系：{relationship}"
         },

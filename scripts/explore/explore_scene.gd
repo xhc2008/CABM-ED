@@ -5,7 +5,6 @@ extends Node2D
 @onready var tilemap_layer = $TileMapLayer
 @onready var interaction_prompt = $UI/InteractionPrompt
 @onready var inventory_button = $UI/InventoryButton
-@onready var exit_button = $UI/ExitButton
 
 var mobile_ui: Control  # 移动端UI (MobileUI)
 
@@ -259,6 +258,7 @@ func _open_snow_fox_storage():
 	interaction_prompt.hide_interactions()
 
 func _open_map_from_explore():
+	_save_explore_inventory_state()
 	if has_node("/root/SaveManager"):
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
@@ -418,11 +418,6 @@ func _on_mobile_reload_pressed():
 	if weapon_system:
 		weapon_system.start_reload()
 
-func _on_exit_button_pressed():
-	# 保存探索模式的背包状态
-	_save_explore_inventory_state()
-	# 返回主场景
-	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func set_player_controls_enabled(enabled: bool):
 	"""启用/禁用玩家控制"""
