@@ -2,7 +2,7 @@ extends Control
 
 signal map_closed
 signal go_selected(scene_id: String)
-
+var current_explore_id: String = ""
 var on_go_selected: Callable
 var scenes_config: Dictionary = {}
 var map_config: Dictionary = {}
@@ -36,6 +36,7 @@ var touch_positions: Dictionary = {} # 存储每个触摸点的位置 {index: po
 @onready var sidebar_title: Label = $Root/Sidebar/VBox/Title
 @onready var sidebar_description: RichTextLabel = $Root/Sidebar/VBox/Description
 @onready var enter_button: Button = $Root/Sidebar/VBox/EnterButton
+var coord_label: Label
 
 func _ready():
 	close_button.pressed.connect(_on_close)
@@ -51,6 +52,32 @@ func _ready():
 	enter_button.pressed.connect(_on_enter_explore)
 	backdrop.gui_input.connect(_on_backdrop_input)
 	_init_sidebar_style()
+	coord_label = Label.new()
+	coord_label.name = "CoordLabel"
+	coord_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# 设置文字样式
+	coord_label.add_theme_color_override("font_color", Color.WHITE)
+	coord_label.add_theme_font_size_override("font_size", 20)
+	# 设置半透明背景
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0, 0, 0, 0.5)
+	bg_style.corner_radius_top_left = 8
+	bg_style.corner_radius_top_right = 8
+	bg_style.corner_radius_bottom_left = 8
+	bg_style.corner_radius_bottom_right = 8
+	coord_label.add_theme_stylebox_override("normal", bg_style)
+	# 先设置居中，然后移动到顶部
+	coord_label.set_anchors_preset(Control.PRESET_CENTER)
+	coord_label.offset_top = -350.0  # 向上移动200像素到顶部
+	coord_label.offset_bottom = -320.0  # 保持高度30像素
+	coord_label.offset_left = -100.0  # 宽度200像素
+	coord_label.offset_right = 100.0
+	# 内边距
+	coord_label.add_theme_constant_override("content_margin_top", 8)
+	coord_label.add_theme_constant_override("content_margin_bottom", 8)
+	coord_label.add_theme_constant_override("content_margin_left", 16)
+	coord_label.add_theme_constant_override("content_margin_right", 16)
+	$Root.add_child(coord_label)
 
 func _on_close():
 	if current_level == "base":
@@ -123,11 +150,12 @@ func _build_world_points():
 				btn.pressed.connect(_on_base_pressed.bind(id))
 				canvas.add_child(btn)
 				point_nodes.append({"node": btn, "pos": pos, "id": id, "type": "base"})
-			elif t == "explore" or id == "explore":
+			elif t == "explore":
 				var eb = Button.new()
 				eb.text = p.get("name", "探索区")
 				eb.position = pos
-				eb.pressed.connect(_on_explore_point_pressed)
+				# 修改：传递探索点ID
+				eb.pressed.connect(_on_explore_point_pressed.bind(id))
 				canvas.add_child(eb)
 				point_nodes.append({"node": eb, "pos": pos, "id": id, "type": "explore"})
 
@@ -249,12 +277,12 @@ func _on_point_pressed(scene_id: String):
 		sm.set_character_scene(scene_id)
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
-func _on_explore_point_pressed():
+func _on_explore_point_pressed(explore_id: String):
 	if not map_config.has("world"):
 		return
 	var explore_data: Dictionary = {}
 	for p in map_config.world.points:
-		if p.get("id") == "explore" or p.get("type") == "explore":
+		if p.get("id") == explore_id and p.get("type") == "explore":
 			explore_data = p
 			break
 	if explore_data.is_empty():
@@ -262,6 +290,8 @@ func _on_explore_point_pressed():
 	sidebar_title.text = explore_data.get("name", "探索区")
 	var intro = explore_data.get("intro", "")
 	sidebar_description.text = intro
+	# 修改：存储当前选中的探索点ID
+	current_explore_id = explore_id
 	_show_sidebar()
 
 func _on_enter_explore():
@@ -398,8 +428,17 @@ func _apply_zoom(initial: bool = false):
 		var n = entry.node
 		var base_pos = entry.pos
 		n.position = base_pos  # 位置会自动被canvas的scale影响
-	
+
 	_update_canvas_position()
+
+func _process(_delta):
+	if coord_label:
+		var p = get_global_mouse_position() - global_position
+		var content = canvas_offset + p
+		var base_pos = content / zoom
+		var center = base_canvas_size / 2.0
+		var rel = base_pos - center
+		coord_label.text = str(int(rel.x)) + ", " + str(int(rel.y))
 
 func _init_sidebar_style():
 	var sb = StyleBoxFlat.new()
@@ -408,6 +447,7 @@ func _init_sidebar_style():
 	sb.border_width_right = 0
 	sb.border_width_top = 0
 	sb.border_width_bottom = 0
+	sidebar_panel.custom_minimum_size = Vector2(320, 400)
 	sidebar_panel.add_theme_stylebox_override("panel", sb)
 
 func _show_sidebar():

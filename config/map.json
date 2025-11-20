@@ -1,14 +1,13 @@
 {
-  "size": [2000, 1200],
   "world": {
     "image": "res://assets/images/map/worldmap.png",
     "points": [
       {
         "id": "home",
         "type": "base",
-        "name": "家",
-        "x": -331,
-        "y": -29,
+        "name": "城市-家",
+        "x": 1720,
+        "y": 865,
         "image": "res://assets/images/map/home.png",
         "children": [
           {"id": "livingroom", "name": "客厅", "x": -350, "y": 0},
@@ -22,12 +21,20 @@
         ]
       },
       {
-        "id": "explore",
+        "id": "forest",
         "type": "explore",
-        "name": "探索区",
-        "x": 50,
-        "y": 300,
-        "intro": "未知区域，可能遇到随机事件与战斗"
+        "name": "森林",
+        "x": 1648,
+        "y": 1174,
+        "intro": "一片森林，尚未被开发"
+      },
+      {
+        "id": "darkice",
+        "type": "explore",
+        "name": "「黯冰」",
+        "x": -303,
+        "y": -1040,
+        "intro": "████████████████████"
       }
     ]
   }
