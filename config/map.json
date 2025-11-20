@@ -10,14 +10,14 @@
         "y": 865,
         "image": "res://assets/images/map/home.png",
         "children": [
-          {"id": "livingroom", "name": "客厅", "x": -350, "y": 0},
-          {"id": "bedroom", "name": "卧室", "x": -400, "y": -100},
-          {"id": "bathroom", "name": "浴室", "x": -560, "y": 100},
-          {"id": "studyroom", "name": "书房", "x": -410, "y": 20},
-          {"id": "kitchen", "name": "厨房", "x": -330, "y": 100},
-          {"id": "entryway", "name": "玄关", "x": -300, "y": -50},
-          {"id": "rooftop", "name": "天台", "x": -200, "y": -300},
-          {"id": "shop", "name": "超市", "x": -100, "y": -200}
+          {"id": "livingroom", "name": "客厅", "x": 74, "y": -60},
+          {"id": "bedroom", "name": "卧室", "x": -227, "y": 100},
+          {"id": "bathroom", "name": "浴室", "x": -408, "y": 105},
+          {"id": "studyroom", "name": "书房", "x": -210, "y": -160},
+          {"id": "kitchen", "name": "厨房", "x": 365, "y": -200},
+          {"id": "entryway", "name": "玄关", "x": 373, "y": -44},
+          {"id": "rooftop", "name": "天台", "x": 60, "y": 220},
+          {"id": "shop", "name": "超市", "x": 559, "y": 235}
         ]
       },
       {

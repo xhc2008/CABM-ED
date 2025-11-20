@@ -31,9 +31,16 @@ func show_main_scene():
 	if main_scene_elements.has("sidebar"):
 		main_scene_elements.sidebar.visible = true
 	
-	if main_scene_elements.has("character") and main_scene_elements.has("current_scene"):
+	if main_scene_elements.has("character"):
 		var character = main_scene_elements.character
-		var current_scene = main_scene_elements.current_scene
+		var current_scene = ""
+		if main_scene_elements.has("current_scene"):
+			current_scene = main_scene_elements.current_scene
+		# 尽量使用最新的场景管理器当前场景，避免旧值
+		if has_node("/root/Main"):
+			var main = get_node("/root/Main")
+			if main and main.scene_manager:
+				current_scene = main.scene_manager.current_scene
 		character.load_character_for_scene(current_scene)
 	
 	if has_node("/root/EventManager"):

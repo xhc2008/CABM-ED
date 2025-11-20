@@ -345,10 +345,6 @@ func _on_scene_menu_selected(scene_id: String):
 	
 	# 切换到选中的场景
 	await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
-	if has_node("/root/SaveManager"):
-		var save_mgr = get_node("/root/SaveManager")
-		save_mgr.set_meta("show_move_notification", true)
-		save_mgr.set_character_scene(scene_id)
 	sidebar.set_current_scene(scene_id)
 	
 	await get_tree().process_frame
@@ -593,6 +589,7 @@ func _on_open_map_requested():
 		map_view.on_go_selected = func(scene_id: String):
 			await scene_manager.load_scene(scene_id, scene_manager.current_weather, scene_manager.current_time)
 			sidebar.set_current_scene(scene_id)
+			# 地图切换仅预览，不移动角色
 			map_view.queue_free()
 			game_state_manager.show_main_scene()
 			if has_node("/root/SaveManager"):
