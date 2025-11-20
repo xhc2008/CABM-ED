@@ -1,14 +1,34 @@
 {
   "size": [2000, 1200],
-  "points": [
-    {"id": "livingroom", "x": -350, "y": 0},
-    {"id": "bedroom", "x": -400, "y": -100},
-    {"id": "bathroom", "x": -560, "y": 100},
-    {"id": "studyroom", "x": -410, "y": 20},
-    {"id": "kitchen", "x": -330, "y": 100},
-    {"id": "entryway", "x": -300, "y": -50},
-    {"id": "rooftop", "x": -200, "y": -300},
-    {"id": "shop", "x": -100, "y": -200},
-    {"id": "explore", "type": "explore", "name": "探索区", "x": 50, "y": 300}
-  ]
+  "world": {
+    "image": "res://assets/images/map/worldmap.png",
+    "points": [
+      {
+        "id": "home",
+        "type": "base",
+        "name": "家",
+        "x": -331,
+        "y": -29,
+        "image": "res://assets/images/map/home.png",
+        "children": [
+          {"id": "livingroom", "name": "客厅", "x": -350, "y": 0},
+          {"id": "bedroom", "name": "卧室", "x": -400, "y": -100},
+          {"id": "bathroom", "name": "浴室", "x": -560, "y": 100},
+          {"id": "studyroom", "name": "书房", "x": -410, "y": 20},
+          {"id": "kitchen", "name": "厨房", "x": -330, "y": 100},
+          {"id": "entryway", "name": "玄关", "x": -300, "y": -50},
+          {"id": "rooftop", "name": "天台", "x": -200, "y": -300},
+          {"id": "shop", "name": "超市", "x": -100, "y": -200}
+        ]
+      },
+      {
+        "id": "explore",
+        "type": "explore",
+        "name": "探索区",
+        "x": 50,
+        "y": 300,
+        "intro": "未知区域，可能遇到随机事件与战斗"
+      }
+    ]
+  }
 }

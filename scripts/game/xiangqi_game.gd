@@ -304,10 +304,10 @@ func _on_move_animation_finished():
 		var checked_side = side_to_move
 		if _is_check(checked_side):
 			if pending_is_player:
-				_show_player_chat("将军")
+				_show_player_chat("将军！")
 				delay_ai = true
 			else:
-				_show_ai_chat("将军")
+				_show_ai_chat("将军！")
 				_play_check_voice()
 	if pending_is_player and not game_over:
 		if delay_ai:

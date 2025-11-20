@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://c37i4t1164388"]
 
 [ext_resource type="Script" uid="uid://cwdw1s2qo2ibc" path="res://scripts/map/map_view.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://bjl71b3af3q2l" path="res://assets/images/map.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://bjl71b3af3q2l" path="res://assets/images/map/worldmap.png" id="2"]
 
 [node name="MapView" type="Control"]
 layout_mode = 3
@@ -50,3 +50,43 @@ offset_right = 140.0
 offset_bottom = 60.0
 grow_horizontal = 0
 text = "关闭"
+
+[node name="Sidebar" type="Panel" parent="Root"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+anchors_preset = 15
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 2
+visible = false
+
+[node name="VBox" type="VBoxContainer" parent="Root/Sidebar"]
+layout_mode = 0
+offset_left = -320.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+anchors_preset = 15
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="Title" type="Label" parent="Root/Sidebar/VBox"]
+layout_mode = 2
+text = "探索区"
+
+[node name="Description" type="RichTextLabel" parent="Root/Sidebar/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="EnterButton" type="Button" parent="Root/Sidebar/VBox"]
+layout_mode = 2
+text = "进入"
