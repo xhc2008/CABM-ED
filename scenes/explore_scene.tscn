@@ -2141,7 +2141,14 @@ offset_right = 2280.0
 offset_bottom = 1720.0
 color = Color(0.15, 0.25, 0.15, 1)
 
-[node name="TileMapLayer" type="TileMapLayer" parent="."]
+[node name="TileMapLayersContainer" type="Node2D" parent="."]
+
+[node name="Background" type="TileMapLayer" parent="TileMapLayersContainer"]
+z_index = 1
+tile_map_data = PackedByteArray("AAApABAAAgARAAEAAAApABEAAgAdAA8AAAApABIAAgAdAA8AAAApABMAAgAdAA8AAAApABQAAgAdAA8AAAAoABAAAgAdAA8AAFAnABAAAgAdAA8AAFAlABAAAgAdAA8AAFAmABAAAgAdAA8AAFApAA8AAgAdAA8AADApAA4AAgAdAA8AADApAA0AAgAdAA8AADApAAwAAgAdAA8AADAqABAAAgAdAA8AAGArABAAAgAdAA8AAGAsABAAAgAdAA8AAGAtABAAAgAdAA8AAGA=")
+tile_set = SubResource("TileSet_ek715")
+
+[node name="Frontground" type="TileMapLayer" parent="TileMapLayersContainer"]
 z_index = 1
 tile_map_data = PackedByteArray("AAApABAAAgARAAEAAAApABEAAgAdAA8AAAApABIAAgAdAA8AAAApABMAAgAdAA8AAAApABQAAgAdAA8AAAAoABAAAgAdAA8AAFAnABAAAgAdAA8AAFAlABAAAgAdAA8AAFAmABAAAgAdAA8AAFApAA8AAgAdAA8AADApAA4AAgAdAA8AADApAA0AAgAdAA8AADApAAwAAgAdAA8AADAqABAAAgAdAA8AAGArABAAAgAdAA8AAGAsABAAAgAdAA8AAGAtABAAAgAdAA8AAGA=")
 tile_set = SubResource("TileSet_ek715")

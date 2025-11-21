@@ -2,7 +2,7 @@ extends Node2D
 
 @onready var player = $Player
 @onready var snow_fox = $SnowFox
-@onready var tilemap_layer = $TileMapLayer
+@onready var tilemap_layers_container = $TileMapLayersContainer
 @onready var interaction_prompt = $UI/InteractionPrompt
 @onready var inventory_button = $UI/InventoryButton
 
@@ -18,6 +18,9 @@ var current_opened_chest: Dictionary = {}
 # 武器系统
 var weapon_system: WeaponSystem
 var weapon_ui: Control  # 武器UI
+
+var background_layer
+var frontground_layer
 
 # 探索模式的临时背包状态（进入时加载，退出时保存）
 var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
@@ -115,22 +118,38 @@ func _load_tilemap_for_explore_id():
 	var scene_res = load(path)
 	if scene_res == null:
 		return
-	var new_layer = scene_res.instantiate()
-	if new_layer == null:
+	var new_container = scene_res.instantiate()
+	if new_container == null:
 		return
-	var old_z := 0
-	if tilemap_layer and tilemap_layer.has_method("get_z_index"):
-		old_z = tilemap_layer.z_index
-	new_layer.name = "TileMapLayer"
-	add_child(new_layer)
-	new_layer.z_index = old_z
-	if tilemap_layer and is_instance_valid(tilemap_layer):
-		tilemap_layer.queue_free()
-	tilemap_layer = new_layer
+	if tilemap_layers_container and is_instance_valid(tilemap_layers_container):
+		tilemap_layers_container.queue_free()
+	new_container.name = "TileMapLayersContainer"
+	add_child(new_container)
+	tilemap_layers_container = new_container
+
+	background_layer = tilemap_layers_container.get_node_or_null("Background")
+	frontground_layer = tilemap_layers_container.get_node_or_null("Frontground")
+	if frontground_layer == null or background_layer == null:
+		for child in tilemap_layers_container.get_children():
+			if child is TileMapLayer:
+				if background_layer == null:
+					background_layer = child
+				elif frontground_layer == null:
+					frontground_layer = child
+
+	if background_layer:
+		background_layer.z_index = 0
+	if frontground_layer:
+		frontground_layer.z_index = 1
+	if player:
+		player.z_index = 2
+	if snow_fox:
+		snow_fox.z_index = 2
+	if has_node("/root/SaveManager") and chest_system and chest_system.has_method("set_current_scene_id"):
+		chest_system.set_current_scene_id(explore_id)
 
 func _process(_delta):
-	# 检查TileMapLayer上的宝箱
-	if player and tilemap_layer:
+	if player:
 		_check_nearby_chests()
 		_check_nearby_map_points()
 	
@@ -147,48 +166,38 @@ func _process(_delta):
 			_handle_shoot()
 
 func _check_nearby_chests():
-	"""检查附近的宝箱"""
 	if not player.interaction_detector:
 		return
-	
-	var chest_tiles = player.interaction_detector.check_tilemap_interactions(tilemap_layer)
+	var layer_to_check = frontground_layer if frontground_layer != null else background_layer
+	var chest_tiles = player.interaction_detector.check_tilemap_interactions(layer_to_check)
 	if chest_tiles == null:
 		chest_tiles = []
-	
-	# 所有宝箱都可以交互（包括已打开的）
 	var available_chests = chest_tiles
-	
-	# 检查是否需要更新交互提示
 	var needs_update = false
 	if available_chests.size() != nearby_chests.size():
 		needs_update = true
 	else:
-		# 检查雪狐距离是否变化（进入或离开交互范围）
 		var fox_in_range = false
 		if snow_fox:
 			var distance_to_fox = player.global_position.distance_to(snow_fox.global_position)
-			var fox_interaction_distance = 48.0 # 雪狐交互距离
+			var fox_interaction_distance = 48.0
 			fox_in_range = distance_to_fox <= fox_interaction_distance
-		
-		# 如果雪狐状态变化，需要更新
 		var had_fox_interaction = false
 		for interaction in interaction_prompt.interactions:
 			if interaction.get("type") == "snow_fox":
 				had_fox_interaction = true
 				break
-		
 		if fox_in_range != had_fox_interaction:
 			needs_update = true
-	
 	nearby_chests = available_chests
-	
 	if needs_update:
 		_update_interaction_prompt()
 
 func _check_nearby_map_points():
 	if not player.interaction_detector:
 		return
-	var maps = player.interaction_detector.check_map_points(tilemap_layer)
+	var layer_to_check = frontground_layer if frontground_layer != null else background_layer
+	var maps = player.interaction_detector.check_map_points(layer_to_check)
 	if maps == null:
 		maps = []
 	var changed = maps.size() != nearby_map_points.size()

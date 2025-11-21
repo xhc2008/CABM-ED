@@ -226,6 +226,7 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	var bullet = BULLET_SCENE.instantiate()
 	if bullet:
 		get_tree().current_scene.add_child(bullet)
+		bullet.z_index = 3
 		bullet.setup(shoot_position, direction, player_rotation, weapon_config)
 	
 	_update_ammo_display()

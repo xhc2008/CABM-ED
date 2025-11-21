@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://c37i4t1164388"]
 
 [ext_resource type="Script" uid="uid://cwdw1s2qo2ibc" path="res://scripts/map/map_view.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://bjl71b3af3q2l" path="res://assets/images/map/worldmap.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://busrytxqd8cm4" path="res://assets/images/map/worldmap.png" id="2"]
 
 [node name="MapView" type="Control"]
 layout_mode = 3
@@ -32,6 +32,7 @@ grow_vertical = 2
 anchors_preset = 0
 
 [node name="BackgroundImage" type="TextureRect" parent="Root/Canvas"]
+texture_filter = 1
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -52,29 +53,20 @@ grow_horizontal = 0
 text = "关闭"
 
 [node name="Sidebar" type="Panel" parent="Root"]
+visible = false
 layout_mode = 0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
-anchors_preset = 15
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 0
 grow_vertical = 2
-visible = false
 
 [node name="VBox" type="VBoxContainer" parent="Root/Sidebar"]
 layout_mode = 0
-offset_left = -320.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
-anchors_preset = 15
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -320.0
 grow_horizontal = 0
 grow_vertical = 2
 

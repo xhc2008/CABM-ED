@@ -8,7 +8,8 @@ signal chest_opened(chest_data: Dictionary)
 const CHEST_STORAGE_SIZE = 12  # 宝箱格子数量
 
 var loot_config: Dictionary = {}
-var opened_chests: Dictionary = {}  # 记录已开启的宝箱及其内容 {position: {opened: bool, storage: Array}}
+var opened_chests: Dictionary = {}
+var current_scene_id: String = ""
 
 func _ready():
 	_load_loot_config()
@@ -62,34 +63,33 @@ func generate_chest_loot(chest_type: String) -> Array:
 	return storage
 
 func get_chest_storage(chest_position: Vector2i, chest_type: String) -> Array:
-	"""获取宝箱存储（如果已打开过则返回保存的状态，否则生成新的）"""
-	var key = str(chest_position)
-	
-	if opened_chests.has(key) and opened_chests[key].has("storage"):
-		# 返回已保存的状态
-		return opened_chests[key].storage.duplicate(true)
+	var key_scene = (current_scene_id + ":" if current_scene_id != "" else "") + str(chest_position)
+	var key_legacy = str(chest_position)
+	if opened_chests.has(key_scene) and opened_chests[key_scene].has("storage"):
+		return opened_chests[key_scene].storage.duplicate(true)
+	elif opened_chests.has(key_legacy) and opened_chests[key_legacy].has("storage"):
+		return opened_chests[key_legacy].storage.duplicate(true)
 	else:
-		# 生成新的战利品
 		var storage = generate_chest_loot(chest_type)
-		# 保存到已开启列表
-		opened_chests[key] = {
+		opened_chests[key_scene] = {
 			"opened": true,
 			"storage": storage.duplicate(true)
 		}
 		return storage
 
 func save_chest_storage(chest_position: Vector2i, storage: Array):
-	"""保存宝箱存储状态"""
-	var key = str(chest_position)
+	var key = (current_scene_id + ":" if current_scene_id != "" else "") + str(chest_position)
 	if not opened_chests.has(key):
 		opened_chests[key] = {}
 	opened_chests[key].opened = true
 	opened_chests[key].storage = storage.duplicate(true)
 
 func is_chest_opened(chest_position: Vector2i) -> bool:
-	"""检查宝箱是否已开启"""
-	var key = str(chest_position)
-	return opened_chests.has(key) and opened_chests[key].get("opened", false)
+	var key_scene = (current_scene_id + ":" if current_scene_id != "" else "") + str(chest_position)
+	if opened_chests.has(key_scene):
+		return opened_chests[key_scene].get("opened", false)
+	var key_legacy = str(chest_position)
+	return opened_chests.has(key_legacy) and opened_chests[key_legacy].get("opened", false)
 
 func get_chest_type_by_tile(tile_id: int) -> String:
 	"""根据tile ID获取宝箱类型"""
@@ -133,3 +133,6 @@ func load_save_data(data: Dictionary):
 	"""加载保存数据"""
 	if data.has("opened_chests"):
 		opened_chests = data.opened_chests.duplicate(true)
+
+func set_current_scene_id(id: String):
+	current_scene_id = id

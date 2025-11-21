@@ -110,6 +110,7 @@ func _create_aim_line():
 	aim_line = Line2D.new()
 	aim_line.width = 2.0
 	aim_line.default_color = Color(1.0, 0.1, 0.0, 0.25)
+	aim_line.z_index = 1
 	
 	# 关键：设置使用全局坐标
 	aim_line.top_level = true
