@@ -22,6 +22,14 @@ var weapon_ui: Control  # 武器UI
 var background_layer
 var frontground_layer
 
+var chunk_size_tiles: int = 64
+var active_radius_chunks: int = 2
+var bg_chunk_data := {}
+var fg_chunk_data := {}
+var loaded_chunks_bg := {}
+var loaded_chunks_fg := {}
+var last_player_chunk := Vector2i(2147483647, 2147483647)
+
 # 探索模式的临时背包状态（进入时加载，退出时保存）
 var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
 var temp_snow_fox_inventory = {}  # 可以是 Array 或 Dictionary
@@ -148,10 +156,13 @@ func _load_tilemap_for_explore_id():
 	if has_node("/root/SaveManager") and chest_system and chest_system.has_method("set_current_scene_id"):
 		chest_system.set_current_scene_id(explore_id)
 
+	_setup_chunk_streaming()
+
 func _process(_delta):
 	if player:
 		_check_nearby_chests()
 		_check_nearby_map_points()
+		_update_loaded_chunks()
 	
 	# 自动射击检查
 	if not inventory_ui or not inventory_ui.visible:
@@ -555,3 +566,81 @@ func _get_character_name() -> String:
 	
 	var save_mgr = get_node("/root/SaveManager")
 	return save_mgr.get_character_name()
+
+func _setup_chunk_streaming():
+	if background_layer:
+		bg_chunk_data = _build_chunk_data_for_layer(background_layer)
+		var cells_bg = background_layer.get_used_cells()
+		for pos in cells_bg:
+			background_layer.erase_cell(pos)
+	if frontground_layer:
+		fg_chunk_data = _build_chunk_data_for_layer(frontground_layer)
+		var cells_fg = frontground_layer.get_used_cells()
+		for pos in cells_fg:
+			frontground_layer.erase_cell(pos)
+	last_player_chunk = Vector2i(2147483647, 2147483647)
+	_update_loaded_chunks()
+
+func _build_chunk_data_for_layer(layer: TileMapLayer) -> Dictionary:
+	var data := {}
+	var cells = layer.get_used_cells()
+	for pos in cells:
+		var key = Vector2i(int(floor(pos.x / float(chunk_size_tiles))), int(floor(pos.y / float(chunk_size_tiles))))
+		if not data.has(key):
+			data[key] = []
+		var source_id = layer.get_cell_source_id(pos)
+		var atlas_coords = layer.get_cell_atlas_coords(pos)
+		var alt = layer.get_cell_alternative_tile(pos)
+		data[key].append({
+			"pos": pos,
+			"source": source_id,
+			"atlas": atlas_coords,
+			"alt": alt
+		})
+	return data
+
+func _get_player_chunk() -> Vector2i:
+	var base_layer = background_layer if background_layer != null else frontground_layer
+	if base_layer == null or player == null:
+		return last_player_chunk
+	var tile_pos = base_layer.local_to_map(base_layer.to_local(player.global_position))
+	return Vector2i(int(floor(tile_pos.x / float(chunk_size_tiles))), int(floor(tile_pos.y / float(chunk_size_tiles))))
+
+func _update_loaded_chunks():
+	var cur_chunk = _get_player_chunk()
+	if cur_chunk == last_player_chunk:
+		return
+	last_player_chunk = cur_chunk
+	var desired := {}
+	for dx in range(-active_radius_chunks, active_radius_chunks + 1):
+		for dy in range(-active_radius_chunks, active_radius_chunks + 1):
+			var key = Vector2i(cur_chunk.x + dx, cur_chunk.y + dy)
+			desired[key] = true
+	if background_layer:
+		for key in desired.keys():
+			if not loaded_chunks_bg.has(key) and bg_chunk_data.has(key):
+				_load_chunk_into_layer(background_layer, bg_chunk_data, key)
+				loaded_chunks_bg[key] = true
+		for key in loaded_chunks_bg.keys():
+			if not desired.has(key):
+				_unload_chunk_from_layer(background_layer, bg_chunk_data, key)
+				loaded_chunks_bg.erase(key)
+	if frontground_layer:
+		for key in desired.keys():
+			if not loaded_chunks_fg.has(key) and fg_chunk_data.has(key):
+				_load_chunk_into_layer(frontground_layer, fg_chunk_data, key)
+				loaded_chunks_fg[key] = true
+		for key in loaded_chunks_fg.keys():
+			if not desired.has(key):
+				_unload_chunk_from_layer(frontground_layer, fg_chunk_data, key)
+				loaded_chunks_fg.erase(key)
+
+func _load_chunk_into_layer(layer: TileMapLayer, chunk_data: Dictionary, key: Vector2i):
+	var arr = chunk_data.get(key, [])
+	for item in arr:
+		layer.set_cell(item.pos, item.source, item.atlas, item.alt)
+
+func _unload_chunk_from_layer(layer: TileMapLayer, chunk_data: Dictionary, key: Vector2i):
+	var arr = chunk_data.get(key, [])
+	for item in arr:
+		layer.erase_cell(item.pos)
