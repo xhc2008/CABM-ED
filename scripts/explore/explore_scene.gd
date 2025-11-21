@@ -74,6 +74,8 @@ func _ready():
 	
 	# 创建移动端UI
 	_create_mobile_ui()
+
+	_load_tilemap_for_explore_id()
 	
 	# 连接交互检测器信号
 	if player and player.has_method("get_interaction_detector"):
@@ -98,6 +100,33 @@ func _ready():
 		inventory_button.offset_bottom = 60   # 20 + 40(按钮高度)
 		
 		inventory_button.pressed.connect(_on_inventory_button_pressed)
+
+func _load_tilemap_for_explore_id():
+	var explore_id := ""
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if sm.has_meta("explore_current_id"):
+			explore_id = sm.get_meta("explore_current_id")
+	if explore_id == "":
+		return
+	var path := "res://scenes/explore_maps/%s.tscn" % explore_id
+	if not ResourceLoader.exists(path):
+		return
+	var scene_res = load(path)
+	if scene_res == null:
+		return
+	var new_layer = scene_res.instantiate()
+	if new_layer == null:
+		return
+	var old_z := 0
+	if tilemap_layer and tilemap_layer.has_method("get_z_index"):
+		old_z = tilemap_layer.z_index
+	new_layer.name = "TileMapLayer"
+	add_child(new_layer)
+	new_layer.z_index = old_z
+	if tilemap_layer and is_instance_valid(tilemap_layer):
+		tilemap_layer.queue_free()
+	tilemap_layer = new_layer
 
 func _process(_delta):
 	# 检查TileMapLayer上的宝箱

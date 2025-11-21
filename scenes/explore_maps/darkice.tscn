@@ -1,19 +1,12 @@
-[gd_scene load_steps=17 format=4 uid="uid://xryce8fidbr2"]
+[gd_scene load_steps=7 format=4 uid="uid://cb6vtpofka0fx"]
 
-[ext_resource type="Script" uid="uid://b8cknwvcbauvs" path="res://scripts/explore/explore_scene.gd" id="1"]
-[ext_resource type="Script" uid="uid://5f1breooo4f6" path="res://scripts/explore/explore_player.gd" id="2"]
-[ext_resource type="Texture2D" uid="uid://dlmnndke1yt2k" path="res://assets/images/explore/player.png" id="3"]
-[ext_resource type="Texture2D" uid="uid://c27anlstvtwhu" path="res://assets/images/explore/Tilemap/minecraft.png" id="3_hol5y"]
-[ext_resource type="Script" uid="uid://q8xudc1aegwy" path="res://scripts/explore/snow_fox_companion.gd" id="4"]
-[ext_resource type="Texture2D" uid="uid://chxtsdyvcu3ox" path="res://assets/images/explore/SnowFox.png" id="5"]
-[ext_resource type="Texture2D" uid="uid://but00hra5v33o" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="6_ntjpi"]
-[ext_resource type="Script" uid="uid://dg0p3r1i6n12i" path="res://scripts/explore/interaction_prompt.gd" id="9_ntjpi"]
-[ext_resource type="Script" uid="uid://dmpq583kw3ava" path="res://scripts/explore/explore_inventory_ui.gd" id="10_wc8on"]
+[ext_resource type="Texture2D" uid="uid://but00hra5v33o" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="1_4jpwj"]
+[ext_resource type="Texture2D" uid="uid://c27anlstvtwhu" path="res://assets/images/explore/Tilemap/minecraft.png" id="2_4mvv2"]
 
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_oon1s"]
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_oknes"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ntjpi"]
-texture = ExtResource("6_ntjpi")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_smqxd"]
+texture = ExtResource("1_4jpwj")
 texture_region_size = Vector2i(64, 64)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32.17501, -32.17501, 32.175007, -32.739487, 31.610538, 33.303955, -32.739487, 32.739487)
@@ -1074,8 +1067,8 @@ texture_region_size = Vector2i(64, 64)
 24:19/0 = 0
 24:19/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32.17501, -32.17501, 32.175007, -32.739487, 31.610538, 33.303955, -32.739487, 32.739487)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_wc8on"]
-texture = ExtResource("3_hol5y")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_8ygmi"]
+texture = ExtResource("2_4mvv2")
 0:0/0 = 0
 1:0/0 = 0
 2:0/0 = 0
@@ -2109,194 +2102,19 @@ texture = ExtResource("3_hol5y")
 10:34/0 = 0
 11:34/0 = 0
 
-[sub_resource type="TileSet" id="TileSet_ek715"]
+[sub_resource type="TileSet" id="TileSet_j0t2l"]
 physics_layer_0/collision_layer = 1
-physics_layer_0/physics_material = SubResource("PhysicsMaterial_oon1s")
+physics_layer_0/physics_material = SubResource("PhysicsMaterial_oknes")
 custom_data_layer_0/name = "is_chest"
 custom_data_layer_0/type = 1
 custom_data_layer_1/name = "chest_type"
 custom_data_layer_1/type = 4
 custom_data_layer_2/name = "is_map_point"
 custom_data_layer_2/type = 1
-sources/0 = SubResource("TileSetAtlasSource_ntjpi")
-sources/2 = SubResource("TileSetAtlasSource_wc8on")
+sources/0 = SubResource("TileSetAtlasSource_smqxd")
+sources/2 = SubResource("TileSetAtlasSource_8ygmi")
 
-[sub_resource type="CircleShape2D" id="player_collision"]
-radius = 20.0
-
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_nav"]
-vertices = PackedVector2Array(-500, -500, 1500, -500, 1500, 1500, -500, 1500)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
-
-[sub_resource type="CircleShape2D" id="fox_collision"]
-radius = 16.0
-
-[node name="ExploreScene" type="Node2D"]
-script = ExtResource("1")
-
-[node name="Background" type="ColorRect" parent="."]
-offset_left = -1000.0
-offset_top = -1000.0
-offset_right = 2280.0
-offset_bottom = 1720.0
-color = Color(0.15, 0.25, 0.15, 1)
-
-[node name="TileMapLayer" type="TileMapLayer" parent="."]
+[node name="TileMapLayer" type="TileMapLayer"]
 z_index = 1
-tile_map_data = PackedByteArray("AAApABAAAgARAAEAAAApABEAAgAdAA8AAAApABIAAgAdAA8AAAApABMAAgAdAA8AAAApABQAAgAdAA8AAAAoABAAAgAdAA8AAFAnABAAAgAdAA8AAFAlABAAAgAdAA8AAFAmABAAAgAdAA8AAFApAA8AAgAdAA8AADApAA4AAgAdAA8AADApAA0AAgAdAA8AADApAAwAAgAdAA8AADAqABAAAgAdAA8AAGArABAAAgAdAA8AAGAsABAAAgAdAA8AAGAtABAAAgAdAA8AAGA=")
-tile_set = SubResource("TileSet_ek715")
-
-[node name="Player" type="CharacterBody2D" parent="."]
-z_index = 10
-position = Vector2(640, 360)
-script = ExtResource("2")
-
-[node name="Sprite2D" type="Sprite2D" parent="Player"]
-texture = ExtResource("3")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
-shape = SubResource("player_collision")
-
-[node name="Camera2D" type="Camera2D" parent="Player"]
-
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
-navigation_polygon = SubResource("NavigationPolygon_nav")
-
-[node name="SnowFox" type="CharacterBody2D" parent="."]
-z_index = 9
-position = Vector2(600, 360)
-script = ExtResource("4")
-
-[node name="Sprite2D" type="Sprite2D" parent="SnowFox"]
-texture = ExtResource("5")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="SnowFox"]
-shape = SubResource("fox_collision")
-
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="SnowFox"]
-path_desired_distance = 10.0
-avoidance_enabled = true
-radius = 16.0
-
-[node name="UI" type="CanvasLayer" parent="."]
-
-[node name="HelpLabel" type="Label" parent="UI"]
-offset_left = 20.0
-offset_top = 70.0
-offset_right = 300.0
-offset_bottom = 150.0
-text = "WASD/摇杆 - 移动
-鼠标 - 朝向
-交战，搜索，搞定就撤"
-
-[node name="InteractionPrompt" type="Control" parent="UI"]
-layout_mode = 3
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -580.0
-offset_top = -60.0
-offset_right = -540.0
-offset_bottom = -20.0
-grow_horizontal = 0
-grow_vertical = 2
-script = ExtResource("9_ntjpi")
-
-[node name="Panel" type="Panel" parent="UI/InteractionPrompt"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/InteractionPrompt/Panel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="PromptList" type="VBoxContainer" parent="UI/InteractionPrompt/Panel/VBoxContainer"]
-layout_mode = 2
-
-[node name="InventoryUI" type="Control" parent="UI"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("10_wc8on")
-
-[node name="Panel" type="Panel" parent="UI/InventoryUI"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="CloseButton" type="Button" parent="UI/InventoryUI/Panel"]
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
-
-[node name="HBoxContainer" type="HBoxContainer" parent="UI/InventoryUI/Panel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="PlayerInventoryPanel" type="Panel" parent="UI/InventoryUI/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="Title" type="Label" parent="UI/InventoryUI/Panel/HBoxContainer/PlayerInventoryPanel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 30.0
-text = "背包"
-
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/InventoryUI/Panel/HBoxContainer/PlayerInventoryPanel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="InventoryGrid" type="GridContainer" parent="UI/InventoryUI/Panel/HBoxContainer/PlayerInventoryPanel/ScrollContainer"]
-layout_mode = 2
-columns = 6
-
-[node name="StoragePanel" type="Panel" parent="UI/InventoryUI/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="Title" type="Label" parent="UI/InventoryUI/Panel/HBoxContainer/StoragePanel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 30.0
-text = "箱子"
-
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/InventoryUI/Panel/HBoxContainer/StoragePanel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="StorageGrid" type="GridContainer" parent="UI/InventoryUI/Panel/HBoxContainer/StoragePanel/ScrollContainer"]
-layout_mode = 2
-columns = 4
-
-[node name="ItemInfoPanel" type="Panel" parent="UI/InventoryUI/Panel/HBoxContainer"]
-layout_mode = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/InventoryUI/Panel/HBoxContainer/ItemInfoPanel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="ItemName" type="Label" parent="UI/InventoryUI/Panel/HBoxContainer/ItemInfoPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="ItemIcon" type="TextureRect" parent="UI/InventoryUI/Panel/HBoxContainer/ItemInfoPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/InventoryUI/Panel/HBoxContainer/ItemInfoPanel/VBoxContainer"]
-layout_mode = 2
-
-[node name="ItemDescription" type="Label" parent="UI/InventoryUI/Panel/HBoxContainer/ItemInfoPanel/VBoxContainer/ScrollContainer"]
-layout_mode = 2
-
-[node name="InventoryButton" type="Button" parent="UI"]
-offset_right = 8.0
-offset_bottom = 8.0
+tile_map_data = PackedByteArray("AAAcABAAAAAGAAcAAAAgABAAAAAGAAcAAAAkABAAAAAGAAcAAAAoABAAAAADABAAAAAsABAAAAADABAAAAAwABAAAAADABAAAAA0ABAAAAADABAAAAA4ABAAAAADABAAAAA5ABIAAAACABAAAAA5ABoAAAACABAAAAA5AB4AAAACABAAAAA5ACIAAAACABAAAAALAB4AAAAHAAoAAAAPAB4AAAAIAAoAAAALACIAAAAHAAsAAAAPACIAAAAIAAsAAABIABwAAAAUAA0AAABEABwAAAATAA0AAABAABwAAAASAA0AAABAACAAAAASAA8AAABIACAAAAAUAA8AAABEACAAAAATAA8AAAAvABoAAAAVAAkAAAAZABwAAAAXAAkAAAAXAA4AAAAUAAUAAAArAB4AAAAUAAUAAAAfAB0AAAAVAAQAAAAlACYAAAAVAAQAAAASABEAAAAUAAQAAAAvACEAAAAVAAQAAAA1ABUAAAAZAAkAAAAVACUAAAAZAAkAADAbABYAAgARAAEAAAAaABUAAgADAAsAAAAaABYAAgADAAsAAAAaABcAAgADAAsAAAAbABcAAgADAAsAAAAcABcAAgADAAsAAAAcABYAAgADAAsAAAAcABUAAgADAAsAAAAbABUAAgADAAsAAABJAA8AAAAOABAAADBBAA8AAAAQABAAADBFAA8AAAAPABAAADA=")
+tile_set = SubResource("TileSet_j0t2l")
