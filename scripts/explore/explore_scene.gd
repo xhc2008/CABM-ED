@@ -602,9 +602,9 @@ func _handle_shoot():
 	var shoot_position = player.get_shoot_position()
 	var aim_direction = player.get_aim_direction()
 	var player_rotation = player.rotation
-	if player and player.is_mobile:
-		# 移动端按 _process 中的持续射击逻辑触发，这里避免重复
-		return
+	# if player and player.is_mobile:
+	# 	# 移动端按 _process 中的持续射击逻辑触发，这里避免重复
+	# 	return
 	weapon_system.shoot(shoot_position, aim_direction, player_rotation)
 
 func _create_weapon_ui():
