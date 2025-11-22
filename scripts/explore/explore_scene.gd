@@ -352,11 +352,7 @@ func _open_map_from_explore():
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
 		sm.set_meta("map_origin", "explore")
-		if not sm.save_data.has("explore_checkpoint"):
-			sm.save_data.explore_checkpoint = {"active": true, "scene_id": current_explore_id}
-		else:
-			sm.save_data.explore_checkpoint.active = true
-			sm.save_data.explore_checkpoint.scene_id = current_explore_id
+		sm.save_data.explore_checkpoint = {"active": false}
 		sm.save_game(sm.current_slot)
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
@@ -560,23 +556,27 @@ func _on_player_died():
 	# 保存探索状态（宝箱、掉落物、敌人状态）
 	print("保存探索状态...")
 	_save_explore_inventory_state()
-	
+	if has_node("/root/SaveManager"):
+		var sm2 = get_node("/root/SaveManager")
+		if sm2.save_data.has("explore_checkpoint"):
+			sm2.save_data.explore_checkpoint={}
+	_open_map_from_explore()
 	# 显示死亡消息
-	_show_death_message()
+	# _show_death_message()
 	
-	# 延迟返回主场景，确保所有保存操作完成
-	print("准备返回主场景...")
-	await get_tree().create_timer(0.5).timeout
-	if SaveManager:
-		if not SaveManager.save_data.has("explore_checkpoint"):
-			SaveManager.save_data.explore_checkpoint = {"active": false, "scene_id": current_explore_id}
-		else:
-			SaveManager.save_data.explore_checkpoint.active = false
-			SaveManager.save_data.explore_checkpoint.scene_id = current_explore_id
-		SaveManager.set_meta("open_death_on_load", true)
-		SaveManager.set_meta("death_from_explore_id", current_explore_id)
-		SaveManager.save_game(SaveManager.current_slot)
-		get_tree().change_scene_to_file("res://scripts/main.tscn")
+	# # 延迟返回主场景，确保所有保存操作完成
+	# print("准备返回主场景...")
+	# await get_tree().create_timer(0.5).timeout
+	# if SaveManager:
+	# 	if not SaveManager.save_data.has("explore_checkpoint"):
+	# 		SaveManager.save_data.explore_checkpoint = {"active": false, "scene_id": current_explore_id}
+	# 	else:
+	# 		SaveManager.save_data.explore_checkpoint.active = false
+	# 		SaveManager.save_data.explore_checkpoint.scene_id = current_explore_id
+	# 	SaveManager.set_meta("open_death_on_load", true)
+	# 	SaveManager.set_meta("death_from_explore_id", current_explore_id)
+	# 	SaveManager.save_game(SaveManager.current_slot)
+	# 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func _show_death_message():
 	if has_node("/root/MessageDisplayManager"):
@@ -620,7 +620,7 @@ func _spawn_enemies_for_scene(explore_id: String):
 	if enemy_system_data.has(explore_id):
 		for entry in enemy_system_data[explore_id]:
 			var pid = entry.get("id", "")
-			if pid != "":
+			if pid == "":
 				continue
 			var pos = Vector2(entry.pos[0], entry.pos[1])
 			var e = _spawn_enemy_at(pos, entry.get("type", "basic"), pid)
@@ -696,6 +696,7 @@ func _refresh_enemies_daily():
 	if last != date_str:
 		SaveManager.set_meta("enemy_refresh_date", date_str)
 		SaveManager.save_data.enemy_system_data = {}
+		enemy_system_data = {}
 
 func _create_mobile_ui():
 	"""创建移动端UI"""

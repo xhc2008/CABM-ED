@@ -604,10 +604,8 @@ func _on_open_map_requested():
 			if has_node("/root/SaveManager"):
 				var sm2 = get_node("/root/SaveManager")
 				if sm2.save_data.has("explore_checkpoint"):
-					sm2.save_data.explore_checkpoint.active = false
+					sm2.save_data.explore_checkpoint={}
 				sm2.save_game(sm2.current_slot)
-			if has_node("/root/SaveManager"):
-				var sm2 = get_node("/root/SaveManager")
 				if sm2.has_meta("map_origin"):
 					sm2.remove_meta("map_origin")
 		map_view.map_closed.connect(func():

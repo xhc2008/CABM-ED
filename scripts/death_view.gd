@@ -31,8 +31,7 @@ func _on_return_pressed():
             if base_id != "":
                 target_scene = "entryway"
         if sm.save_data.has("explore_checkpoint"):
-            if sm.save_data.explore_checkpoint.has("active"):
-                sm.save_data.explore_checkpoint.active = false
+            sm.save_data.explore_checkpoint={}
         sm.set_character_scene(target_scene)
         if sm.has_meta("open_death_on_load"):
             sm.remove_meta("open_death_on_load")

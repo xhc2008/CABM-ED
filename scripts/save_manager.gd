@@ -14,6 +14,7 @@ var is_auto_save_enabled: bool = true
 var auto_save_interval: float = 300.0 # 默认5分钟
 var enable_instant_save: bool = true # 启用即时保存
 var is_initial_setup_completed: bool = false # 初始设置是否完成
+var capture_checkpoint_on_save: bool = false
 
 signal save_completed(slot: int)
 signal load_completed(slot: int)
@@ -56,7 +57,9 @@ func _notification(what):
 	"""捕获窗口关闭事件"""
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		print("检测到窗口关闭，正在保存游戏...")
+		capture_checkpoint_on_save = true
 		save_game(current_slot)
+		capture_checkpoint_on_save = false
 		# 等待保存完成后再退出
 		get_tree().quit()
 
@@ -153,7 +156,7 @@ func save_game(slot: int = 1) -> bool:
 		if field_data.has("enemy_system_data"):
 			save_data.enemy_system_data = field_data.enemy_system_data
 	# 更新探索断点
-	if cur_scene and cur_scene.has_method("get_checkpoint_data"):
+	if capture_checkpoint_on_save and cur_scene and cur_scene.has_method("get_checkpoint_data"):
 		var cp = cur_scene.get_checkpoint_data()
 		save_data.explore_checkpoint = cp
 		print("更新探索断点")
