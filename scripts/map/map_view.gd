@@ -154,7 +154,6 @@ func _build_world_points():
 				var eb = Button.new()
 				eb.text = p.get("name", "探索区")
 				eb.position = pos
-				# 修改：传递探索点ID
 				eb.pressed.connect(_on_explore_point_pressed.bind(id))
 				canvas.add_child(eb)
 				point_nodes.append({"node": eb, "pos": pos, "id": id, "type": "explore"})
@@ -454,12 +453,26 @@ func _process(_delta):
 
 func _init_sidebar_style():
 	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0.6)
-	sb.border_width_left = 0
+	# 半透明的亮蓝色背景
+	sb.bg_color = Color(0.0, 0.9, 1.0, 0.6) 
+	
+	# 只在左侧有醒目的光带
+	sb.border_width_left = 4
 	sb.border_width_right = 0
 	sb.border_width_top = 0
 	sb.border_width_bottom = 0
-	sidebar_panel.custom_minimum_size = Vector2(320, 400)
+	sb.border_color = Color(0.15, 0.4, 0.8, 0.7) # 明亮的青色光带
+	
+	# 轻微的内阴影增加深度
+	sb.shadow_size = 2
+	sb.shadow_color = Color(0.0, 0.3, 0.6, 0.2)
+	
+	sb.corner_radius_top_left = 0
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_right = 4
+	sb.corner_radius_bottom_left = 0
+	
+	sidebar_panel.custom_minimum_size = Vector2(340, 400)
 	sidebar_panel.add_theme_stylebox_override("panel", sb)
 
 func _show_sidebar():
