@@ -13,7 +13,6 @@ signal chat_ended
 var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
-var history_button: Button
 
 var is_input_mode: bool = true
 var waiting_for_continue: bool = false
@@ -36,15 +35,10 @@ func _ensure_ui_structure():
 	if input_container != null:
 		input_field = input_container.get_node_or_null("InputField")
 		send_button = input_container.get_node_or_null("SendButton")
-		history_button = input_container.get_node_or_null("HistoryButton")
-		
-		if history_button == null:
-			history_button = Button.new()
-			history_button.name = "HistoryButton"
-			history_button.text = "历史"
-			history_button.custom_minimum_size = Vector2(60, 0)
-			input_container.add_child(history_button)
-			input_container.move_child(history_button, send_button.get_index())
+		# 移除旧的历史按钮（现在由底部按钮控制历史）
+		var old_history_btn = input_container.get_node_or_null("HistoryButton")
+		if old_history_btn != null:
+			old_history_btn.queue_free()
 		
 		print("使用现有的 InputContainer 结构")
 		return
@@ -61,12 +55,6 @@ func _ensure_ui_structure():
 		
 		input_container.add_child(old_input_field)
 		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		
-		history_button = Button.new()
-		history_button.name = "HistoryButton"
-		history_button.text = "历史"
-		history_button.custom_minimum_size = Vector2(60, 0)
-		input_container.add_child(history_button)
 		
 		send_button = Button.new()
 		send_button.name = "SendButton"
@@ -96,12 +84,6 @@ func _ensure_ui_structure():
 		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		input_container.add_child(input_field)
 		
-		history_button = Button.new()
-		history_button.name = "HistoryButton"
-		history_button.text = "历史"
-		history_button.custom_minimum_size = Vector2(60, 0)
-		input_container.add_child(history_button)
-		
 		send_button = Button.new()
 		send_button.name = "SendButton"
 		send_button.text = "发送"
@@ -125,11 +107,9 @@ func _ready():
 	
 	# 连接信号
 	if end_button:
-		end_button.pressed.connect(_on_end_button_pressed)
+		end_button.pressed.connect(_on_history_toggle_pressed)
 	if send_button:
 		send_button.pressed.connect(_on_send_button_pressed)
-	if history_button:
-		history_button.pressed.connect(_on_history_button_pressed)
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
@@ -197,7 +177,7 @@ func _init_modules():
 
 func _init_history_manager():
 	history_manager.setup(self, vbox, input_container, input_field,
-						  send_button, end_button, history_button)
+					  send_button, end_button)
 
 func _load_config():
 	# app_config.json已废弃，不再需要加载配置
@@ -218,6 +198,7 @@ func _setup_input_mode():
 	input_field.modulate.a = 1.0
 	input_container.modulate.a = 1.0
 	custom_minimum_size.y = 120.0
+	_update_action_button_state()
 
 func show_dialog(mode: String = "passive"):
 	"""显示对话框
@@ -352,6 +333,16 @@ func _on_input_text_changed(_new_text: String):
 	if has_node("/root/EventManager"):
 		var event_mgr = get_node("/root/EventManager")
 		event_mgr.reset_idle_timer()
+	_update_action_button_state()
+
+func _update_action_button_state():
+	var has_text = not input_field.text.strip_edges().is_empty()
+	if has_text:
+		send_button.text = "发送"
+		send_button.modulate = Color(0.2, 0.5, 1.0, 0.8)
+	else:
+		send_button.text = "结束"
+		send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
 
 func _on_event_completed(event_name: String, result):
 	"""处理事件完成信号"""
@@ -380,7 +371,11 @@ func _on_event_completed(event_name: String, result):
 			_on_end_button_pressed()
 
 func _on_send_button_pressed():
-	_on_input_submitted(input_field.text)
+	var text = input_field.text
+	if text.strip_edges().is_empty():
+		_on_end_button_pressed()
+	else:
+		_on_input_submitted(text)
 
 func _on_input_submitted(text: String):
 	if text.strip_edges().is_empty():
@@ -757,7 +752,7 @@ func _show_refusal_message(message: String = ""):
 	
 	refusal_label.queue_free()
 
-func _on_history_button_pressed():
+func _on_history_toggle_pressed():
 	history_manager.toggle_history()
 
 func _get_character_name() -> String:

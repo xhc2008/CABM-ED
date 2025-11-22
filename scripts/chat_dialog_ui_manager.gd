@@ -85,8 +85,11 @@ func transition_to_input_mode():
 	continue_indicator.visible = false
 	input_container.visible = true
 	end_button.visible = true
+	end_button.text = "查看历史"
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
+	if parent_dialog != null and parent_dialog.has_method("_update_action_button_state"):
+		parent_dialog._update_action_button_state()
 	input_container.modulate.a = 0.0
 	end_button.modulate.a = 0.0
 	

@@ -12,7 +12,6 @@ var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
 var end_button: Button
-var history_button: Button
 
 var history_panel: Panel
 var history_scroll: ScrollContainer
@@ -21,14 +20,13 @@ var is_history_visible: bool = false
 var is_animating: bool = false
 
 func setup(dialog: Panel, main_vbox: VBoxContainer, input_cont: HBoxContainer,
-		   input_fld: LineEdit, send_btn: Button, end_btn: Button, hist_btn: Button):
+		   input_fld: LineEdit, send_btn: Button, end_btn: Button):
 	parent_dialog = dialog
 	vbox = main_vbox
 	input_container = input_cont
 	input_field = input_fld
 	send_button = send_btn
 	end_button = end_btn
-	history_button = hist_btn
 	
 	_create_history_panel()
 
@@ -91,15 +89,13 @@ func show_history():
 	fade_out_tween.set_parallel(true)
 	fade_out_tween.tween_property(input_field, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	fade_out_tween.tween_property(send_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
-	fade_out_tween.tween_property(end_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
-	fade_out_tween.tween_property(history_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await fade_out_tween.finished
 	
 	input_field.visible = false
 	send_button.visible = false
-	end_button.visible = false
 	
-	history_button.text = "返回"
+	end_button.text = "返回"
+	end_button.modulate.a = 0.0
 	
 	history_panel.visible = true
 	history_panel.modulate.a = 0.0
@@ -115,9 +111,8 @@ func show_history():
 	
 	await expand_tween.finished
 	
-	history_button.modulate.a = 0.0
 	var button_fade_in = parent_dialog.create_tween()
-	button_fade_in.tween_property(history_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
+	button_fade_in.tween_property(end_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	await button_fade_in.finished
 	
 	is_animating = false
@@ -133,7 +128,7 @@ func hide_history():
 	is_history_visible = false
 	
 	var button_fade_out = parent_dialog.create_tween()
-	button_fade_out.tween_property(history_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
+	button_fade_out.tween_property(end_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await button_fade_out.finished
 	
 	var fade_out_tween = parent_dialog.create_tween()
@@ -148,24 +143,25 @@ func hide_history():
 	collapse_tween.tween_property(parent_dialog, "size:y", 120.0, ANIMATION_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await collapse_tween.finished
 	
-	history_button.text = "历史"
+	end_button.text = "查看历史"
 	
 	input_field.visible = true
 	send_button.visible = true
-	end_button.visible = true
 	input_field.modulate.a = 0.0
 	send_button.modulate.a = 0.0
 	end_button.modulate.a = 0.0
-	history_button.modulate.a = 0.0
 	
 	var fade_in_tween = parent_dialog.create_tween()
 	fade_in_tween.set_parallel(true)
 	fade_in_tween.tween_property(input_field, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	fade_in_tween.tween_property(send_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	fade_in_tween.tween_property(end_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
-	fade_in_tween.tween_property(history_button, "modulate:a", 1.0, ANIMATION_DURATION * 0.5)
 	
 	await fade_in_tween.finished
+	
+	if parent_dialog != null and parent_dialog.has_method("_update_action_button_state"):
+		parent_dialog._update_action_button_state()
+	
 	is_animating = false
 
 func _update_history_content():
