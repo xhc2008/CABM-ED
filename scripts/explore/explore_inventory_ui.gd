@@ -78,6 +78,9 @@ func _on_chest_storage_changed():
 	if current_chest_container and chest_system and current_chest_position != Vector2i.ZERO:
 		# 保存宝箱
 		chest_system.save_chest_storage(current_chest_position, current_chest_container.storage)
+		if has_node("/root/SaveManager"):
+			var sm = get_node("/root/SaveManager")
+			sm.save_game(sm.current_slot)
 	elif current_chest_container and current_chest_container.has_weapon_slot and current_chest_position == Vector2i.ZERO:
 		# 保存雪狐背包
 		_save_snow_fox_storage()
@@ -113,16 +116,21 @@ func _on_drag_ended(_slot_index: int, _storage_type: String):
 		if explore_scene and dragging_storage_type == "player":
 			var item = player_container.storage[dragging_slot_index]
 			if item != null:
+				# 将变量声明移到条件外部
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
 				if has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")
 					if sm.has_meta("explore_current_id"):
 						scene_id = sm.get_meta("explore_current_id")
+				
 				if explore_scene.drop_system:
 					explore_scene.drop_system.create_drop(item.item_id, int(item.count), scene_id, pos)
 				player_container.storage[dragging_slot_index] = null
 				player_container.storage_changed.emit()
+				if has_node("/root/SaveManager"):
+					var sm2 = get_node("/root/SaveManager")
+					sm2.save_game(sm2.current_slot)
 	else:
 		if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
 			var target_index = target_slot["index"]
@@ -147,16 +155,21 @@ func _on_weapon_drag_ended(_storage_type: String):
 		if explore_scene and dragging_storage_type == "player":
 			var weapon_item = player_container.weapon_slot
 			if not weapon_item.is_empty():
+				# 将变量声明移到条件外部
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
 				if has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")
 					if sm.has_meta("explore_current_id"):
 						scene_id = sm.get_meta("explore_current_id")
+				
 				if explore_scene.drop_system:
 					explore_scene.drop_system.create_drop(weapon_item.item_id, 1, scene_id, pos)
 				player_container.weapon_slot = {}
 				player_container.storage_changed.emit()
+				if has_node("/root/SaveManager"):
+					var sm3 = get_node("/root/SaveManager")
+					sm3.save_game(sm3.current_slot)
 	else:
 		if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
 			var target_index = target_slot["index"]

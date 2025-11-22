@@ -2116,7 +2116,6 @@ sources/0 = SubResource("TileSetAtlasSource_smqxd")
 sources/2 = SubResource("TileSetAtlasSource_8ygmi")
 
 [node name="TileMapLayersContainer" type="Node2D"]
-texture_filter = 1
 
 [node name="Background" type="TileMapLayer" parent="."]
 z_index = 1

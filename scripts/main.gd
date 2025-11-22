@@ -66,6 +66,15 @@ func _ready():
 	
 	# 播放背景音乐
 	audio_manager.play_background_music(initial_scene, initial_time, initial_weather)
+	# 探索断点恢复
+	if has_node("/root/SaveManager"):
+		var sm_resume = get_node("/root/SaveManager")
+		if not sm_resume.has_meta("open_map_on_load"):
+			if sm_resume.save_data.has("explore_checkpoint") and sm_resume.save_data.explore_checkpoint.get("active", false):
+				if sm_resume.save_data.explore_checkpoint.has("scene_id"):
+					sm_resume.set_meta("explore_current_id", sm_resume.save_data.explore_checkpoint.scene_id)
+				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
+				return
 	# 检查是否需要打开地图
 	_check_open_map_on_load()
 
@@ -592,6 +601,13 @@ func _on_open_map_requested():
 			# 地图切换仅预览，不移动角色
 			map_view.queue_free()
 			game_state_manager.show_main_scene()
+			if has_node("/root/SaveManager"):
+				var sm2 = get_node("/root/SaveManager")
+				if sm2.save_data.has("explore_checkpoint"):
+					sm2.save_data.explore_checkpoint.active = false
+				if sm2.has_meta("explore_current_id"):
+					sm2.remove_meta("explore_current_id")
+				sm2.save_game(sm2.current_slot)
 			if has_node("/root/SaveManager"):
 				var sm2 = get_node("/root/SaveManager")
 				if sm2.has_meta("map_origin"):

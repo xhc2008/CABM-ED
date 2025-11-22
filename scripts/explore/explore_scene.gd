@@ -126,6 +126,10 @@ func _load_tilemap_for_explore_id():
 		var sm = get_node("/root/SaveManager")
 		if sm.has_meta("explore_current_id"):
 			explore_id = sm.get_meta("explore_current_id")
+		elif sm.save_data.has("explore_checkpoint"):
+			var cp = sm.save_data.explore_checkpoint
+			if cp.has("scene_id"):
+				explore_id = cp.scene_id
 	if explore_id == "":
 		return
 	var path := "res://scenes/explore_maps/%s.tscn" % explore_id
@@ -168,6 +172,7 @@ func _load_tilemap_for_explore_id():
 		drop_system.spawn_drops_for_current_scene()
 
 	_setup_chunk_streaming()
+	_restore_checkpoint_if_available()
 
 func _process(_delta):
 	if player:
@@ -296,6 +301,7 @@ func _open_chest(chest_data: Dictionary):
 	# 打开背包UI显示宝箱
 	if inventory_ui:
 		inventory_ui.open_chest(chest_storage, chest_name, chest_data.position)
+		_save_checkpoint_immediately()
 	
 	# 隐藏战斗UI
 	_hide_combat_ui()
@@ -315,6 +321,7 @@ func _open_snow_fox_storage():
 	if inventory_ui:
 		var character_name = _get_character_name()
 		inventory_ui.open_chest(fox_storage_data, character_name + "的背包", Vector2i.ZERO, true)
+		_save_checkpoint_immediately()
 	
 	# 隐藏战斗UI
 	_hide_combat_ui()
@@ -330,12 +337,16 @@ func _open_map_from_explore():
 		sm.set_meta("map_origin", "explore")
 		if not sm.has_meta("explore_current_id"):
 			sm.set_meta("explore_current_id", "explore")
+		sm.save_game(sm.current_slot)
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func update_snow_fox_storage(storage_data):
 	"""更新雪狐背包数据（从背包UI回调）"""
 	if snow_fox:
 		snow_fox.set_storage(storage_data)
+		if SaveManager:
+			SaveManager.save_data.snow_fox_inventory = storage_data.duplicate(true)
+			SaveManager.save_game(SaveManager.current_slot)
 
 func _on_inventory_closed():
 	"""当背包UI关闭时调用"""
@@ -346,9 +357,10 @@ func _on_inventory_closed():
 	
 	# 显示战斗UI
 	_show_combat_ui()
-	
+
 	# 重新检查附近的交互对象
 	_check_nearby_chests()
+	_update_interaction_prompt()
 	
 	print("背包已关闭，重新显示交互提示")
 
@@ -532,32 +544,20 @@ func _load_explore_inventory_state():
 		drop_system.load_save_data(SaveManager.save_data.drop_system_data)
 	
 	print("已加载探索模式背包状态")
+	player_inventory.container = InventoryManager.inventory_container
 
 func _save_explore_inventory_state():
 	"""保存探索模式的背包状态"""
-	if not InventoryManager or not SaveManager:
+	if not SaveManager:
 		return
-	
-	# 保存玩家背包到主背包
-	var current_player_inventory = player_inventory.container.get_data()
-	InventoryManager.inventory_container.load_data(current_player_inventory)
-	
-	# 保存雪狐背包到存档
 	if snow_fox:
 		var fox_storage = snow_fox.get_storage()
 		SaveManager.save_data.snow_fox_inventory = fox_storage.duplicate(true) if fox_storage is Dictionary else fox_storage
-	
-	# 保存宝箱状态
 	if chest_system:
 		SaveManager.save_data.chest_system_data = chest_system.get_save_data()
-
-	# 保存掉落物状态
 	if drop_system:
 		SaveManager.save_data.drop_system_data = drop_system.get_save_data()
-	
-	# 触发存档保存
-	SaveManager.save_inventory_data()
-	
+	SaveManager.save_game(SaveManager.current_slot)
 	print("已保存探索模式背包状态")
 
 func _hide_combat_ui():
@@ -581,6 +581,7 @@ func _show_combat_ui():
 	# 显示移动端UI（仅移动端）
 	if mobile_ui:
 		mobile_ui.visible = PlatformManager.is_mobile_platform()
+	_update_interaction_prompt()
 
 func _get_character_name() -> String:
 	"""获取角色名称"""
@@ -592,6 +593,53 @@ func _get_character_name() -> String:
 
 func get_player_inventory() -> PlayerInventory:
 	return player_inventory
+
+func get_checkpoint_data() -> Dictionary:
+	var scene_id := ""
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if sm.has_meta("explore_current_id"):
+			scene_id = sm.get_meta("explore_current_id")
+	var ppos = player.global_position if player else Vector2.ZERO
+	var fpos = snow_fox.global_position if snow_fox else Vector2.ZERO
+	return {
+		"active": true,
+		"scene_id": scene_id,
+		"player_pos": {"x": ppos.x, "y": ppos.y},
+		"snow_fox_pos": {"x": fpos.x, "y": fpos.y}
+	}
+
+func get_field_state_data() -> Dictionary:
+	var chest_data = {}
+	var drop_data = {}
+	if chest_system and chest_system.has_method("get_save_data"):
+		chest_data = chest_system.get_save_data()
+	if drop_system and drop_system.has_method("get_save_data"):
+		drop_data = drop_system.get_save_data()
+	return {"chest_system_data": chest_data, "drop_system_data": drop_data}
+
+func _restore_checkpoint_if_available():
+	if not has_node("/root/SaveManager"):
+		return
+	var sm = get_node("/root/SaveManager")
+	if not sm.save_data.has("explore_checkpoint"):
+		return
+	var cp = sm.save_data.explore_checkpoint
+	if not cp.get("active", false):
+		return
+	if player and cp.has("player_pos"):
+		var p = cp.player_pos
+		if p.has("x") and p.has("y"):
+			player.global_position = Vector2(float(p.x), float(p.y))
+	if snow_fox and cp.has("snow_fox_pos"):
+		var s = cp.snow_fox_pos
+		if s.has("x") and s.has("y"):
+			snow_fox.global_position = Vector2(float(s.x), float(s.y))
+
+func _save_checkpoint_immediately():
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.save_game(sm.current_slot)
 
 func _setup_chunk_streaming():
 	if background_layer:

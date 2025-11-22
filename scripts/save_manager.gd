@@ -55,10 +55,8 @@ func _has_save_file() -> bool:
 func _notification(what):
 	"""捕获窗口关闭事件"""
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		# 只有在初始设置完成后才保存
-		if is_initial_setup_completed:
-			print("检测到窗口关闭，正在保存游戏...")
-			save_game(current_slot)
+		print("检测到窗口关闭，正在保存游戏...")
+		save_game(current_slot)
 		# 等待保存完成后再退出
 		get_tree().quit()
 
@@ -144,6 +142,18 @@ func save_game(slot: int = 1) -> bool:
 	# 保存背包数据
 	if has_node("/root/InventoryManager"):
 		save_data.inventory_data = get_node("/root/InventoryManager").get_storage_data()
+	# 保存探索场地状态（宝箱、掉落物）
+	var cur_scene = get_tree().current_scene
+	if cur_scene and cur_scene.has_method("get_field_state_data"):
+		var field_data = cur_scene.get_field_state_data()
+		if field_data.has("chest_system_data"):
+			save_data.chest_system_data = field_data.chest_system_data
+		if field_data.has("drop_system_data"):
+			save_data.drop_system_data = field_data.drop_system_data
+	# 更新探索断点
+	if cur_scene and cur_scene.has_method("get_checkpoint_data"):
+		var cp = cur_scene.get_checkpoint_data()
+		save_data.explore_checkpoint = cp
 	
 	# 更新时间戳
 	var now = Time.get_datetime_string_from_system()
