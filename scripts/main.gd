@@ -75,6 +75,8 @@ func _ready():
 				return
 	# 检查是否需要打开地图
 	_check_open_map_on_load()
+	# 检查是否需要打开死亡页面
+	_check_open_death_on_load()
 
 func _input(event):
 	# 按 F12 打开存档调试面板
@@ -627,6 +629,19 @@ func _check_open_map_on_load():
 			await get_tree().process_frame
 			_on_open_map_requested()
 
+func _check_open_death_on_load():
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		if sm.has_meta("open_death_on_load"):
+			var death_scene = load("res://scenes/death_view.tscn")
+			if death_scene:
+				var view = death_scene.instantiate()
+				add_child(view)
+				game_state_manager.hide_main_scene()
+				view.death_view_closed.connect(func():
+					game_state_manager.show_main_scene()
+				)
+
 func _on_cook_action_triggered(action: String):
 	"""烹饪按钮动作触发"""
 	if action == "start_cook":
@@ -700,6 +715,8 @@ func _on_character_scene_changed(new_scene: String):
 	if show_notification:
 		_show_character_move_message(new_scene)
 	
+	await scene_manager.load_scene(new_scene, scene_manager.current_weather, scene_manager.current_time)
+	sidebar.set_current_scene(new_scene)
 	character.load_character_for_scene(scene_manager.current_scene)
 
 func _show_character_move_message(new_scene: String):

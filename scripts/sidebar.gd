@@ -695,22 +695,3 @@ func _setup_experimental_section():
 	exp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	exp_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
 	scene_list.add_child(exp_label)
-	
-	# 探索模式按钮
-	var explore_button = Button.new()
-	explore_button.text = "🗺️ 探索模式"
-	explore_button.pressed.connect(_on_explore_button_pressed)
-	scene_list.add_child(explore_button)
-
-func _on_explore_button_pressed():
-	"""探索按钮被点击"""
-	print("进入探索模式")
-	if has_node("/root/SaveManager"):
-		var sm = get_node("/root/SaveManager")
-		if not sm.save_data.has("explore_checkpoint"):
-			sm.save_data.explore_checkpoint = {"active": true, "scene_id": "explore"}
-		else:
-			sm.save_data.explore_checkpoint.active = true
-			sm.save_data.explore_checkpoint.scene_id = "explore"
-		sm.save_game(sm.current_slot)
-	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")

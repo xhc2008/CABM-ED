@@ -9,6 +9,9 @@ var drops_by_scene: Dictionary = {}
 var items_config: Dictionary = {}
 var nodes_by_id: Dictionary = {}
 
+# 掉落物随机偏移的范围（像素）
+var drop_random_offset_radius: float = 20.0
+
 func setup(config: Dictionary):
 	items_config = config
 
@@ -16,11 +19,38 @@ func set_current_scene_id(id: String):
 	current_scene_id = id
 
 func create_drop(item_id: String, count: int, scene_id: String, world_pos: Vector2):
+	# 在原始位置周围添加随机偏移
+	var random_offset = Vector2(
+		randf_range(-drop_random_offset_radius, drop_random_offset_radius),
+		randf_range(-drop_random_offset_radius, drop_random_offset_radius)
+	)
+	var final_pos = world_pos + random_offset
+	
 	var entry = {
 		"id": _make_id(item_id),
 		"item_id": item_id,
 		"count": int(count),
-		"pos": [world_pos.x, world_pos.y]
+		"pos": [final_pos.x, final_pos.y]
+	}
+	if not drops_by_scene.has(scene_id):
+		drops_by_scene[scene_id] = []
+	drops_by_scene[scene_id].append(entry)
+	_drop_spawn_if_current(entry)
+	drop_created.emit(entry.id)
+
+# 可选：如果你想要更精确控制随机范围的方法
+func create_drop_with_custom_offset(item_id: String, count: int, scene_id: String, world_pos: Vector2, offset_radius: float = 20.0):
+	var random_offset = Vector2(
+		randf_range(-offset_radius, offset_radius),
+		randf_range(-offset_radius, offset_radius)
+	)
+	var final_pos = world_pos + random_offset
+	
+	var entry = {
+		"id": _make_id(item_id),
+		"item_id": item_id,
+		"count": int(count),
+		"pos": [final_pos.x, final_pos.y]
 	}
 	if not drops_by_scene.has(scene_id):
 		drops_by_scene[scene_id] = []

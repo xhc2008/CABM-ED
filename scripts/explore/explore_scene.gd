@@ -320,7 +320,6 @@ func _open_chest(chest_data: Dictionary):
 	# 打开背包UI显示宝箱
 	if inventory_ui:
 		inventory_ui.open_chest(chest_storage, chest_name, chest_data.position)
-		_save_checkpoint_immediately()
 	
 	# 隐藏战斗UI
 	_hide_combat_ui()
@@ -340,7 +339,6 @@ func _open_snow_fox_storage():
 	if inventory_ui:
 		var character_name = _get_character_name()
 		inventory_ui.open_chest(fox_storage_data, character_name + "的背包", Vector2i.ZERO, true)
-		_save_checkpoint_immediately()
 	
 	# 隐藏战斗UI
 	_hide_combat_ui()
@@ -486,6 +484,8 @@ func show_damage_number(value: int, world_pos: Vector2, color: Color = Color(1,0
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_constant_override("outline_size", 2)
 	label.add_theme_color_override("font_outline_color", Color(0,0,0))
+	var offset = randf_range(-20.0, 20.0)
+	label.global_position = world_pos + Vector2(offset, offset)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.top_level = true
 	label.global_position = world_pos
@@ -567,15 +567,16 @@ func _on_player_died():
 	# 延迟返回主场景，确保所有保存操作完成
 	print("准备返回主场景...")
 	await get_tree().create_timer(0.5).timeout
-	# 强制清除探索断点
-	if has_node("/root/SaveManager"):
-		var sm = get_node("/root/SaveManager")
-		print("清除探索断点...")
-		sm.save_data.explore_checkpoint = {}
-		# 立即保存到文件
-		sm.save_game(sm.current_slot)
-		print("探索断点已清除并保存")
-	get_tree().change_scene_to_file("res://scripts/main.tscn")
+	if SaveManager:
+		if not SaveManager.save_data.has("explore_checkpoint"):
+			SaveManager.save_data.explore_checkpoint = {"active": false, "scene_id": current_explore_id}
+		else:
+			SaveManager.save_data.explore_checkpoint.active = false
+			SaveManager.save_data.explore_checkpoint.scene_id = current_explore_id
+		SaveManager.set_meta("open_death_on_load", true)
+		SaveManager.set_meta("death_from_explore_id", current_explore_id)
+		SaveManager.save_game(SaveManager.current_slot)
+		get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func _show_death_message():
 	if has_node("/root/MessageDisplayManager"):
@@ -616,16 +617,10 @@ func _create_weapon_ui():
 			weapon_ui.setup(weapon_system)
 
 func _spawn_enemies_for_scene(explore_id: String):
-	var killed := {}
-	if SaveManager:
-		if not SaveManager.save_data.has("enemy_records"):
-			SaveManager.save_data.enemy_records = {}
-		killed = SaveManager.save_data.enemy_records.get(explore_id, {})
-
 	if enemy_system_data.has(explore_id):
 		for entry in enemy_system_data[explore_id]:
 			var pid = entry.get("id", "")
-			if pid != "" and killed.has(pid) and killed[pid] == true:
+			if pid != "":
 				continue
 			var pos = Vector2(entry.pos[0], entry.pos[1])
 			var e = _spawn_enemy_at(pos, entry.get("type", "basic"), pid)
@@ -638,15 +633,12 @@ func _spawn_enemies_for_scene(explore_id: String):
 			var pid = point.get("id", "")
 			if pid == "":
 				continue
-			if killed.has(pid) and killed[pid] == true:
-				continue
 			var e2 = _spawn_enemy_at(point.pos, point.get("type", "basic"), pid)
 			if e2:
 				spawned_entries.append({"id": pid, "type": point.get("type", "basic"), "pos": [point.pos.x, point.pos.y], "health": e2.health})
 		enemy_system_data[explore_id] = spawned_entries
 		if SaveManager:
 			SaveManager.save_data.enemy_system_data = enemy_system_data.duplicate(true)
-			SaveManager.save_game(SaveManager.current_slot)
 
 func _get_enemy_points_from_layer(layer: TileMapLayer) -> Array:
 	var result: Array = []
@@ -683,12 +675,6 @@ func _on_enemy_died(enemy_node):
 	var sid = enemy_node.get_meta("spawn_id") if enemy_node else ""
 	if sid == "" or not SaveManager:
 		return
-	if not SaveManager.save_data.has("enemy_records"):
-		SaveManager.save_data.enemy_records = {}
-	var scene_records = SaveManager.save_data.enemy_records.get(current_explore_id, {})
-	scene_records[sid] = true
-	SaveManager.save_data.enemy_records[current_explore_id] = scene_records
-	SaveManager.save_game(SaveManager.current_slot)
 	active_enemies.erase(enemy_node)
 	if enemy_system_data.has(current_explore_id):
 		var arr = enemy_system_data[current_explore_id]
@@ -709,9 +695,7 @@ func _refresh_enemies_daily():
 	var last = SaveManager.get_meta("enemy_refresh_date") if SaveManager.has_meta("enemy_refresh_date") else ""
 	if last != date_str:
 		SaveManager.set_meta("enemy_refresh_date", date_str)
-		SaveManager.save_data.enemy_records = {}
 		SaveManager.save_data.enemy_system_data = {}
-		SaveManager.save_game(SaveManager.current_slot)
 
 func _create_mobile_ui():
 	"""创建移动端UI"""
@@ -876,10 +860,7 @@ func get_field_state_data() -> Dictionary:
 	if drop_system and drop_system.has_method("get_save_data"):
 		drop_data = drop_system.get_save_data()
 	var enemy_data = get_enemy_save_data()
-	var enemy_records_data = {}
-	if SaveManager and SaveManager.save_data.has("enemy_records"):
-		enemy_records_data = SaveManager.save_data.enemy_records
-	return {"chest_system_data": chest_data, "drop_system_data": drop_data, "enemy_system_data": enemy_data, "enemy_records": enemy_records_data}
+	return {"chest_system_data": chest_data, "drop_system_data": drop_data, "enemy_system_data": enemy_data}
 
 func _restore_checkpoint_if_available():
 	if not has_node("/root/SaveManager"):
