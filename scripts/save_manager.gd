@@ -269,6 +269,10 @@ func _perform_daily_refresh(new_date: String):
 	if save_data.has("chest_system_data") and save_data.chest_system_data.has("opened_chests"):
 		save_data.chest_system_data.opened_chests = {}
 		print("已删除opened_chests，地图已刷新")
+	# 删除掉落物（刷新地图）
+	if save_data.has("drop_system_data") and save_data.drop_system_data.has("drops_by_scene"):
+		save_data.drop_system_data.drops_by_scene = {}
+		print("已删除drop_system_data，掉落物已刷新")
 	# 删除shop_system_data（刷新商店）
 	if save_data.has("shop_system_data"):
 		save_data.shop_system_data = {}

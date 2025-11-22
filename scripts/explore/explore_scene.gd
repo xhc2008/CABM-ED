@@ -11,6 +11,7 @@ var mobile_ui: Control  # 移动端UI (MobileUI)
 var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
 var chest_system: Node # ChestSystem
+var drop_system: Node # DropSystem
 var nearby_chests: Array = []
 var nearby_map_points: Array = []
 var current_opened_chest: Dictionary = {}
@@ -48,6 +49,10 @@ func _ready():
 	var chest_script = load("res://scripts/explore/chest_system.gd")
 	chest_system = chest_script.new()
 	add_child(chest_system)
+
+	var drop_script = load("res://scripts/explore/drop_system.gd")
+	drop_system = drop_script.new()
+	add_child(drop_system)
 	
 	# 加载探索模式的背包状态
 	_load_explore_inventory_state()
@@ -57,6 +62,9 @@ func _ready():
 	weapon_system = weapon_system_script.new()
 	add_child(weapon_system)
 	weapon_system.setup(player_inventory)
+
+	if drop_system:
+		drop_system.setup(player_inventory.items_config)
 	
 	# 连接武器系统到玩家
 	if player:
@@ -155,6 +163,9 @@ func _load_tilemap_for_explore_id():
 		snow_fox.z_index = 2
 	if has_node("/root/SaveManager") and chest_system and chest_system.has_method("set_current_scene_id"):
 		chest_system.set_current_scene_id(explore_id)
+	if drop_system and drop_system.has_method("set_current_scene_id"):
+		drop_system.set_current_scene_id(explore_id)
+		drop_system.spawn_drops_for_current_scene()
 
 	_setup_chunk_streaming()
 
@@ -253,8 +264,13 @@ func _update_interaction_prompt():
 			"text": "F: 撤离",
 			"callback": func(): _open_map_from_explore(),
 			"object": null,
-			"type": "map"
+		"type": "map"
 		})
+
+	if player and player.interaction_detector:
+		var area_interactions = player.interaction_detector.get_interactions()
+		for data in area_interactions:
+			interactions.append(data)
 	
 	if interactions.is_empty():
 		interaction_prompt.hide_interactions()
@@ -338,8 +354,7 @@ func _on_inventory_closed():
 
 func _on_interactions_changed(_interactions: Array):
 	"""交互列表变化"""
-	# 这里可以处理其他类型的交互物体
-	pass
+	_update_interaction_prompt()
 
 func _on_joystick_updated(vector: Vector2, _power: float = 1.0):
 	"""处理摇杆输入更新"""
@@ -511,6 +526,10 @@ func _load_explore_inventory_state():
 	# 从存档加载宝箱数据
 	if SaveManager and SaveManager.save_data.has("chest_system_data"):
 		chest_system.load_save_data(SaveManager.save_data.chest_system_data)
+
+	# 从存档加载掉落物数据
+	if drop_system and SaveManager and SaveManager.save_data.has("drop_system_data"):
+		drop_system.load_save_data(SaveManager.save_data.drop_system_data)
 	
 	print("已加载探索模式背包状态")
 
@@ -531,6 +550,10 @@ func _save_explore_inventory_state():
 	# 保存宝箱状态
 	if chest_system:
 		SaveManager.save_data.chest_system_data = chest_system.get_save_data()
+
+	# 保存掉落物状态
+	if drop_system:
+		SaveManager.save_data.drop_system_data = drop_system.get_save_data()
 	
 	# 触发存档保存
 	SaveManager.save_inventory_data()
@@ -566,6 +589,9 @@ func _get_character_name() -> String:
 	
 	var save_mgr = get_node("/root/SaveManager")
 	return save_mgr.get_character_name()
+
+func get_player_inventory() -> PlayerInventory:
+	return player_inventory
 
 func _setup_chunk_streaming():
 	if background_layer:

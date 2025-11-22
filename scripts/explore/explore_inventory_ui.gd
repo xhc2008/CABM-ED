@@ -103,3 +103,71 @@ func _enable_player_controls():
 	var explore_scene = get_tree().current_scene
 	if explore_scene and explore_scene.has_method("set_player_controls_enabled"):
 		explore_scene.set_player_controls_enabled(true)
+
+func _on_drag_ended(_slot_index: int, _storage_type: String):
+	if not is_dragging or dragging_is_weapon_slot:
+		return
+	var target_slot = _get_slot_under_mouse()
+	if target_slot.is_empty():
+		var explore_scene = get_tree().current_scene
+		if explore_scene and dragging_storage_type == "player":
+			var item = player_container.storage[dragging_slot_index]
+			if item != null:
+				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
+				var scene_id = ""
+				if has_node("/root/SaveManager"):
+					var sm = get_node("/root/SaveManager")
+					if sm.has_meta("explore_current_id"):
+						scene_id = sm.get_meta("explore_current_id")
+				if explore_scene.drop_system:
+					explore_scene.drop_system.create_drop(item.item_id, int(item.count), scene_id, pos)
+				player_container.storage[dragging_slot_index] = null
+				player_container.storage_changed.emit()
+	else:
+		if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
+			var target_index = target_slot["index"]
+			var target_type = target_slot["type"]
+			var target_is_weapon = target_slot.get("is_weapon_slot", false)
+			if target_index != dragging_slot_index or target_type != dragging_storage_type or target_is_weapon:
+				_move_item(dragging_slot_index, dragging_storage_type, target_index, target_type, target_is_weapon)
+	_destroy_drag_preview()
+	is_dragging = false
+	dragging_slot_index = -1
+	dragging_storage_type = ""
+	dragging_is_weapon_slot = false
+	_clear_selection()
+	_clear_item_info()
+
+func _on_weapon_drag_ended(_storage_type: String):
+	if not is_dragging or not dragging_is_weapon_slot:
+		return
+	var target_slot = _get_slot_under_mouse()
+	if target_slot.is_empty():
+		var explore_scene = get_tree().current_scene
+		if explore_scene and dragging_storage_type == "player":
+			var weapon_item = player_container.weapon_slot
+			if not weapon_item.is_empty():
+				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
+				var scene_id = ""
+				if has_node("/root/SaveManager"):
+					var sm = get_node("/root/SaveManager")
+					if sm.has_meta("explore_current_id"):
+						scene_id = sm.get_meta("explore_current_id")
+				if explore_scene.drop_system:
+					explore_scene.drop_system.create_drop(weapon_item.item_id, 1, scene_id, pos)
+				player_container.weapon_slot = {}
+				player_container.storage_changed.emit()
+	else:
+		if not target_slot.is_empty() and target_slot.has("index") and target_slot.has("type"):
+			var target_index = target_slot["index"]
+			var target_type = target_slot["type"]
+			var target_is_weapon = target_slot.get("is_weapon_slot", false)
+			if target_index != dragging_slot_index or target_type != dragging_storage_type or target_is_weapon != dragging_is_weapon_slot:
+				_move_weapon_item(dragging_storage_type, target_index, target_type, target_is_weapon)
+	_destroy_drag_preview()
+	is_dragging = false
+	dragging_slot_index = -1
+	dragging_storage_type = ""
+	dragging_is_weapon_slot = false
+	_clear_selection()
+	_clear_item_info()
