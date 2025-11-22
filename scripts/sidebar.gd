@@ -707,6 +707,10 @@ func _on_explore_button_pressed():
 	print("进入探索模式")
 	if has_node("/root/SaveManager"):
 		var sm = get_node("/root/SaveManager")
-		if not sm.has_meta("explore_current_id"):
-			sm.set_meta("explore_current_id", "explore")
+		if not sm.save_data.has("explore_checkpoint"):
+			sm.save_data.explore_checkpoint = {"active": true, "scene_id": "explore"}
+		else:
+			sm.save_data.explore_checkpoint.active = true
+			sm.save_data.explore_checkpoint.scene_id = "explore"
+		sm.save_game(sm.current_slot)
 	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")

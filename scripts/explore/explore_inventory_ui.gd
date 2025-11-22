@@ -119,10 +119,13 @@ func _on_drag_ended(_slot_index: int, _storage_type: String):
 				# 将变量声明移到条件外部
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
-				if has_node("/root/SaveManager"):
+				explore_scene = get_tree().current_scene
+				if explore_scene and explore_scene.has_method("get_checkpoint_data"):
+					scene_id = explore_scene.current_explore_id
+				if scene_id == "" and has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")
-					if sm.has_meta("explore_current_id"):
-						scene_id = sm.get_meta("explore_current_id")
+					if sm.save_data.has("explore_checkpoint") and sm.save_data.explore_checkpoint.has("scene_id"):
+						scene_id = sm.save_data.explore_checkpoint.scene_id
 				
 				if explore_scene.drop_system:
 					explore_scene.drop_system.create_drop(item.item_id, int(item.count), scene_id, pos)
@@ -158,10 +161,13 @@ func _on_weapon_drag_ended(_storage_type: String):
 				# 将变量声明移到条件外部
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
-				if has_node("/root/SaveManager"):
+				var explore_scene2 = get_tree().current_scene
+				if explore_scene2 and explore_scene2.has_method("get_checkpoint_data"):
+					scene_id = explore_scene2.current_explore_id
+				if scene_id == "" and has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")
-					if sm.has_meta("explore_current_id"):
-						scene_id = sm.get_meta("explore_current_id")
+					if sm.save_data.has("explore_checkpoint") and sm.save_data.explore_checkpoint.has("scene_id"):
+						scene_id = sm.save_data.explore_checkpoint.scene_id
 				
 				if explore_scene.drop_system:
 					explore_scene.drop_system.create_drop(weapon_item.item_id, 1, scene_id, pos)

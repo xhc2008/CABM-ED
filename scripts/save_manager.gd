@@ -150,6 +150,10 @@ func save_game(slot: int = 1) -> bool:
 			save_data.chest_system_data = field_data.chest_system_data
 		if field_data.has("drop_system_data"):
 			save_data.drop_system_data = field_data.drop_system_data
+		if field_data.has("enemy_system_data"):
+			save_data.enemy_system_data = field_data.enemy_system_data
+		if field_data.has("enemy_records"):
+			save_data.enemy_records = field_data.enemy_records
 	# 更新探索断点
 	if cur_scene and cur_scene.has_method("get_checkpoint_data"):
 		var cp = cur_scene.get_checkpoint_data()

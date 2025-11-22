@@ -2,6 +2,11 @@ extends CharacterBody2D
 class_name ExplorePlayer
 
 @export var move_speed: float = 200.0
+@export var max_health: int = 100
+var health: int = 100
+signal health_changed(current: int, max: int)
+signal player_hit(damage: int)
+signal player_died()
 
 # 使用 VirtualJoystick 插件
 @export var joystick_left : VirtualJoystick  # 移动摇杆
@@ -25,6 +30,8 @@ func _ready():
 	interaction_detector = detector_script.new()
 	interaction_detector.detection_radius = 80.0
 	add_child(interaction_detector)
+
+	health = max_health
 	
 	# 检测是否为移动设备
 	_detect_platform()
@@ -68,6 +75,16 @@ func _physics_process(_delta):
 	
 	# 更新瞄准辅助线
 	_update_aim_line()
+
+func take_damage(amount: int):
+	amount = int(max(0, amount))
+	if amount <= 0:
+		return
+	health = max(0, health - amount)
+	health_changed.emit(health, max_health)
+	player_hit.emit(amount)
+	if health <= 0:
+		player_died.emit()
 
 func _update_aim_direction():
 	"""更新瞄准方向"""

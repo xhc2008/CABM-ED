@@ -71,8 +71,6 @@ func _ready():
 		var sm_resume = get_node("/root/SaveManager")
 		if not sm_resume.has_meta("open_map_on_load"):
 			if sm_resume.save_data.has("explore_checkpoint") and sm_resume.save_data.explore_checkpoint.get("active", false):
-				if sm_resume.save_data.explore_checkpoint.has("scene_id"):
-					sm_resume.set_meta("explore_current_id", sm_resume.save_data.explore_checkpoint.scene_id)
 				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
 				return
 	# 检查是否需要打开地图
@@ -605,8 +603,6 @@ func _on_open_map_requested():
 				var sm2 = get_node("/root/SaveManager")
 				if sm2.save_data.has("explore_checkpoint"):
 					sm2.save_data.explore_checkpoint.active = false
-				if sm2.has_meta("explore_current_id"):
-					sm2.remove_meta("explore_current_id")
 				sm2.save_game(sm2.current_slot)
 			if has_node("/root/SaveManager"):
 				var sm2 = get_node("/root/SaveManager")

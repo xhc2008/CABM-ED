@@ -53,6 +53,7 @@ grow_horizontal = 0
 text = "关闭"
 
 [node name="Sidebar" type="Panel" parent="Root"]
+visible = false
 layout_mode = 0
 anchor_left = 1.0
 anchor_right = 1.0

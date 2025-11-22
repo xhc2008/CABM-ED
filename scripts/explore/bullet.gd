@@ -68,22 +68,38 @@ func setup(start_pos: Vector2, dir: Vector2, _player_rot: float, weapon_cfg: Dic
 		sprite.scale = Vector2(3.0, 0.5)  # 细长的子弹
 
 func _physics_process(delta):
-	# 移动子弹
 	var movement = direction * speed * delta
 	var new_position = global_position + movement
 	var move_distance = movement.length()
-	
-	# 防止隧道效应：使用射线检测
+
 	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsRayQueryParameters2D.create(last_position, new_position)
-	query.collision_mask = collision_mask
-	query.exclude = [self]
-	
-	var result = space_state.intersect_ray(query)
-	
-	if result:
-		# 击中物体
-		_on_hit(result.position, result.normal)
+	var ray_terrain = PhysicsRayQueryParameters2D.create(last_position, new_position)
+	ray_terrain.collision_mask = 1
+	ray_terrain.exclude = [self]
+	var hit_terrain = space_state.intersect_ray(ray_terrain)
+	var hit_enemy_point: Vector2 = Vector2.ZERO
+	var enemy_collider: Object = null
+	var steps = int(ceil(move_distance / 8.0))
+	for i in range(steps + 1):
+		var t = float(i) / float(max(1, steps))
+		var p = last_position.lerp(new_position, t)
+		var point_q = PhysicsPointQueryParameters2D.new()
+		point_q.position = p
+		point_q.collision_mask = 2
+		point_q.collide_with_areas = true
+		var res = space_state.intersect_point(point_q)
+		if not res.is_empty():
+			enemy_collider = res[0].collider
+			hit_enemy_point = p
+			break
+	if enemy_collider != null:
+		if enemy_collider.has_method("take_damage"):
+			enemy_collider.take_damage(damage)
+		_create_hit_effect(hit_enemy_point, -direction)
+		queue_free()
+		return
+	if hit_terrain:
+		_on_hit(hit_terrain.position, hit_terrain.normal)
 		queue_free()
 		return
 	

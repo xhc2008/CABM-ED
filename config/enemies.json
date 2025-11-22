@@ -1,0 +1,16 @@
+{
+  "enemies": {
+    "basic": {
+      "name": "普通敌人",
+      "max_health": 60,
+      "attack_damage": 12,
+      "move_speed": 120.0,
+      "attack_range": 48.0,
+      "follow_range": 240.0,
+      "fov_angle_deg": 90.0,
+      "drops": [
+        { "item_id": "credit", "min": 1, "max": 5, "chance": 1.0 }
+      ]
+    }
+  }
+}

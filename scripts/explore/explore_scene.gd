@@ -5,6 +5,7 @@ extends Node2D
 @onready var tilemap_layers_container = $TileMapLayersContainer
 @onready var interaction_prompt = $UI/InteractionPrompt
 @onready var inventory_button = $UI/InventoryButton
+@onready var ui_root = $UI
 
 var mobile_ui: Control  # 移动端UI (MobileUI)
 
@@ -19,6 +20,12 @@ var current_opened_chest: Dictionary = {}
 # 武器系统
 var weapon_system: WeaponSystem
 var weapon_ui: Control  # 武器UI
+var player_health_bar: ProgressBar
+var hit_flash: ColorRect
+var current_explore_id: String = ""
+var active_enemies: Array = []
+var enemy_system_data: Dictionary = {}
+var enemy_layer
 
 var background_layer
 var frontground_layer
@@ -93,6 +100,8 @@ func _ready():
 	
 	# 创建移动端UI
 	_create_mobile_ui()
+	_create_health_ui()
+	_create_hit_flash()
 
 	_load_tilemap_for_explore_id()
 	
@@ -124,14 +133,14 @@ func _load_tilemap_for_explore_id():
 	var explore_id := ""
 	if has_node("/root/SaveManager"):
 		var sm = get_node("/root/SaveManager")
-		if sm.has_meta("explore_current_id"):
-			explore_id = sm.get_meta("explore_current_id")
-		elif sm.save_data.has("explore_checkpoint"):
+		if sm.save_data.has("explore_checkpoint"):
 			var cp = sm.save_data.explore_checkpoint
 			if cp.has("scene_id"):
 				explore_id = cp.scene_id
 	if explore_id == "":
 		return
+	current_explore_id = explore_id
+	_refresh_enemies_daily()
 	var path := "res://scenes/explore_maps/%s.tscn" % explore_id
 	if not ResourceLoader.exists(path):
 		return
@@ -161,6 +170,15 @@ func _load_tilemap_for_explore_id():
 		background_layer.z_index = 0
 	if frontground_layer:
 		frontground_layer.z_index = 1
+	# 查找敌人刷新层
+	enemy_layer = tilemap_layers_container.get_node_or_null("EnemyLayer")
+	if enemy_layer == null:
+		enemy_layer = tilemap_layers_container.get_node_or_null("enemylayer")
+	if enemy_layer == null:
+		for child in tilemap_layers_container.get_children():
+			if child is TileMapLayer and String(child.name).to_lower().contains("enemy"):
+				enemy_layer = child
+				break
 	if player:
 		player.z_index = 2
 	if snow_fox:
@@ -170,6 +188,7 @@ func _load_tilemap_for_explore_id():
 	if drop_system and drop_system.has_method("set_current_scene_id"):
 		drop_system.set_current_scene_id(explore_id)
 		drop_system.spawn_drops_for_current_scene()
+	_spawn_enemies_for_scene(explore_id)
 
 	_setup_chunk_streaming()
 	_restore_checkpoint_if_available()
@@ -335,8 +354,11 @@ func _open_map_from_explore():
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
 		sm.set_meta("map_origin", "explore")
-		if not sm.has_meta("explore_current_id"):
-			sm.set_meta("explore_current_id", "explore")
+		if not sm.save_data.has("explore_checkpoint"):
+			sm.save_data.explore_checkpoint = {"active": true, "scene_id": current_explore_id}
+		else:
+			sm.save_data.explore_checkpoint.active = true
+			sm.save_data.explore_checkpoint.scene_id = current_explore_id
 		sm.save_game(sm.current_slot)
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
@@ -419,20 +441,156 @@ func _input(event: InputEvent):
 				return
 			
 			# 执行射击
-			_handle_shoot()
-			get_viewport().set_input_as_handled()
+				_handle_shoot()
+				get_viewport().set_input_as_handled()
+
+func _create_health_ui():
+	player_health_bar = ProgressBar.new()
+	player_health_bar.position = Vector2(20, 20)
+	player_health_bar.size = Vector2(240, 24)
+	player_health_bar.min_value = 0
+	player_health_bar.max_value = 100
+	player_health_bar.value = 100
+	ui_root.add_child(player_health_bar)
+	if player:
+		player.health_changed.connect(_on_player_health_changed)
+		player.player_hit.connect(_on_player_hit)
+		player.player_died.connect(_on_player_died)
+
+func _on_player_health_changed(cur: int, max: int):
+	player_health_bar.max_value = max
+	player_health_bar.value = cur
+
+func _create_hit_flash():
+	hit_flash = ColorRect.new()
+	hit_flash.color = Color(1, 0, 0, 0.0)
+	hit_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hit_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_root.add_child(hit_flash)
+
+func _flash_screen():
+	if not hit_flash:
+		return
+	hit_flash.color = Color(1, 0, 0, 0.0)
+	var tween = hit_flash.create_tween()
+	tween.tween_property(hit_flash, "color:a", 0.35, 0.08)
+	tween.tween_property(hit_flash, "color:a", 0.0, 0.25)
+
+func _on_player_hit(_damage: int):
+	_flash_screen()
+	show_damage_number(_damage, player.global_position)
+
+func show_damage_number(value: int, world_pos: Vector2, color: Color = Color(1,0,0)):
+	var label = Label.new()
+	label.text = "-" + str(value)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_constant_override("outline_size", 2)
+	label.add_theme_color_override("font_outline_color", Color(0,0,0))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.top_level = true
+	label.global_position = world_pos
+	add_child(label)
+	var tween = label.create_tween()
+	var target = world_pos + Vector2(0, -32)
+	tween.tween_property(label, "global_position", target, 0.6)
+	tween.tween_property(label, "modulate:a", 0.0, 0.6)
+	await tween.finished
+	label.queue_free()
+
+func update_enemy_state(enemy_node):
+	var sid = enemy_node.get_meta("spawn_id") if enemy_node else ""
+	if sid == "":
+		return
+	if not enemy_system_data.has(current_explore_id):
+		enemy_system_data[current_explore_id] = []
+	var arr = enemy_system_data[current_explore_id]
+	var found = false
+	for i in range(arr.size()):
+		if arr[i].get("id", "") == sid:
+			arr[i].health = enemy_node.health
+			arr[i].pos = [enemy_node.global_position.x, enemy_node.global_position.y]
+			found = true
+			break
+	if not found:
+		arr.append({"id": sid, "type": "basic", "pos": [enemy_node.global_position.x, enemy_node.global_position.y], "health": enemy_node.health})
+	enemy_system_data[current_explore_id] = arr
+	if SaveManager:
+		SaveManager.save_data.enemy_system_data = enemy_system_data.duplicate(true)
+		SaveManager.save_game(SaveManager.current_slot)
+
+func get_enemy_save_data() -> Dictionary:
+	var result := {}
+	for enemy in active_enemies:
+		var sid = enemy.get_meta("spawn_id")
+		if sid == null:
+			continue
+		if not result.has(current_explore_id):
+			result[current_explore_id] = []
+		result[current_explore_id].append({
+			"id": sid,
+			"type": "basic",
+			"pos": [enemy.global_position.x, enemy.global_position.y],
+			"health": enemy.health
+		})
+	return result
+
+func _on_player_died():
+	print("玩家死亡，开始处理死亡逻辑...")
+	
+	# 保存死亡前的掉落物
+	if drop_system and InventoryManager:
+		var scene_id = current_explore_id
+		var pos = player.global_position if player else Vector2.ZERO
+		var container = InventoryManager.inventory_container
+		if container:
+			print("开始掉落玩家物品...")
+			if container.has_weapon_slot and not container.weapon_slot.is_empty():
+				var w = container.weapon_slot
+				print("掉落武器: ", w.get("item_id", ""))
+				drop_system.create_drop(w.get("item_id",""), int(w.get("count",1)), scene_id, pos)
+				container.weapon_slot = {}
+			for i in range(container.storage.size()):
+				var item = container.storage[i]
+				if item != null:
+					print("掉落物品: ", item.get("item_id", ""), " x", item.get("count", 1))
+					drop_system.create_drop(item.get("item_id",""), int(item.get("count",1)), scene_id, pos)
+					container.storage[i] = null
+			container.storage_changed.emit()
+	
+	# 保存探索状态（宝箱、掉落物、敌人状态）
+	print("保存探索状态...")
+	_save_explore_inventory_state()
+	
+	# 显示死亡消息
+	_show_death_message()
+	
+	# 延迟返回主场景，确保所有保存操作完成
+	print("准备返回主场景...")
+	await get_tree().create_timer(0.5).timeout
+	# 强制清除探索断点
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		print("清除探索断点...")
+		sm.save_data.explore_checkpoint = {}
+		# 立即保存到文件
+		sm.save_game(sm.current_slot)
+		print("探索断点已清除并保存")
+	get_tree().change_scene_to_file("res://scripts/main.tscn")
+
+func _show_death_message():
+	if has_node("/root/MessageDisplayManager"):
+		var mgr = get_node("/root/MessageDisplayManager")
+		mgr.show_failure_message("你被击倒了")
 
 func _is_click_on_ui(click_position: Vector2) -> bool:
 	"""检查点击位置是否在UI元素上"""
-	# 检查所有UI子节点
 	for child in $UI.get_children():
 		if child is Control and child.visible:
-			# 获取控件的全局矩形
-			var rect = Rect2(child.global_position, child.size)
+			if child.mouse_filter != Control.MOUSE_FILTER_STOP:
+				continue
+			var rect = child.get_global_rect()
 			if rect.has_point(click_position):
-				# print("点击在UI元素上: ", child.name)
 				return true
-	
 	return false
 
 func _handle_shoot():
@@ -443,7 +601,9 @@ func _handle_shoot():
 	var shoot_position = player.get_shoot_position()
 	var aim_direction = player.get_aim_direction()
 	var player_rotation = player.rotation
-	
+	if player and player.is_mobile:
+		# 移动端按 _process 中的持续射击逻辑触发，这里避免重复
+		return
 	weapon_system.shoot(shoot_position, aim_direction, player_rotation)
 
 func _create_weapon_ui():
@@ -454,6 +614,104 @@ func _create_weapon_ui():
 		if weapon_ui:
 			$UI.add_child(weapon_ui)
 			weapon_ui.setup(weapon_system)
+
+func _spawn_enemies_for_scene(explore_id: String):
+	var killed := {}
+	if SaveManager:
+		if not SaveManager.save_data.has("enemy_records"):
+			SaveManager.save_data.enemy_records = {}
+		killed = SaveManager.save_data.enemy_records.get(explore_id, {})
+
+	if enemy_system_data.has(explore_id):
+		for entry in enemy_system_data[explore_id]:
+			var pid = entry.get("id", "")
+			if pid != "" and killed.has(pid) and killed[pid] == true:
+				continue
+			var pos = Vector2(entry.pos[0], entry.pos[1])
+			var e = _spawn_enemy_at(pos, entry.get("type", "basic"), pid)
+			if e and entry.has("health"):
+				e.health = int(entry.health)
+	else:
+		var points = _get_enemy_points_from_layer(enemy_layer)
+		var spawned_entries := []
+		for point in points:
+			var pid = point.get("id", "")
+			if pid == "":
+				continue
+			if killed.has(pid) and killed[pid] == true:
+				continue
+			var e2 = _spawn_enemy_at(point.pos, point.get("type", "basic"), pid)
+			if e2:
+				spawned_entries.append({"id": pid, "type": point.get("type", "basic"), "pos": [point.pos.x, point.pos.y], "health": e2.health})
+		enemy_system_data[explore_id] = spawned_entries
+		if SaveManager:
+			SaveManager.save_data.enemy_system_data = enemy_system_data.duplicate(true)
+			SaveManager.save_game(SaveManager.current_slot)
+
+func _get_enemy_points_from_layer(layer: TileMapLayer) -> Array:
+	var result: Array = []
+	if layer == null:
+		return result
+	var cells = layer.get_used_cells()
+	for cell in cells:
+		var local_pos = layer.map_to_local(cell)
+		var world_pos = layer.to_global(local_pos)
+		var td = layer.get_cell_tile_data(cell)
+		var etype = "basic"
+		if td:
+			var d = td.get_custom_data("enemy_type")
+			if d is String and d != "":
+				etype = d
+		var pid = "%s_%d_%d" % [etype, int(cell.x), int(cell.y)]
+		result.append({"id": pid, "type": etype, "pos": world_pos})
+	return result
+
+func _spawn_enemy_at(pos: Vector2, enemy_type: String, spawn_id: String):
+	var enemy_script = load("res://scripts/explore/enemy_basic.gd")
+	var enemy = enemy_script.new()
+	enemy.enemy_type = enemy_type
+	add_child(enemy)
+	enemy.global_position = pos
+	enemy.set_player(player)
+	enemy.set_drop_system(drop_system)
+	enemy.set_meta("spawn_id", spawn_id)
+	enemy.died.connect(_on_enemy_died.bind(enemy))
+	active_enemies.append(enemy)
+	return enemy
+
+func _on_enemy_died(enemy_node):
+	var sid = enemy_node.get_meta("spawn_id") if enemy_node else ""
+	if sid == "" or not SaveManager:
+		return
+	if not SaveManager.save_data.has("enemy_records"):
+		SaveManager.save_data.enemy_records = {}
+	var scene_records = SaveManager.save_data.enemy_records.get(current_explore_id, {})
+	scene_records[sid] = true
+	SaveManager.save_data.enemy_records[current_explore_id] = scene_records
+	SaveManager.save_game(SaveManager.current_slot)
+	active_enemies.erase(enemy_node)
+	if enemy_system_data.has(current_explore_id):
+		var arr = enemy_system_data[current_explore_id]
+		for i in range(arr.size()):
+			if arr[i].get("id", "") == sid:
+				arr.remove_at(i)
+				break
+		SaveManager.save_data.enemy_system_data = enemy_system_data.duplicate(true)
+		SaveManager.save_game(SaveManager.current_slot)
+
+func _refresh_enemies_daily():
+	if not SaveManager:
+		return
+	var unix = Time.get_unix_time_from_system()
+	var tz = 0
+	var local = Time.get_datetime_dict_from_unix_time(int(unix + tz))
+	var date_str = "%04d-%02d-%02d" % [local.year, local.month, local.day]
+	var last = SaveManager.get_meta("enemy_refresh_date") if SaveManager.has_meta("enemy_refresh_date") else ""
+	if last != date_str:
+		SaveManager.set_meta("enemy_refresh_date", date_str)
+		SaveManager.save_data.enemy_records = {}
+		SaveManager.save_data.enemy_system_data = {}
+		SaveManager.save_game(SaveManager.current_slot)
 
 func _create_mobile_ui():
 	"""创建移动端UI"""
@@ -542,6 +800,9 @@ func _load_explore_inventory_state():
 	# 从存档加载掉落物数据
 	if drop_system and SaveManager and SaveManager.save_data.has("drop_system_data"):
 		drop_system.load_save_data(SaveManager.save_data.drop_system_data)
+	# 从存档加载敌人状态数据
+	if SaveManager and SaveManager.save_data.has("enemy_system_data"):
+		enemy_system_data = SaveManager.save_data.enemy_system_data.duplicate(true)
 	
 	print("已加载探索模式背包状态")
 	player_inventory.container = InventoryManager.inventory_container
@@ -557,6 +818,8 @@ func _save_explore_inventory_state():
 		SaveManager.save_data.chest_system_data = chest_system.get_save_data()
 	if drop_system:
 		SaveManager.save_data.drop_system_data = drop_system.get_save_data()
+	# 保存敌人状态
+	SaveManager.save_data.enemy_system_data = get_enemy_save_data()
 	SaveManager.save_game(SaveManager.current_slot)
 	print("已保存探索模式背包状态")
 
@@ -595,11 +858,7 @@ func get_player_inventory() -> PlayerInventory:
 	return player_inventory
 
 func get_checkpoint_data() -> Dictionary:
-	var scene_id := ""
-	if has_node("/root/SaveManager"):
-		var sm = get_node("/root/SaveManager")
-		if sm.has_meta("explore_current_id"):
-			scene_id = sm.get_meta("explore_current_id")
+	var scene_id := current_explore_id
 	var ppos = player.global_position if player else Vector2.ZERO
 	var fpos = snow_fox.global_position if snow_fox else Vector2.ZERO
 	return {
@@ -616,7 +875,11 @@ func get_field_state_data() -> Dictionary:
 		chest_data = chest_system.get_save_data()
 	if drop_system and drop_system.has_method("get_save_data"):
 		drop_data = drop_system.get_save_data()
-	return {"chest_system_data": chest_data, "drop_system_data": drop_data}
+	var enemy_data = get_enemy_save_data()
+	var enemy_records_data = {}
+	if SaveManager and SaveManager.save_data.has("enemy_records"):
+		enemy_records_data = SaveManager.save_data.enemy_records
+	return {"chest_system_data": chest_data, "drop_system_data": drop_data, "enemy_system_data": enemy_data, "enemy_records": enemy_records_data}
 
 func _restore_checkpoint_if_available():
 	if not has_node("/root/SaveManager"):

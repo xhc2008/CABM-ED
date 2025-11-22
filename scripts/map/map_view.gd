@@ -303,7 +303,12 @@ func _on_enter_explore():
 	if has_node("/root/SaveManager"):
 		var sm = get_node("/root/SaveManager")
 		if current_explore_id != "":
-			sm.set_meta("explore_current_id", current_explore_id)
+			if not sm.save_data.has("explore_checkpoint"):
+				sm.save_data.explore_checkpoint = {"active": true, "scene_id": current_explore_id}
+			else:
+				sm.save_data.explore_checkpoint.active = true
+				sm.save_data.explore_checkpoint.scene_id = current_explore_id
+			sm.save_game(sm.current_slot)
 		if sm.has_meta("map_origin"):
 			sm.remove_meta("map_origin")
 	get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
