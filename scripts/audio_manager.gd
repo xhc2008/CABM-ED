@@ -105,28 +105,23 @@ func restore_bgm_playlist_sync():
 	
 	var save_manager = get_node("/root/SaveManager")
 	var bgm_config = save_manager.get_bgm_config()
-	
+	var play_mode = PlayMode.SEQUENTIAL
 	if bgm_config.has("all"):
 		var all_config = bgm_config["all"]
-		var enabled_music = all_config.get("enabled_music", [])
-		var play_mode = all_config.get("play_mode", PlayMode.SEQUENTIAL)
-		
-		if not enabled_music.is_empty():
-			# 验证文件是否存在
-			var valid_music = []
-			for music_path in enabled_music:
-				if FileAccess.file_exists(music_path) or ResourceLoader.exists(music_path):
-					valid_music.append(music_path)
-			
-			if not valid_music.is_empty():
-				print("🎵 恢复播放列表: ", valid_music.size(), "首音乐")
-				play_playlist(valid_music, play_mode, 0, false)  # mark_as_custom = false，这是场景配置
-			else:
-				print("⚠️ 播放列表中没有有效的音乐文件")
+		play_mode = all_config.get("play_mode", PlayMode.SEQUENTIAL)
+	var all_paths = _get_all_bgm_paths()
+	if not all_paths.is_empty():
+		var valid_music = []
+		for music_path in all_paths:
+			if FileAccess.file_exists(music_path) or ResourceLoader.exists(music_path):
+				valid_music.append(music_path)
+		if not valid_music.is_empty():
+			print("🎵 恢复播放列表: ", valid_music.size(), "首音乐")
+			play_playlist(valid_music, play_mode, 0, false)
 		else:
-			print("ℹ️ 播放列表为空，跳过恢复")
+			print("⚠️ 播放列表中没有有效的音乐文件")
 	else:
-		print("ℹ️ 未找到BGM配置，跳过恢复")
+		print("ℹ️ 未找到可用音乐文件，跳过恢复")
 
 func _get_default_config() -> Dictionary:
 	"""获取默认配置（当配置文件不存在时使用）"""
@@ -519,15 +514,13 @@ func _apply_scene_bgm_config(scene_config: Dictionary):
 	var play_mode = PlayMode.SEQUENTIAL
 	
 	if scene_config.is_empty():
-		# 场景没有配置，使用"全部"场景的配置
 		if has_node("/root/SaveManager"):
 			var save_manager = get_node("/root/SaveManager")
 			var bgm_config = save_manager.get_bgm_config()
-			
 			if bgm_config.has("all"):
 				var all_config = bgm_config["all"]
-				enabled_music = all_config.get("enabled_music", [])
 				play_mode = all_config.get("play_mode", PlayMode.SEQUENTIAL)
+		enabled_music = _get_all_bgm_paths()
 	else:
 		# 使用场景自己的配置
 		enabled_music = scene_config.get("enabled_music", [])
@@ -619,3 +612,42 @@ func _play_ambient_for_scene(scene_id: String, time_id: String, weather_id: Stri
 func get_current_bgm_path() -> String:
 	"""获取当前播放的BGM路径"""
 	return current_bgm_path
+
+func _scan_bgm_directory(path: String) -> Array:
+	var result = []
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir():
+				var ext = file_name.get_extension().to_lower()
+				if ext in ["mp3", "ogg", "wav"]:
+					result.append(path + file_name)
+			file_name = dir.get_next()
+		dir.list_dir_end()
+	return result
+
+func _get_all_bgm_paths() -> Array:
+	var paths = []
+	var builtin = _scan_bgm_directory("res://assets/audio/BGM/")
+	if builtin.is_empty():
+		var fallback = [
+		"Aria Math.mp3",
+		"Wet Hands.mp3",
+		"Φ².mp3",
+		"日陰と帽子と風鈴と.mp3",
+		"木漏れ日の縁側.mp3",
+		"编织者之森.mp3"
+	]
+		for f in fallback:
+			var full = "res://assets/audio/BGM/" + f
+			if ResourceLoader.exists(full):
+				paths.append(full)
+	else:
+		for p in builtin:
+			paths.append(p)
+	var custom = _scan_bgm_directory("user://custom_bgm/")
+	for c in custom:
+		paths.append(c)
+	return paths

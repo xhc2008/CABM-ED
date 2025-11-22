@@ -106,8 +106,7 @@ func _load_bgm_config():
 	# 确保"all"场景存在
 	if not bgm_config.has("all"):
 		bgm_config["all"] = {
-			"enabled_music": [],
-			"play_mode": 1 # SEQUENTIAL
+			"play_mode": 1
 		}
 
 func _save_bgm_config():
@@ -156,7 +155,12 @@ func _scan_directory(path: String, is_custom: bool):
 func _load_builtin_bgm_list(base_path: String):
 	"""加载内置BGM列表（用于打包后）"""
 	var builtin_bgm_files = [
-		"木漏れ日の縁側.mp3"
+		"Aria Math.mp3",
+		"Wet Hands.mp3",
+		"Φ².mp3",
+		"日陰と帽子と風鈴と.mp3",
+		"木漏れ日の縁側.mp3",
+		"编织者之森.mp3"
 	]
 	
 	for file_name in builtin_bgm_files:
@@ -169,23 +173,10 @@ func _load_builtin_bgm_list(base_path: String):
 			})
 
 func _init_default_music_list():
-	"""初始化默认音乐列表（首次使用或升级后）"""
 	var all_config = bgm_config.get("all", {})
-	var enabled_music = all_config.get("enabled_music", [])
-	
-	# 如果"全部"场景的音乐列表为空，自动添加所有音乐
-	if enabled_music.is_empty() and not bgm_files.is_empty():
-		print("[INFO] 初始化默认音乐列表...")
-		for music_data in bgm_files:
-			enabled_music.append(music_data.path)
-		
-		all_config["enabled_music"] = enabled_music
-		if not all_config.has("play_mode"):
-			all_config["play_mode"] = 1 # SEQUENTIAL
-		
-		bgm_config["all"] = all_config
-		_save_bgm_config()
-		print("[INFO] 已添加", enabled_music.size(), "首音乐到默认列表")
+	if not all_config.has("play_mode"):
+		all_config["play_mode"] = 1
+	bgm_config["all"] = all_config
 
 func _refresh_scene_list():
 	"""刷新场景列表"""
@@ -284,17 +275,19 @@ func _refresh_music_list():
 	
 	# 检查是否使用默认设置（仅在非编辑模式下）
 	if is_edit_mode:
-		# 编辑模式：始终隐藏提示，显示所有音乐
 		hint_label.hide()
 		_show_edit_mode_list()
 	else:
-		# 非编辑模式
-		if selected_scene != "all" and enabled_music.is_empty():
-			# 场景没有音乐：只显示提示，不显示列表
+		if selected_scene == "all":
+			hint_label.hide()
+			var all_paths = []
+			for music_data in bgm_files:
+				all_paths.append(music_data.path)
+			_show_normal_mode_list(all_paths)
+		elif enabled_music.is_empty():
 			hint_label.text = "该场景未配置音乐，默认沿用全部音乐\n点击\"编辑\"按钮可为该场景单独配置音乐"
 			hint_label.show()
 		else:
-			# 场景有音乐：隐藏提示，显示音乐列表
 			hint_label.hide()
 			_show_normal_mode_list(enabled_music)
 	
@@ -385,16 +378,21 @@ func _on_music_item_pressed(music_data: Dictionary):
 	
 	# 正常模式：点击音乐会播放
 	if audio_manager:
-		# 获取当前场景的播放列表和播放模式
 		var scene_config = bgm_config.get(selected_scene, {})
 		var enabled_music = scene_config.get("enabled_music", [])
 		var play_mode = scene_config.get("play_mode", 1)
-		
-		# 如果场景没有启用音乐，使用"全部"的设置
-		if selected_scene != "all" and enabled_music.is_empty():
-			scene_config = bgm_config.get("all", {})
-			enabled_music = scene_config.get("enabled_music", [])
-			play_mode = scene_config.get("play_mode", 1)
+		if selected_scene == "all":
+			enabled_music = []
+			for md in bgm_files:
+				enabled_music.append(md.path)
+			var all_conf = bgm_config.get("all", {})
+			play_mode = all_conf.get("play_mode", 1)
+		elif enabled_music.is_empty():
+			enabled_music = []
+			for md in bgm_files:
+				enabled_music.append(md.path)
+			var all_conf2 = bgm_config.get("all", {})
+			play_mode = all_conf2.get("play_mode", 1)
 		
 		# 找到点击音乐在列表中的索引
 		var start_index = enabled_music.find(music_data.path)
@@ -541,21 +539,8 @@ func _on_upload_pressed():
 	file_dialog.popup_centered(Vector2(800, 600))
 
 func _on_files_selected(paths: PackedStringArray):
-	"""文件选择完成（仅在"全部"场景使用）"""
 	for path in paths:
-		var dest_path = _copy_file_to_custom(path)
-		if dest_path != "":
-			# 自动添加到"全部"场景的音乐列表
-			var all_config = bgm_config.get("all", {
-				"enabled_music": [],
-				"play_mode": 1
-			})
-			var enabled_music = all_config.get("enabled_music", [])
-			if not enabled_music.has(dest_path):
-				enabled_music.append(dest_path)
-			all_config["enabled_music"] = enabled_music
-			bgm_config["all"] = all_config
-	
+		_copy_file_to_custom(path)
 	_load_music_list()
 	_save_bgm_config()
 	_refresh_music_list()
