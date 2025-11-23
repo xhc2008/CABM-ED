@@ -2,7 +2,7 @@
   "enemies": {
     "basic": {
       "name": "普通敌人",
-      "max_health": 60,
+      "max_health": 80,
       "attack_damage": 12,
       "move_speed": 120.0,
       "attack_range": 48.0,

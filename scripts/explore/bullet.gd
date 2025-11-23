@@ -87,6 +87,7 @@ func _physics_process(delta):
 		point_q.position = p
 		point_q.collision_mask = 2
 		point_q.collide_with_areas = true
+		point_q.collide_with_bodies = true
 		var res = space_state.intersect_point(point_q)
 		if not res.is_empty():
 			enemy_collider = res[0].collider
@@ -137,6 +138,7 @@ func _on_hit(hit_position: Vector2, hit_normal: Vector2):
 	query.position = hit_position
 	query.collision_mask = 2  # 假设敌人层为2
 	query.collide_with_areas = true
+	query.collide_with_bodies = true
 	
 	var results = space_state.intersect_point(query)
 	for result in results:

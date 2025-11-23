@@ -507,14 +507,26 @@ func show_damage_number(value: int, world_pos: Vector2, color: Color = Color(1,0
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_constant_override("outline_size", 2)
 	label.add_theme_color_override("font_outline_color", Color(0,0,0))
-	var offset = randf_range(-20.0, 20.0)
-	label.global_position = world_pos + Vector2(offset, offset)
+	label.z_index = 3
+	# 生成随机起始偏移
+	var start_offset_x = randf_range(-40.0, 0.0)
+	var start_offset_y = randf_range(-15.0, -5.0)
+	
+	# 设置初始位置
+	label.global_position = world_pos + Vector2(start_offset_x, start_offset_y)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.top_level = true
-	label.global_position = world_pos
+	
 	add_child(label)
+	
 	var tween = label.create_tween()
-	var target = world_pos + Vector2(0, -32)
+	
+	# 目标位置：主要向上，但有随机左右偏移
+	var target_offset_x = randf_range(-40.0, 0.0)  # 水平随机偏移
+	var target_offset_y = randf_range(-40.0, -25.0) # 垂直向上移动
+	
+	var target = world_pos + Vector2(target_offset_x, target_offset_y)
+	
 	tween.tween_property(label, "global_position", target, 0.6)
 	tween.tween_property(label, "modulate:a", 0.0, 0.6)
 	await tween.finished

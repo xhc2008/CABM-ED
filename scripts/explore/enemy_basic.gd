@@ -1,4 +1,4 @@
-extends Area2D
+extends CharacterBody2D
 class_name BasicEnemy
 
 signal died
@@ -23,8 +23,20 @@ var last_attack_time: float = -999.0
 var facing: Vector2 = Vector2.RIGHT
 var drop_table: Array = []
 
+# 新增的游荡逻辑变量
+var idle_timer: float = 0.0
+var current_idle_action: String = ""
+var idle_target_rotation: float = 0.0
+var idle_move_speed: float = 0.0
+var idle_move_duration: float = 0.0
+var idle_move_time: float = 0.0
+
 func _ready():
 	_load_config()
+	
+	# 设置图层在前景之上
+	z_index = 1
+	
 	var shape = CircleShape2D.new()
 	shape.radius = 18.0
 	var cs = CollisionShape2D.new()
@@ -63,7 +75,7 @@ func set_player(p: ExplorePlayer):
 func set_drop_system(ds: Node):
 	drop_system = ds
 
-func _process(delta):
+func _physics_process(delta):
 	if not player:
 		return
 	var to_player = player.global_position - global_position
@@ -76,6 +88,7 @@ func _process(delta):
 			_attack_if_ready()
 	else:
 		_idle_behavior(delta)
+	move_and_slide()
 
 func _in_detection(to_player: Vector2) -> bool:
 	var dist = to_player.length()
@@ -86,17 +99,63 @@ func _in_detection(to_player: Vector2) -> bool:
 
 func _move_towards(target: Vector2, delta: float):
 	var dir = (target - global_position).normalized()
-	global_position += dir * move_speed * delta
+	velocity = dir * move_speed
 	sprite.rotation = dir.angle()
 
 func _idle_behavior(delta: float):
-	if Time.get_ticks_msec() / 1000.0 - last_turn_time > 1.2:
-		last_turn_time = Time.get_ticks_msec() / 1000.0
-		var ang = randf_range(-PI, PI)
-		facing = Vector2(cos(ang), sin(ang))
-		if randf() < 0.5:
-			global_position += facing * move_speed * 0.5 * delta
-			sprite.rotation = facing.angle()
+	if current_idle_action == "":
+		# 选择新的行为
+		_choose_new_idle_action()
+		return
+	
+	if current_idle_action == "pause":
+		idle_timer -= delta
+		if idle_timer <= 0:
+			current_idle_action = ""
+			velocity = Vector2.ZERO
+	
+	elif current_idle_action == "move":
+		idle_move_time += delta
+		
+		# 平滑转向
+		var current_angle = sprite.rotation
+		var target_angle = idle_target_rotation
+		
+		# 计算最短的旋转方向
+		var angle_diff = fmod(target_angle - current_angle + PI, PI * 2) - PI
+		var rotation_step = sign(angle_diff) * delta * 2.0  # 调整旋转速度
+		
+		if abs(angle_diff) > abs(rotation_step):
+			sprite.rotation += rotation_step
+		else:
+			sprite.rotation = target_angle
+			# 转向完成后开始移动
+			facing = Vector2(cos(idle_target_rotation), sin(idle_target_rotation))
+			velocity = facing * idle_move_speed
+		
+		# 移动时间结束
+		if idle_move_time >= idle_move_duration:
+			current_idle_action = ""
+			velocity = Vector2.ZERO
+
+func _choose_new_idle_action():
+	var actions = ["pause", "move"]
+	current_idle_action = actions[randi() % actions.size()]
+	
+	match current_idle_action:
+		"pause":
+			# 停顿1~5秒
+			idle_timer = randf_range(0.5, 5.0)
+			velocity = Vector2.ZERO
+		
+		"move":
+			# 随机方向
+			idle_target_rotation = randf_range(-PI, PI)
+			# 随机速度（基础速度的30%~70%）
+			idle_move_speed = move_speed * randf_range(0.3, 0.7)
+			# 随机移动持续时间（0.5~3秒）
+			idle_move_duration = randf_range(0.5, 4.0)
+			idle_move_time = 0.0
 
 func _attack_if_ready():
 	var now = Time.get_ticks_msec() / 1000.0
@@ -104,11 +163,10 @@ func _attack_if_ready():
 		return
 	last_attack_time = now
 	var dir = (player.global_position - global_position).normalized()
-	await get_tree().process_frame
-	global_position += dir * 32.0
+	var _col1 = move_and_collide(dir * 32.0)
 	if player and player.has_method("take_damage"):
 		player.take_damage(attack_damage)
-	global_position -= dir * 16.0
+	var _col2 = move_and_collide(-dir * 16.0)
 
 func take_damage(amount: int):
 	health = max(0, health - int(amount))
