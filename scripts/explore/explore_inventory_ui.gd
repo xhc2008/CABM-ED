@@ -128,7 +128,7 @@ func _on_drag_ended(_slot_index: int, _storage_type: String):
 						scene_id = sm.save_data.explore_checkpoint.scene_id
 				
 				if explore_scene.drop_system:
-					explore_scene.drop_system.create_drop(item.item_id, int(item.count), scene_id, pos)
+					explore_scene.drop_system.create_drop(item.item_id, int(item.count), scene_id, pos, item.duplicate(true))
 				player_container.storage[dragging_slot_index] = null
 				player_container.storage_changed.emit()
 				if has_node("/root/SaveManager"):
@@ -170,7 +170,7 @@ func _on_weapon_drag_ended(_storage_type: String):
 						scene_id = sm.save_data.explore_checkpoint.scene_id
 				
 				if explore_scene.drop_system:
-					explore_scene.drop_system.create_drop(weapon_item.item_id, 1, scene_id, pos)
+					explore_scene.drop_system.create_drop(weapon_item.item_id, 1, scene_id, pos, weapon_item.duplicate(true))
 				player_container.weapon_slot = {}
 				player_container.storage_changed.emit()
 				if has_node("/root/SaveManager"):

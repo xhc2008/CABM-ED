@@ -7,12 +7,14 @@ var drop_id: String = ""
 var item_id: String = ""
 var count: int = 1
 var items_config: Dictionary = {}
+var item_data: Dictionary = {}
 
-func setup(id: String, item: String, n: int, config: Dictionary):
+func setup(id: String, item: String, n: int, config: Dictionary, data: Dictionary = {}):
 	drop_id = id
 	item_id = item
 	count = int(n)
 	items_config = config
+	item_data = data.duplicate(true)
 	
 	var shape = CircleShape2D.new()
 	shape.radius = 24.0
@@ -64,6 +66,11 @@ func _pick_up():
 	var scene = get_tree().current_scene
 	if scene and scene.has_method("get_player_inventory"):
 		var p_inv = scene.get_player_inventory()
-		if p_inv and p_inv.add_item(item_id, count):
+		var ok := false
+		if p_inv and p_inv.has_method("add_item_with_data"):
+			ok = p_inv.add_item_with_data(item_id, count, item_data)
+		elif p_inv:
+			ok = p_inv.add_item(item_id, count)
+		if ok:
 			picked_up.emit(drop_id)
 			queue_free()

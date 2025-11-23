@@ -42,6 +42,32 @@ func add_item(item_id: String, count: int = 1) -> bool:
 	"""添加物品到背包"""
 	return container.add_item(item_id, count)
 
+func add_item_with_data(item_id: String, count: int = 1, data: Dictionary = {}) -> bool:
+	var cfg = get_item_config(item_id)
+	if cfg.get("type") == "武器":
+		var is_remote = cfg.get("subtype") == "远程"
+		var ammo_val := int(data.get("ammo", 0)) if is_remote else 0
+		if container.has_weapon_slot and container.weapon_slot.is_empty():
+			var w := {"item_id": item_id, "count": 1}
+			if is_remote:
+				w["ammo"] = ammo_val
+			container.weapon_slot = w
+			container.storage_changed.emit()
+			return true
+		else:
+			var placed := false
+			for i in range(container.storage.size()):
+				if container.storage[i] == null:
+					var w2 := {"item_id": item_id, "count": 1}
+					if is_remote:
+						w2["ammo"] = ammo_val
+					container.storage[i] = w2
+					placed = true
+					break
+			container.storage_changed.emit()
+			return placed
+	return container.add_item(item_id, count)
+
 func get_inventory_data():
 	"""获取背包数据用于保存"""
 	return container.get_data()

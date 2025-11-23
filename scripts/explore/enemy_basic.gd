@@ -31,7 +31,6 @@ func _ready():
 	cs.shape = shape
 	add_child(cs)
 	set_collision_layer_value(2, true)
-	set_collision_layer_value(1, true)
 	set_collision_mask_value(1, true)
 	set_collision_mask_value(2, true)
 	sprite = Sprite2D.new()

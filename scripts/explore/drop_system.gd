@@ -18,7 +18,7 @@ func setup(config: Dictionary):
 func set_current_scene_id(id: String):
 	current_scene_id = id
 
-func create_drop(item_id: String, count: int, scene_id: String, world_pos: Vector2):
+func create_drop(item_id: String, count: int, scene_id: String, world_pos: Vector2, data: Dictionary = {}):
 	# 在原始位置周围添加随机偏移
 	var random_offset = Vector2(
 		randf_range(-drop_random_offset_radius, drop_random_offset_radius),
@@ -30,7 +30,8 @@ func create_drop(item_id: String, count: int, scene_id: String, world_pos: Vecto
 		"id": _make_id(item_id),
 		"item_id": item_id,
 		"count": int(count),
-		"pos": [final_pos.x, final_pos.y]
+		"pos": [final_pos.x, final_pos.y],
+		"data": data.duplicate(true)
 	}
 	if not drops_by_scene.has(scene_id):
 		drops_by_scene[scene_id] = []
@@ -39,7 +40,7 @@ func create_drop(item_id: String, count: int, scene_id: String, world_pos: Vecto
 	drop_created.emit(entry.id)
 
 # 可选：如果你想要更精确控制随机范围的方法
-func create_drop_with_custom_offset(item_id: String, count: int, scene_id: String, world_pos: Vector2, offset_radius: float = 20.0):
+func create_drop_with_custom_offset(item_id: String, count: int, scene_id: String, world_pos: Vector2, offset_radius: float = 20.0, data: Dictionary = {}):
 	var random_offset = Vector2(
 		randf_range(-offset_radius, offset_radius),
 		randf_range(-offset_radius, offset_radius)
@@ -50,7 +51,8 @@ func create_drop_with_custom_offset(item_id: String, count: int, scene_id: Strin
 		"id": _make_id(item_id),
 		"item_id": item_id,
 		"count": int(count),
-		"pos": [final_pos.x, final_pos.y]
+		"pos": [final_pos.x, final_pos.y],
+		"data": data.duplicate(true)
 	}
 	if not drops_by_scene.has(scene_id):
 		drops_by_scene[scene_id] = []
@@ -66,7 +68,8 @@ func _drop_spawn_if_current(entry: Dictionary):
 		return
 	var pos = Vector2(entry.pos[0], entry.pos[1])
 	var node := DropItem.new()
-	node.setup(entry.id, entry.item_id, int(entry.count), items_config)
+	var inst_data = entry.get("data", {}) if entry is Dictionary else {}
+	node.setup(entry.id, entry.item_id, int(entry.count), items_config, inst_data)
 	node.global_position = pos
 	node.picked_up.connect(_on_drop_picked)
 	scene.add_child(node)

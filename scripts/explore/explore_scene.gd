@@ -570,13 +570,13 @@ func _on_player_died():
 			if container.has_weapon_slot and not container.weapon_slot.is_empty():
 				var w = container.weapon_slot
 				print("掉落武器: ", w.get("item_id", ""))
-				drop_system.create_drop(w.get("item_id",""), int(w.get("count",1)), scene_id, pos)
+				drop_system.create_drop(w.get("item_id",""), int(w.get("count",1)), scene_id, pos, w.duplicate(true))
 				container.weapon_slot = {}
 			for i in range(container.storage.size()):
 				var item = container.storage[i]
 				if item != null:
 					print("掉落物品: ", item.get("item_id", ""), " x", item.get("count", 1))
-					drop_system.create_drop(item.get("item_id",""), int(item.get("count",1)), scene_id, pos)
+					drop_system.create_drop(item.get("item_id",""), int(item.get("count",1)), scene_id, pos, item.duplicate(true))
 					container.storage[i] = null
 			container.storage_changed.emit()
 	
