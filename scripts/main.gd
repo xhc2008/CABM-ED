@@ -604,20 +604,17 @@ func _on_open_map_requested():
 			if has_node("/root/SaveManager"):
 				var sm2 = get_node("/root/SaveManager")
 				if sm2.save_data.has("explore_checkpoint"):
-					sm2.save_data.explore_checkpoint={}
+					sm2.save_data.erase("explore_checkpoint")
 				sm2.save_game(sm2.current_slot)
 				if sm2.has_meta("map_origin"):
 					sm2.remove_meta("map_origin")
 		map_view.map_closed.connect(func():
 			map_view.queue_free()
-			if origin == "explore":
-				if has_node("/root/SaveManager"):
-					var sm3 = get_node("/root/SaveManager")
-					if sm3.has_meta("map_origin"):
-						sm3.remove_meta("map_origin")
-				get_tree().change_scene_to_file("res://scenes/explore_scene.tscn")
-			else:
-				game_state_manager.show_main_scene())
+			if has_node("/root/SaveManager"):
+				var sm3 = get_node("/root/SaveManager")
+				if sm3.has_meta("map_origin"):
+					sm3.remove_meta("map_origin")
+			game_state_manager.show_main_scene())
 
 func _check_open_map_on_load():
 	if has_node("/root/SaveManager"):

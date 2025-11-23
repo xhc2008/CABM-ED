@@ -293,6 +293,10 @@ func _perform_daily_refresh(new_date: String):
 	if save_data.has("shop_system_data"):
 		save_data.shop_system_data = {}
 		print("已删除shop_system_data，商店已刷新")
+	# 删除enemy_system_data（刷新敌人）
+	if save_data.has("enemy_system_data"):
+		save_data.enemy_system_data = {}
+		print("已删除enemy_system_data，敌人已刷新")
 	
 	# 2. 更新刷新日期
 	save_data.timestamp.last_refresh_date = new_date

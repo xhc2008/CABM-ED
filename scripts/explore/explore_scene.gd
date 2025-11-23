@@ -138,17 +138,43 @@ func _load_tilemap_for_explore_id():
 			if cp.has("scene_id"):
 				explore_id = cp.scene_id
 	if explore_id == "":
+		if has_node("/root/SaveManager"):
+			var sm_fallback = get_node("/root/SaveManager")
+			if sm_fallback.save_data.has("explore_checkpoint"):
+				sm_fallback.save_data.erase("explore_checkpoint")
+				sm_fallback.save_game(sm_fallback.current_slot)
+		get_tree().change_scene_to_file("res://scripts/main.tscn")
 		return
 	current_explore_id = explore_id
-	_refresh_enemies_daily()
+	if has_node("/root/SaveManager"):
+		var sm2 = get_node("/root/SaveManager")
+		sm2.set_meta("explore_current_id", current_explore_id)
 	var path := "res://scenes/explore_maps/%s.tscn" % explore_id
 	if not ResourceLoader.exists(path):
+		if has_node("/root/SaveManager"):
+			var sm_fb2 = get_node("/root/SaveManager")
+			if sm_fb2.save_data.has("explore_checkpoint"):
+				sm_fb2.save_data.erase("explore_checkpoint")
+				sm_fb2.save_game(sm_fb2.current_slot)
+		get_tree().change_scene_to_file("res://scripts/main.tscn")
 		return
 	var scene_res = load(path)
 	if scene_res == null:
+		if has_node("/root/SaveManager"):
+			var sm_fb3 = get_node("/root/SaveManager")
+			if sm_fb3.save_data.has("explore_checkpoint"):
+				sm_fb3.save_data.erase("explore_checkpoint")
+				sm_fb3.save_game(sm_fb3.current_slot)
+		get_tree().change_scene_to_file("res://scripts/main.tscn")
 		return
 	var new_container = scene_res.instantiate()
 	if new_container == null:
+		if has_node("/root/SaveManager"):
+			var sm_fb4 = get_node("/root/SaveManager")
+			if sm_fb4.save_data.has("explore_checkpoint"):
+				sm_fb4.save_data.erase("explore_checkpoint")
+				sm_fb4.save_game(sm_fb4.current_slot)
+		get_tree().change_scene_to_file("res://scripts/main.tscn")
 		return
 	if tilemap_layers_container and is_instance_valid(tilemap_layers_container):
 		tilemap_layers_container.queue_free()
@@ -352,7 +378,8 @@ func _open_map_from_explore():
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
 		sm.set_meta("map_origin", "explore")
-		sm.save_data.explore_checkpoint = {"active": false}
+		if sm.save_data.has("explore_checkpoint"):
+			sm.save_data.erase("explore_checkpoint")
 		sm.save_game(sm.current_slot)
 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
@@ -515,19 +542,19 @@ func update_enemy_state(enemy_node):
 		SaveManager.save_game(SaveManager.current_slot)
 
 func get_enemy_save_data() -> Dictionary:
-	var result := {}
+	var result := enemy_system_data.duplicate(true)
+	var arr := []
 	for enemy in active_enemies:
 		var sid = enemy.get_meta("spawn_id")
 		if sid == null:
 			continue
-		if not result.has(current_explore_id):
-			result[current_explore_id] = []
-		result[current_explore_id].append({
+		arr.append({
 			"id": sid,
 			"type": "basic",
 			"pos": [enemy.global_position.x, enemy.global_position.y],
 			"health": enemy.health
 		})
+	result[current_explore_id] = arr
 	return result
 
 func _on_player_died():
@@ -559,7 +586,7 @@ func _on_player_died():
 	if has_node("/root/SaveManager"):
 		var sm2 = get_node("/root/SaveManager")
 		if sm2.save_data.has("explore_checkpoint"):
-			sm2.save_data.explore_checkpoint={}
+			sm2.save_data.erase("explore_checkpoint")
 	_open_map_from_explore()
 	# 显示死亡消息
 	# _show_death_message()
@@ -684,19 +711,6 @@ func _on_enemy_died(enemy_node):
 				break
 		SaveManager.save_data.enemy_system_data = enemy_system_data.duplicate(true)
 		SaveManager.save_game(SaveManager.current_slot)
-
-func _refresh_enemies_daily():
-	if not SaveManager:
-		return
-	var unix = Time.get_unix_time_from_system()
-	var tz = 0
-	var local = Time.get_datetime_dict_from_unix_time(int(unix + tz))
-	var date_str = "%04d-%02d-%02d" % [local.year, local.month, local.day]
-	var last = SaveManager.get_meta("enemy_refresh_date") if SaveManager.has_meta("enemy_refresh_date") else ""
-	if last != date_str:
-		SaveManager.set_meta("enemy_refresh_date", date_str)
-		SaveManager.save_data.enemy_system_data = {}
-		enemy_system_data = {}
 
 func _create_mobile_ui():
 	"""创建移动端UI"""
