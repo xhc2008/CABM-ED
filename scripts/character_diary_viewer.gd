@@ -425,6 +425,8 @@ func _get_icon_and_content_for_record(record: Dictionary) -> Dictionary:
 				content_text = details
 		"offline":
 			icon = "⏰"
+		"explore":
+			icon = "🗺"
 		_:
 			icon = "❓" # 未知类型图标
 

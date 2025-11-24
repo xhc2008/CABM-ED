@@ -8,7 +8,7 @@ extends Node2D
 @onready var ui_root = $UI
 
 var mobile_ui: Control  # 移动端UI (MobileUI)
-
+var is_player_dead: bool = false
 var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
 var chest_system: Node # ChestSystem
@@ -41,6 +41,9 @@ var last_player_chunk := Vector2i(2147483647, 2147483647)
 # 探索模式的临时背包状态（进入时加载，退出时保存）
 var temp_player_inventory = {}  # 可以是 Array 或 Dictionary
 var temp_snow_fox_inventory = {}  # 可以是 Array 或 Dictionary
+
+var last_exit_was_death: bool = false
+var _map_config: Dictionary = {}
 
 func _ready():
 	# 固定分辨率和缩放模式已在项目设置中配置
@@ -128,6 +131,8 @@ func _ready():
 		inventory_button.offset_bottom = 60   # 20 + 40(按钮高度)
 		
 		inventory_button.pressed.connect(_on_inventory_button_pressed)
+	# 重置死亡状态
+	is_player_dead = false
 
 func _load_tilemap_for_explore_id():
 	var explore_id := ""
@@ -374,6 +379,25 @@ func _open_snow_fox_storage():
 
 func _open_map_from_explore():
 	_save_explore_inventory_state()
+	var memory_saver = get_node_or_null("/root/UnifiedMemorySaver")
+	if memory_saver:
+		var user_name := "玩家"
+		var scene_name := _get_explore_display_name(current_explore_id)
+		if has_node("/root/SaveManager"):
+			var smem = get_node("/root/SaveManager")
+			user_name = smem.get_user_name()
+		var base_text := "我和%s在%s进行了探索，" % [user_name, scene_name]
+		var tail_text := "我们顺利撤离"
+		if last_exit_was_death:
+			tail_text = "我们在战斗中倒下了"
+		var memory_content := base_text + tail_text
+		var meta := {
+			"type": "explore",
+			"explore_id": current_explore_id,
+			"result": "death" if last_exit_was_death else "evacuated"
+		}
+		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
+	last_exit_was_death = false
 	if has_node("/root/SaveManager"):
 		var sm = get_node("/root/SaveManager")
 		sm.set_meta("open_map_on_load", true)
@@ -570,7 +594,18 @@ func get_enemy_save_data() -> Dictionary:
 	return result
 
 func _on_player_died():
+	# 防止重复执行死亡逻辑
+	if is_player_dead:
+		return
+	
 	print("玩家死亡，开始处理死亡逻辑...")
+	is_player_dead = true
+	last_exit_was_death = true
+	
+	# 禁用玩家控制
+	if player:
+		player.set_physics_process(false)
+		player.set_process_input(false)
 	
 	# 保存死亡前的掉落物
 	if drop_system and InventoryManager:
@@ -621,7 +656,25 @@ func _handle_shoot():
 	"""处理射击"""
 	if not player or not weapon_system:
 		return
-	
+
+func _load_map_config():
+	if _map_config.is_empty():
+		var path := "res://config/map.json"
+		if FileAccess.file_exists(path):
+			var f = FileAccess.open(path, FileAccess.READ)
+			var js = f.get_as_text()
+			f.close()
+			var j = JSON.new()
+			if j.parse(js) == OK:
+				_map_config = j.data
+
+func _get_explore_display_name(explore_id: String) -> String:
+	_load_map_config()
+	if _map_config.has("world") and _map_config.world.has("points"):
+		for p in _map_config.world.points:
+			if p.get("id", "") == explore_id and p.get("type", "") == "explore":
+				return p.get("name", explore_id)
+	return explore_id
 	var shoot_position = player.get_shoot_position()
 	var aim_direction = player.get_aim_direction()
 	var player_rotation = player.rotation

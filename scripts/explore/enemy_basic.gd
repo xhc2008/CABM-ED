@@ -161,6 +161,9 @@ func _choose_new_idle_action():
 			idle_move_time = 0.0
 
 func _attack_if_ready():
+	# 检查玩家是否有效且存活
+	if not player or not is_instance_valid(player) or player.health <= 0:
+		return
 	var now = Time.get_ticks_msec() / 1000.0
 	if now - last_attack_time < attack_cooldown:
 		return
@@ -169,7 +172,7 @@ func _attack_if_ready():
 	var _col1 = move_and_collide(dir * 32.0)
 	if player and player.has_method("take_damage"):
 		player.take_damage(attack_damage)
-	var _col2 = move_and_collide(-dir * 32.0)
+	var _col2 = move_and_collide(-dir * 24.0)
 
 func take_damage(amount: int):
 	health = max(0, health - int(amount))

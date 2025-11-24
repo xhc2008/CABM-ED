@@ -10,7 +10,8 @@ enum MemoryType {
 	CHAT,      # 聊天对话
 	OFFLINE,   # 离线事件
 	GAMES,     # 游戏事件
-	COOK       # 烹饪事件
+	COOK,      # 烹饪事件
+	EXPLORE    # 探索事件
 }
 
 ## 保存记忆到三个位置
@@ -206,6 +207,8 @@ func _get_type_name(memory_type: MemoryType) -> String:
 			return "games"
 		MemoryType.COOK:
 			return "cook"
+		MemoryType.EXPLORE:
+			return "explore"
 		_:
 			return "chat"
 

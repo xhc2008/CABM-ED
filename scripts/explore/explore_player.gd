@@ -77,6 +77,8 @@ func _physics_process(_delta):
 	_update_aim_line()
 
 func take_damage(amount: int):
+	if health <= 0:
+		return
 	amount = int(max(0, amount))
 	if amount <= 0:
 		return
