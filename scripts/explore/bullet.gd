@@ -77,7 +77,11 @@ func _physics_process(delta):
 	var space_state = get_world_2d().direct_space_state
 	var ray_terrain = PhysicsRayQueryParameters2D.create(last_position, new_position)
 	ray_terrain.collision_mask = 1
-	# ray_terrain.exclude = [self, shooter]
+	var ex_rids := []
+	ex_rids.append(self.get_rid())
+	if shooter != null:
+		ex_rids.append(shooter.get_rid())
+	ray_terrain.exclude = ex_rids
 	var hit_terrain = space_state.intersect_ray(ray_terrain)
 	var hit_enemy_point: Vector2 = Vector2.ZERO
 	var enemy_collider: Object = null
@@ -90,7 +94,11 @@ func _physics_process(delta):
 		point_q.collision_mask = 2
 		point_q.collide_with_areas = true
 		point_q.collide_with_bodies = true
-		# point_q.exclude = [self, shooter]	
+		var p_ex := []
+		p_ex.append(self.get_rid())
+		if shooter != null:
+			p_ex.append(shooter.get_rid())
+		point_q.exclude = p_ex
 		var res = space_state.intersect_point(point_q)
 		if not res.is_empty():
 			enemy_collider = res[0].collider
@@ -151,6 +159,9 @@ func _on_hit(hit_position: Vector2, hit_normal: Vector2):
 
 func _create_hit_effect(hit_pos: Vector2, normal: Vector2):
 	"""创建击中效果（火花动画）"""
+	# 安全检查：确保场景树有效且当前场景存在
+	if not is_inside_tree() or not get_tree() or not get_tree().current_scene:
+		return
 	# 加载火花动画场景
 	var spark_scene = load("res://scenes/spark_effect.tscn")
 	if spark_scene:

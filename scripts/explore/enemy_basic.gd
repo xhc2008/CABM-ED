@@ -42,6 +42,7 @@ func _ready():
 	var cs = CollisionShape2D.new()
 	cs.shape = shape
 	add_child(cs)
+	set_collision_layer(0)
 	set_collision_layer_value(2, true)
 	set_collision_mask_value(1, true)
 	set_collision_mask_value(2, true)
@@ -76,7 +77,7 @@ func set_drop_system(ds: Node):
 	drop_system = ds
 
 func _physics_process(delta):
-	if not player:
+	if not player or not is_instance_valid(player):
 		return
 	var to_player = player.global_position - global_position
 	if to_player.length() > 0.01:
@@ -88,7 +89,9 @@ func _physics_process(delta):
 			_attack_if_ready()
 	else:
 		_idle_behavior(delta)
-	move_and_slide()
+	# 只在物理空间有效时移动
+	if get_world_2d() and get_world_2d().direct_space_state:
+		move_and_slide()
 
 func _in_detection(to_player: Vector2) -> bool:
 	var dist = to_player.length()
@@ -166,7 +169,7 @@ func _attack_if_ready():
 	var _col1 = move_and_collide(dir * 32.0)
 	if player and player.has_method("take_damage"):
 		player.take_damage(attack_damage)
-	var _col2 = move_and_collide(-dir * 16.0)
+	var _col2 = move_and_collide(-dir * 32.0)
 
 func take_damage(amount: int):
 	health = max(0, health - int(amount))

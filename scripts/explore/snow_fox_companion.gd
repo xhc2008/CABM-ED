@@ -8,7 +8,8 @@ class_name SnowFoxCompanion
 @export var escape_distance: float = 60.0  # 远离到这个距离
 @export var reaction_delay: float = 0.15  # 反应延迟（秒）
 @export var too_close_time_threshold: float = 2.0  # 靠太近多久后开始远离
-@export var attack_detect_radius: float = 360.0
+@export var attack_detect_radius: float = 320.0
+@export var attack_range: float = 300.0  # 有效射程
 @export var attack_cooldown: float = 0.1
 @export var pickup_radius: float = 28.0
 
@@ -69,6 +70,19 @@ func _ready():
 	shoot_player = AudioStreamPlayer2D.new()
 	shoot_player.bus = "SFX"
 	add_child(shoot_player)
+	# 设置雪狐的碰撞层与掩码：自身层为3，掩码与地形(1)与敌人(2)交互
+	set_collision_layer(0)
+	set_collision_layer_value(3, true)
+	set_collision_mask(0)
+	set_collision_mask_value(1, true)
+	set_collision_mask_value(2, true)
+
+	var detection_timer = Timer.new()
+	detection_timer.wait_time = 0.5  # 每0.5秒检测一次
+	detection_timer.timeout.connect(_periodic_target_detection)
+	add_child(detection_timer)
+	detection_timer.start()
+
 
 func _setup_navigation():
 	if target:
@@ -139,7 +153,12 @@ func _physics_process(delta):
 		# 距离合适，停止移动
 		velocity = velocity.lerp(Vector2.ZERO, delta * 5.0)
 		move_and_slide()
-		return
+		
+		# 关键修复：即使在静止状态也要检测敌人
+		_find_shootable_enemy()
+		_try_auto_attack()
+		_update_auto_pickup()
+		return  # 提前返回，不执行后面的移动逻辑
 	
 	# 使用导航代理移动
 	if navigation_agent.is_navigation_finished():
@@ -159,15 +178,20 @@ func _physics_process(delta):
 			desired_velocity = direction * follow_speed
 		velocity = velocity.lerp(desired_velocity, delta * 8.0)
 		
-		# 朝向逻辑
-		if current_enemy_target != null:
-			rotation = (current_enemy_target.global_position - global_position).angle()
+		# 朝向逻辑 - 优先朝向敌人，否则朝向移动方向
+		if current_enemy_target != null and is_instance_valid(current_enemy_target):
+			var to_enemy = current_enemy_target.global_position - global_position
+			if to_enemy.length() <= attack_range:  # 只有在射程内才朝向敌人
+				rotation = to_enemy.angle()
+			elif velocity.length() > 10.0:
+				rotation = velocity.angle()
 		elif velocity.length() > 10.0:
 			rotation = velocity.angle()
 	
 	move_and_slide()
-	_update_auto_pickup()
+	_find_shootable_enemy()
 	_try_auto_attack()
+	_update_auto_pickup()
 
 func get_storage():
 	"""获取雪狐的存储"""
@@ -296,12 +320,30 @@ func _line_of_sight_to(pos: Vector2) -> bool:
 	var space_state = get_world_2d().direct_space_state
 	var ray = PhysicsRayQueryParameters2D.create(global_position, pos)
 	ray.collision_mask = 1
+	var ex := []
+	ex.append(self.get_rid())
+	ray.exclude = ex
 	var hit = space_state.intersect_ray(ray)
-	return hit == null or hit.is_empty()
+	if hit == null or hit.is_empty():
+		return true
+	var hit_pos = hit.get("position", global_position)
+	return Vector2(hit_pos).distance_to(global_position) >= global_position.distance_to(pos) - 0.5
+func _periodic_target_detection():
+	"""定期检测目标，不依赖移动状态"""
+	if not target:
+		return
+	
+	# 强制重新检测目标
+	current_enemy_target = null
+	_find_shootable_enemy()
 
 func _find_shootable_enemy() -> Node2D:
-	return null
-	# 存在问题，暂不启用
+	# 如果当前目标有效且在射程内，保持当前目标
+	if current_enemy_target != null and is_instance_valid(current_enemy_target):
+		var dist_to_current = global_position.distance_to(current_enemy_target.global_position)
+		if dist_to_current <= attack_range and _line_of_sight_to(current_enemy_target.global_position):
+			return current_enemy_target
+
 	var space_state = get_world_2d().direct_space_state
 	var shape := CircleShape2D.new()
 	shape.radius = attack_detect_radius
@@ -310,48 +352,97 @@ func _find_shootable_enemy() -> Node2D:
 	params.transform = Transform2D(0, global_position)
 	params.collide_with_bodies = true
 	params.collide_with_areas = true
-	params.collision_mask = 1
-	params.exclude = [self]
-	var res = space_state.intersect_shape(params, 32)
+	params.collision_mask = 2
+	var ex := []
+	ex.append(self.get_rid())
+	params.exclude = ex
+	var res = space_state.intersect_shape(params, 64)
+	
+	var candidates: Array = []
 	for r in res:
 		var n: Object = r.collider
-		if n is Node2D:
-			var pos := (n as Node2D).global_position
-			if _line_of_sight_to(pos):
-				current_enemy_target = n as Node2D
-				return current_enemy_target
-	current_enemy_target = null
-	return null
+		if n is Node2D and (n as Node2D).has_method("take_damage"):
+			var dist = global_position.distance_to(n.global_position)
+			# 只在检测半径内考虑，但实际射击时还要检查射程
+			if dist <= attack_detect_radius:
+				candidates.append(n)
+
+	# 如果场景中有active_enemies数组，也检查
+	var cs = get_tree().current_scene
+	if candidates.is_empty() and cs != null:
+		var arr = cs.get("active_enemies") if cs != null else null
+		if arr is Array:
+			for en in arr:
+				if en is Node2D and is_instance_valid(en) and (en as Node2D).has_method("take_damage"):
+					var dist = global_position.distance_to(en.global_position)
+					if dist <= attack_detect_radius:
+						candidates.append(en)
+
+	var nearest: Node2D = null
+	var nearest_dist := INF
+	for cand in candidates:
+		var nd := cand as Node2D
+		if not is_instance_valid(nd):
+			continue
+			
+		var pos := nd.global_position
+		var dist := global_position.distance_to(pos)
+		
+		# 检查是否在有效射程内且有视线
+		if dist <= attack_range and _line_of_sight_to(pos):
+			if dist < nearest_dist:
+				nearest = nd
+				nearest_dist = dist
+
+	current_enemy_target = nearest
+	return nearest
 
 func _try_auto_attack():
 	var weapon = storage.get("weapon_slot", {})
 	if weapon is Dictionary and weapon.is_empty():
 		return
+		
 	var cfg := _get_weapon_config()
 	if cfg.is_empty():
 		return
+		
 	if String(cfg.get("subtype", "")) != "远程":
 		return
+		
 	var now := Time.get_ticks_msec() / 1000.0
 	if now - last_attack_time < attack_cooldown:
 		return
+		
 	var target_enemy := _find_shootable_enemy()
 	if target_enemy == null:
 		return
+		
+	# 确保敌人在有效射程内
+	var dist_to_enemy = global_position.distance_to(target_enemy.global_position)
+	if dist_to_enemy > attack_range:
+		return
+		
 	if int(weapon.get("ammo", 0)) <= 0:
 		_auto_reload_weapon(cfg)
 		if int(storage.weapon_slot.get("ammo", 0)) <= 0:
 			return
+			
 	var dir := (target_enemy.global_position - global_position).normalized()
 	storage.weapon_slot["ammo"] = int(storage.weapon_slot.get("ammo", 0)) - 1
+	
+	# 立即更新朝向到敌人
+	rotation = dir.angle()
+	
 	var bullet = BULLET_SCENE.instantiate()
 	if bullet:
 		get_tree().current_scene.add_child(bullet)
 		bullet.z_index = 3
 		bullet.setup(global_position, dir, rotation, cfg, self)
+		
 	_ensure_weapon_sound()
 	if shoot_player and shoot_player.stream:
 		shoot_player.play()
+		
 	last_attack_time = now
 
 func _ensure_weapon_sound():

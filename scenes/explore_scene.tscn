@@ -2125,7 +2125,7 @@ sources/2 = SubResource("TileSetAtlasSource_wc8on")
 radius = 20.0
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_nav"]
-vertices = PackedVector2Array(-500, -500, 1500, -500, 1500, 1500, -500, 1500)
+vertices = PackedVector2Array(-4000, -2000, 4000, -2000, 4000, 2000, -4000, 2000)
 polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
 
 [sub_resource type="CircleShape2D" id="fox_collision"]
