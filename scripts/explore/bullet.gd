@@ -15,6 +15,7 @@ var last_position: Vector2 = Vector2.ZERO
 # 碰撞检测
 var collision_shape: CollisionShape2D
 var sprite: Sprite2D
+var shooter: Node2D = null
 
 # 子弹击中效果
 const SPARK_SCENE = preload("res://scenes/spark_effect.tscn")
@@ -47,11 +48,12 @@ func _ready():
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
 
-func setup(start_pos: Vector2, dir: Vector2, _player_rot: float, weapon_cfg: Dictionary):
+func setup(start_pos: Vector2, dir: Vector2, _player_rot: float, weapon_cfg: Dictionary, shooter_node: Node2D = null):
 	"""初始化子弹"""
 	global_position = start_pos
 	last_position = start_pos
 	direction = dir.normalized()
+	shooter = shooter_node
 	
 	# 设置子弹属性
 	damage = weapon_cfg.get("damage", 10)
@@ -75,7 +77,7 @@ func _physics_process(delta):
 	var space_state = get_world_2d().direct_space_state
 	var ray_terrain = PhysicsRayQueryParameters2D.create(last_position, new_position)
 	ray_terrain.collision_mask = 1
-	ray_terrain.exclude = [self]
+	# ray_terrain.exclude = [self, shooter]
 	var hit_terrain = space_state.intersect_ray(ray_terrain)
 	var hit_enemy_point: Vector2 = Vector2.ZERO
 	var enemy_collider: Object = null
@@ -88,6 +90,7 @@ func _physics_process(delta):
 		point_q.collision_mask = 2
 		point_q.collide_with_areas = true
 		point_q.collide_with_bodies = true
+		# point_q.exclude = [self, shooter]	
 		var res = space_state.intersect_point(point_q)
 		if not res.is_empty():
 			enemy_collider = res[0].collider

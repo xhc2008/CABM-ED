@@ -600,22 +600,6 @@ func _on_player_died():
 		if sm2.save_data.has("explore_checkpoint"):
 			sm2.save_data.erase("explore_checkpoint")
 	_open_map_from_explore()
-	# 显示死亡消息
-	# _show_death_message()
-	
-	# # 延迟返回主场景，确保所有保存操作完成
-	# print("准备返回主场景...")
-	# await get_tree().create_timer(0.5).timeout
-	# if SaveManager:
-	# 	if not SaveManager.save_data.has("explore_checkpoint"):
-	# 		SaveManager.save_data.explore_checkpoint = {"active": false, "scene_id": current_explore_id}
-	# 	else:
-	# 		SaveManager.save_data.explore_checkpoint.active = false
-	# 		SaveManager.save_data.explore_checkpoint.scene_id = current_explore_id
-	# 	SaveManager.set_meta("open_death_on_load", true)
-	# 	SaveManager.set_meta("death_from_explore_id", current_explore_id)
-	# 	SaveManager.save_game(SaveManager.current_slot)
-	# 	get_tree().change_scene_to_file("res://scripts/main.tscn")
 
 func _show_death_message():
 	if has_node("/root/MessageDisplayManager"):
