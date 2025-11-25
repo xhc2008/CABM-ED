@@ -656,6 +656,13 @@ func _handle_shoot():
 	"""处理射击"""
 	if not player or not weapon_system:
 		return
+	var shoot_position = player.get_shoot_position()
+	var aim_direction = player.get_aim_direction()
+	var player_rotation = player.rotation
+	# if player and player.is_mobile:
+	# 	# 移动端按 _process 中的持续射击逻辑触发，这里避免重复
+	# 	return
+	weapon_system.shoot(shoot_position, aim_direction, player_rotation)
 
 func _load_map_config():
 	if _map_config.is_empty():
@@ -675,13 +682,6 @@ func _get_explore_display_name(explore_id: String) -> String:
 			if p.get("id", "") == explore_id and p.get("type", "") == "explore":
 				return p.get("name", explore_id)
 	return explore_id
-	var shoot_position = player.get_shoot_position()
-	var aim_direction = player.get_aim_direction()
-	var player_rotation = player.rotation
-	# if player and player.is_mobile:
-	# 	# 移动端按 _process 中的持续射击逻辑触发，这里避免重复
-	# 	return
-	weapon_system.shoot(shoot_position, aim_direction, player_rotation)
 
 func _create_weapon_ui():
 	"""创建武器UI"""
