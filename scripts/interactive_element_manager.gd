@@ -126,16 +126,9 @@ func get_all_element_ids() -> Array:
 		return config.elements.keys()
 	return []
 
-func disable_all_elements():
-	"""禁用所有已注册的可交互元素"""
+func set_all_elements_interactive(interactive: bool):
+	"""设置所有已注册的可交互元素的全局交互状态"""
 	for element_id in registered_elements:
 		var element = registered_elements[element_id]
 		if element is InteractiveElement:
-			element.disable()
-
-func enable_all_elements():
-	"""启用所有已注册的可交互元素"""
-	for element_id in registered_elements:
-		var element = registered_elements[element_id]
-		if element is InteractiveElement:
-			element.enable()
+			element.set_global_interactive(interactive)
