@@ -408,9 +408,12 @@ func _try_auto_attack():
 		
 	if String(cfg.get("subtype", "")) != "远程":
 		return
+	
+	var weapon_fire_rate = float(cfg.get("fire_rate", 0.1))
+	var actual_cooldown = max(weapon_fire_rate, 0.05)  # 最小冷却时间50ms防止过快
 		
 	var now := Time.get_ticks_msec() / 1000.0
-	if now - last_attack_time < attack_cooldown:
+	if now - last_attack_time < actual_cooldown:
 		return
 		
 	var target_enemy := _find_shootable_enemy()

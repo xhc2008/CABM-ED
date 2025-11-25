@@ -469,8 +469,8 @@ func _input(event: InputEvent):
 		
 		# R键换弹
 		if event.pressed and event.keycode == KEY_R:
-			if weapon_system:
-				weapon_system.start_reload()
+			if weapon_system and player:
+				weapon_system.start_reload(player.global_position)
 			get_viewport().set_input_as_handled()
 	
 	# 鼠标左键射击（仅PC端）
@@ -797,10 +797,9 @@ func _on_mobile_shoot_stopped():
 
 func _on_mobile_reload_pressed():
 	"""移动端换弹"""
-	if weapon_system:
-		weapon_system.start_reload()
-
-
+	if weapon_system and player:
+		weapon_system.start_reload(player.global_position)
+		
 func set_player_controls_enabled(enabled: bool):
 	"""启用/禁用玩家控制"""
 	if player:

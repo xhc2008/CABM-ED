@@ -192,6 +192,7 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 		if weapon_config.get("subtype") == "远程":
 			var current_ammo = current_weapon.get("ammo", 0)
 			if current_ammo <= 0 and not is_reloading and not is_empty_sound_playing:
+				empty_sound.global_position = shoot_position
 				empty_sound.play()
 				is_empty_sound_playing = true
 		return false
@@ -205,6 +206,7 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	if ammo <= 0:
 		# 空仓音效 - 只有在没有播放时才播放
 		if not is_empty_sound_playing:
+			empty_sound.global_position = shoot_position
 			empty_sound.play()
 			is_empty_sound_playing = true
 		return false
@@ -220,7 +222,7 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	shoot_cooldown_timer = fire_rate
 	
 	# 使用音效池播放射击音效
-	_play_shoot_sound()
+	_play_shoot_sound(shoot_position)
 	
 	# 创建子弹
 	var bullet = BULLET_SCENE.instantiate()
@@ -232,7 +234,7 @@ func shoot(shoot_position: Vector2, direction: Vector2, player_rotation: float) 
 	_update_ammo_display()
 	return true
 
-func _play_shoot_sound():
+func _play_shoot_sound(position: Vector2):
 	"""使用音效池播放射击音效"""
 	if shoot_sounds.is_empty():
 		return
@@ -249,6 +251,7 @@ func _play_shoot_sound():
 		available_player = shoot_sounds[0]
 	
 	# 播放音效
+	available_player.global_position = position
 	available_player.play()
 	
 	# 调试信息
@@ -258,7 +261,7 @@ func _play_shoot_sound():
 	# 		playing_count += 1
 	# print("播放射击音效，播放器状态: " + str(playing_count) + "/" + str(shoot_sounds.size()) + " 正在播放")
 
-func start_reload() -> bool:
+func start_reload(player_position: Vector2) -> bool:
 	"""开始换弹"""
 	if is_reloading:
 		return false
@@ -299,6 +302,7 @@ func start_reload() -> bool:
 	reload_time = 0.0
 	
 	# 播放换弹音效
+	reload_sound.global_position = player_position
 	reload_sound.play()
 	
 	return true
