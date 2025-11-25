@@ -125,3 +125,17 @@ func get_all_element_ids() -> Array:
 	if config.has("elements"):
 		return config.elements.keys()
 	return []
+
+func disable_all_elements():
+	"""禁用所有已注册的可交互元素"""
+	for element_id in registered_elements:
+		var element = registered_elements[element_id]
+		if element is InteractiveElement:
+			element.disable()
+
+func enable_all_elements():
+	"""启用所有已注册的可交互元素"""
+	for element_id in registered_elements:
+		var element = registered_elements[element_id]
+		if element is InteractiveElement:
+			element.enable()

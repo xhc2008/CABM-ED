@@ -65,6 +65,10 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 		scene_buttons.append(button)
 
 func show_menu(at_position: Vector2):
+	# 禁用所有可交互元素
+	if has_node("/root/InteractiveElementManager"):
+		get_node("/root/InteractiveElementManager").disable_all_elements()
+
 	# 先显示以便计算大小
 	visible = true
 	modulate.a = 0.0
@@ -111,6 +115,10 @@ func hide_menu():
 	
 	await tween.finished
 	visible = false
+	
+	# 启用所有可交互元素
+	if has_node("/root/InteractiveElementManager"):
+		get_node("/root/InteractiveElementManager").enable_all_elements()
 
 func _on_scene_button_pressed(scene_id: String):
 	scene_selected.emit(scene_id)
