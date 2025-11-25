@@ -16,6 +16,7 @@ func _ready():
 	visible = false
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE # Initially ignore mouse events
 
 func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	# 清除现有按钮
@@ -65,12 +66,11 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 		scene_buttons.append(button)
 
 func show_menu(at_position: Vector2):
-	if has_node("/root/InteractiveElementManager"):
-		get_node("/root/InteractiveElementManager").set_all_elements_interactive(false)
 	# 先显示以便计算大小
 	visible = true
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+	mouse_filter = Control.MOUSE_FILTER_STOP # Stop mouse events from propagating
 	
 	# 等待布局更新
 	await get_tree().process_frame
@@ -113,9 +113,7 @@ func hide_menu():
 	
 	await tween.finished
 	visible = false
-
-	if has_node("/root/InteractiveElementManager"):
-		get_node("/root/InteractiveElementManager").set_all_elements_interactive(true)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE # Ignore mouse events when hidden
 
 func _on_scene_button_pressed(scene_id: String):
 	scene_selected.emit(scene_id)

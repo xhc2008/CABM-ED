@@ -154,13 +154,6 @@ func set_interactive(interactive: bool):
 		if is_menu_visible:
 			hide_menu()
 
-func set_global_interactive(interactive: bool):
-	"""设置全局交互状态（由InteractiveElementManager调用）"""
-	if interactive:
-		click_area.mouse_filter = Control.MOUSE_FILTER_STOP
-	else:
-		click_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
 func _on_click_area_input(event: InputEvent):
 	"""点击区域输入事件"""
 	if event is InputEventMouseButton:
