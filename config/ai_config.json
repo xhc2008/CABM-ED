@@ -115,7 +115,7 @@
     "embedding_model": {
         "model": "",
         "base_url": "",
-        "timeout": 30,
+        "timeout": 5,
         "vector_dim": 1024,
         "batch_size": 64
     },

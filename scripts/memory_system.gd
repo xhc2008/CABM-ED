@@ -70,7 +70,7 @@ var http_request: HTTPRequest = null
 # 嵌入API配置
 var embedding_model: String = ""
 var embedding_base_url: String = ""
-var embedding_timeout: float = 30.0
+var embedding_timeout: float = 5.0
 var vector_dim: int = 1024
 
 # 请求队列系统
@@ -246,6 +246,7 @@ func _process_request_queue():
 	
 	print("调用嵌入API (队列中还有 %d 个请求): %s" % [request_queue.size(), request.text.substr(0, 30)])
 	
+	http_request.timeout = embedding_timeout
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, body)
 	
 	if error != OK:
