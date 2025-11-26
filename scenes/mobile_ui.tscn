@@ -1,0 +1,181 @@
+[gd_scene load_steps=5 format=3 uid="uid://51blnuy3b0uq"]
+
+[ext_resource type="Script" uid="uid://cls0yg8t4uu" path="res://scripts/explore/mobile_ui.gd" id="1"]
+[ext_resource type="Script" uid="uid://1yjy7f8qo4cu" path="res://addons/virtual_joystick/virtual_joystick.gd" id="2"]
+
+[sub_resource type="StyleBoxFlat" id="shoot_style"]
+bg_color = Color(0.5, 0.5, 0.5, 0.3)
+corner_radius_top_left = 80
+corner_radius_top_right = 80
+corner_radius_bottom_right = 80
+corner_radius_bottom_left = 80
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 4
+
+[sub_resource type="StyleBoxFlat" id="reload_style"]
+bg_color = Color(0.5, 0.5, 0.5, 0.3)
+corner_radius_top_left = 60
+corner_radius_top_right = 60
+corner_radius_bottom_right = 60
+corner_radius_bottom_left = 60
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 4
+
+[node name="MobileUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="VirtualJoystick" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 67.0
+offset_top = -221.0
+offset_right = 227.0
+offset_bottom = -61.0
+grow_vertical = 0
+pivot_offset = Vector2(80, 80)
+mouse_filter = 2
+script = ExtResource("2")
+
+[node name="Base" type="Panel" parent="VirtualJoystick"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -60.0
+offset_top = -60.0
+offset_right = 60.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(60, 60)
+
+[node name="Tip" type="Panel" parent="VirtualJoystick/Base"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(25, 25)
+
+[node name="ShootArea" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -222.0
+offset_top = -241.0
+offset_right = -62.0
+offset_bottom = -81.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Background" type="Panel" parent="ShootArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(80, 80)
+theme_override_styles/panel = SubResource("shoot_style")
+
+[node name="ShootLabel" type="Label" parent="ShootArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "射击"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ShootArea2" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1229.0
+offset_top = 181.0
+offset_right = -1069.0
+offset_bottom = 341.0
+grow_horizontal = 0
+
+[node name="Background" type="Panel" parent="ShootArea2"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 0.625
+anchor_bottom = 0.625
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(50, 50)
+theme_override_styles/panel = SubResource("shoot_style")
+
+[node name="ShootLabel" type="Label" parent="ShootArea2"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 0.625
+anchor_bottom = 0.625
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "射击"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ReloadArea" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -388.0
+offset_top = 598.0
+offset_right = -319.0
+offset_bottom = 667.0
+grow_horizontal = 0
+
+[node name="Background" type="Panel" parent="ReloadArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(34.5, 34.5)
+theme_override_styles/panel = SubResource("reload_style")
+
+[node name="ReloadLabel" type="Label" parent="ReloadArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "换弹"
+horizontal_alignment = 1
+vertical_alignment = 1

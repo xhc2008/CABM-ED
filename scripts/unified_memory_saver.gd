@@ -9,7 +9,9 @@ extends Node
 enum MemoryType {
 	CHAT,      # 聊天对话
 	OFFLINE,   # 离线事件
-	GAMES      # 游戏事件
+	GAMES,     # 游戏事件
+	COOK,      # 烹饪事件
+	EXPLORE    # 探索事件
 }
 
 ## 保存记忆到三个位置
@@ -89,8 +91,8 @@ func _save_to_archive(content: String, timestamp: String) -> void:
 	if save_mgr.save_data.ai_data.memory.size() > max_items:
 		save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
 	
-	# 保存存档（不更新 last_played_at）
-	save_mgr.save_game(save_mgr.current_slot, false)
+	# 保存存档
+	save_mgr.save_game(save_mgr.current_slot)
 	
 	print("✓ 已保存到存档")
 
@@ -203,6 +205,10 @@ func _get_type_name(memory_type: MemoryType) -> String:
 			return "offline"
 		MemoryType.GAMES:
 			return "games"
+		MemoryType.COOK:
+			return "cook"
+		MemoryType.EXPLORE:
+			return "explore"
 		_:
 			return "chat"
 

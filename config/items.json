@@ -2,61 +2,69 @@
   "items": {
     "CMR-951": {
       "name": "九五式-改",
-      "type": "weapon",
+      "type": "武器",
+      "subtype": "远程",
       "description": "你最熟悉的武器，它是████████████████████",
       "icon": "CRM-951.png",
       "weight": 3.5,
       "max_stack": 1,
-      "damage": 42,
+      "damage": 46,
       "ammo_type": "5.8mm",
       "magazine_size": 30,
-      "fire_rate": 0.09
+      "fire_rate": 0.09,
+      "reload_time":3.7,
+      "special_tags":["绑定"]
     },
     "UMP45": {
       "name": "UMP45",
-      "type": "weapon",
+      "type": "武器",
+      "subtype": "远程",
       "description": "让敌人的心电图和她一样平",
       "icon": "UMP45.png",
       "weight": 2.3,
       "max_stack": 1,
-      "damage": 48,
+      "damage": 33,
       "ammo_type": ".45",
       "magazine_size": 25,
-      "fire_rate": 0.12
+      "fire_rate": 0.06,
+      "reload_time":3.0
     },
     "VSS-SF": {
       "name": "VSS-改",
-      "type": "weapon",
+      "type": "武器",
+      "subtype": "远程",
       "description": "消音极好的狙击步枪，是她████████████████",
       "icon": "VSS-SF.png",
       "weight": 2.5,
       "max_stack": 1,
-      "damage": 65,
+      "damage": 85,
       "ammo_type": "9mm",
       "magazine_size": 20,
-      "fire_rate": 0.25
+      "fire_rate": 0.30,
+      "reload_time":3.5,
+      "special_tags":["绑定"]
     },
     "5.8mm_ammo": {
       "name": "5.8mm子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for 5.8mm firearms",
       "icon": "5.8mm.png",
       "weight": 0.02,
       "max_stack": 64,
-      "caliber": "9mm"
+      "caliber": "5.8mm"
     },
     ".45_ammo": {
       "name": ".45子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for .45 firearms",
       "icon": ".45.png",
       "weight": 0.03,
       "max_stack": 64,
-      "caliber": "9mm"
+      "caliber": ".45"
     },
     "9mm_ammo": {
       "name": "9mm子弹",
-      "type": "ammo",
+      "type": "弹药",
       "description": "Ammunition for 9mm firearms",
       "icon": "9mm.png",
       "weight": 0.02,
@@ -64,22 +72,183 @@
       "caliber": "9mm"
     },
     "medkit_small": {
-      "name": "Small Medkit",
-      "type": "medical",
-      "description": "Restores 50 health",
-      "icon": "UMP45.png",
+      "name": "小型医疗包",
+      "type": "消耗品",
+      "description": "恢复50点生命值",
+      "icon": "medkit_small.png",
       "weight": 0.8,
       "max_stack": 3,
       "heal_amount": 50,
       "use_time": 3.0
     },
+    "medkit_large": {
+      "name": "大型医疗包",
+      "type": "消耗品",
+      "description": "恢复100点生命值",
+      "icon": "medkit_large.png",
+      "weight": 1.5,
+      "max_stack": 2,
+      "heal_amount": 100,
+      "use_time": 5.0
+    },
     "note": {
       "name": "开发者注",
-      "type": "special",
+      "type": "特殊",
       "description": "背包及相关功能尚未实现，敬请期待",
       "icon": "note.png",
-      "weight": 3355036,
+      "weight": 0,
       "max_stack": 1
+    },
+    "apple": {
+      "name": "苹果",
+      "type": "食材",
+      "description": "能做金苹果嘛……？",
+      "icon": "apple.png",
+      "weight": 0.2,
+      "max_stack": 64,
+      "cook_time": 10.0
+    },
+    "beef": {
+      "name": "牛肉",
+      "type": "食材",
+      "description": "新鲜的牛肉",
+      "icon": "beef.png",
+      "weight": 0.5,
+      "max_stack": 64,
+      "cook_time": 16.0
+    },
+    "beetroot": {
+      "name": "甜菜根",
+      "type": "食材",
+      "description": "可食用的根茎类蔬菜",
+      "icon": "beetroot.png",
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 18.0
+    },
+    "bread": {
+      "name": "面包",
+      "type": "食材",
+      "description": "新鲜烤制的面包",
+      "icon": "bread.png",
+      "weight": 0.4,
+      "max_stack": 64,
+      "cook_time": 12.0
+    },
+    "cake": {
+      "name": "蛋糕",
+      "type": "食材",
+      "description": "上面三个小麦，下面三桶牛奶，中间一个糖两个鸡蛋……补兑！",
+      "icon": "cake.png",
+      "weight": 0.8,
+      "max_stack": 1,
+      "cook_time": 3.0
+    },
+    "carrot": {
+      "name": "胡萝卜",
+      "type": "食材",
+      "description": "富含维生素的胡萝卜",
+      "icon": "carrot.png",
+      "weight": 0.2,
+      "max_stack": 64,
+      "cook_time": 15.0
+    },
+    "chicken": {
+      "name": "鸡肉",
+      "type": "食材",
+      "description": "新鲜的鸡肉",
+      "icon": "chicken.png",
+      "weight": 0.4,
+      "max_stack": 64,
+      "cook_time": 25.0
+    },
+    "cookie": {
+      "name": "曲奇",
+      "type": "食材",
+      "description": "香甜的曲奇饼干",
+      "icon": "cookie.png",
+      "weight": 0.1,
+      "max_stack": 64,
+      "cook_time": 5.0
+    },
+    "mutton": {
+      "name": "羊肉",
+      "type": "食材",
+      "description": "新鲜的羊肉",
+      "icon": "mutton.png",
+      "weight": 0.5,
+      "max_stack": 64,
+      "cook_time": 26.0
+    },
+    "porkchop": {
+      "name": "猪肉",
+      "type": "食材",
+      "description": "新鲜的猪肉",
+      "icon": "porkchop.png",
+      "weight": 0.5,
+      "max_stack": 64,
+      "cook_time": 24.0
+    },
+    "potato": {
+      "name": "土豆",
+      "type": "食材",
+      "description": "可烹饪的土豆",
+      "icon": "potato.png",
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 20.0
+    },
+    "pumpkin_pie": {
+      "name": "南瓜派",
+      "type": "食材",
+      "description": "香甜的南瓜派",
+      "icon": "pumpkin_pie.png",
+      "weight": 0.6,
+      "max_stack": 16,
+      "cook_time": 10.0
+    },
+    "rabbit": {
+      "name": "兔肉",
+      "type": "食材",
+      "description": "她好像很喜欢吃这个，难道说……？",
+      "icon": "rabbit.png",
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 20.0
+    },
+    "sweet_berry": {
+      "name": "甜浆果",
+      "type": "食材",
+      "description": "唔……她好像也喜欢这个……？",
+      "icon": "sweet_berries.png", 
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 10.0
+    },
+    "wheat": {
+      "name": "小麦",
+      "type": "食材",
+      "description": "三个可以合成面包……吗？",
+      "icon": "wheat.png", 
+      "weight": 0.3,
+      "max_stack": 64,
+      "cook_time": 10.0
+    },
+    "amethyst": {
+      "name": "紫水晶",
+      "type": "收集物",
+      "description": "稀有的紫色水晶",
+      "icon": "amethyst.png",
+      "weight": 0.4,
+      "max_stack": 1
+    },
+    "credit": {
+      "name": "信用点",
+      "type": "货币",
+      "description": "另一个世界的通用货币，但也被这个世界认可",
+      "icon": "credit.png",
+      "weight": 0,
+      "max_stack": 1024
     }
   }
 }

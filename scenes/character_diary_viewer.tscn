@@ -37,6 +37,24 @@ layout_mode = 2
 size_flags_horizontal = 8
 text = "关闭"
 
+[node name="SearchContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SearchInput" type="LineEdit" parent="MarginContainer/VBoxContainer/SearchContainer"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "输入关键词搜索日记..."
+
+[node name="SearchButton" type="Button" parent="MarginContainer/VBoxContainer/SearchContainer"]
+layout_mode = 2
+text = "🔍 搜索"
+
+[node name="ClearSearchButton" type="Button" parent="MarginContainer/VBoxContainer/SearchContainer"]
+layout_mode = 2
+text = "✖ 清除"
+
 [node name="DateSelector" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 alignment = 1
@@ -57,7 +75,7 @@ layout_mode = 2
 text = "后一天 ▶"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 400)
+custom_minimum_size = Vector2(0, 300)
 layout_mode = 2
 size_flags_vertical = 3
 follow_focus = true

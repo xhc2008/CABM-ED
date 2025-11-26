@@ -28,6 +28,7 @@
         "last_login_date": "",
         "consecutive_days": 0
       },
+      "character_name": "雪狐",
       "statistics": {
         "total_messages_sent": 0,
         "total_messages_received": 0,
@@ -48,6 +49,13 @@
       "inventory_data": {
         "inventory": [],
         "warehouse": []
+      },
+      "shop_system_data": {
+        "active_offers": []
+      },
+      "snow_fox_inventory": {
+        "storage": [],
+        "weapon_slot": {}
       }
     }
   },

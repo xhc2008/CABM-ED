@@ -339,15 +339,28 @@ func _get_chat_state() -> String:
 		return "idle"
 	
 	# 聊天框可见，检查具体状态
-	if chat_dialog.is_history_visible:
+	# 检查是否在查看历史模式
+	var history_mgr = chat_dialog.get_node_or_null("HistoryManager")
+	var is_history_visible = history_mgr and history_mgr.is_history_visible
+	
+	# 获取状态信息用于调试
+	var is_input = chat_dialog.is_input_mode
+	var waiting = chat_dialog.waiting_for_continue
+	
+	print("EventManager._get_chat_state() - is_input_mode: %s, waiting_for_continue: %s, is_history_visible: %s" % [is_input, waiting, is_history_visible])
+	
+	if is_history_visible:
 		# 查看历史模式
 		return "history_mode"
-	elif chat_dialog.waiting_for_continue:
+	
+	# 优先检查 is_input_mode，因为这是最明确的状态标志
+	if is_input:
+		# 输入模式（等待用户输入消息）
+		# 即使 waiting_for_continue 为 true，只要是输入模式就应该返回 input_mode
+		return "input_mode"
+	elif waiting:
 		# 回复模式（等待点击继续）
 		return "reply_mode"
-	elif chat_dialog.is_input_mode:
-		# 输入模式（等待用户输入消息）
-		return "input_mode"
 	else:
 		# AI正在回复或打字动画进行中
 		return "chatting"

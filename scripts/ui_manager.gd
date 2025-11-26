@@ -29,6 +29,17 @@ func unregister_element(element: Node):
 		interactive_elements.erase(element)
 		print("UI元素已注销: ", element.name)
 
+func cleanup_invalid_elements():
+	"""清理所有无效的元素引用"""
+	var valid_elements = []
+	for element in interactive_elements:
+		if element != null and is_instance_valid(element):
+			valid_elements.append(element)
+		else:
+			print("清理无效的UI元素引用")
+	
+	interactive_elements = valid_elements
+
 func disable_all():
 	"""禁用所有可交互UI元素（聊天开始时）"""
 	if not is_interactive:
@@ -36,6 +47,9 @@ func disable_all():
 	
 	is_interactive = false
 	print("禁用所有UI交互")
+	
+	# 先清理无效元素
+	cleanup_invalid_elements()
 	
 	for element in interactive_elements:
 		_apply_state_to_element(element, false)
@@ -49,6 +63,9 @@ func enable_all():
 	
 	is_interactive = true
 	print("启用所有UI交互")
+	
+	# 先清理无效元素
+	cleanup_invalid_elements()
 	
 	for element in interactive_elements:
 		_apply_state_to_element(element, true)

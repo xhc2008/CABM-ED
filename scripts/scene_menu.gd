@@ -2,6 +2,7 @@ extends Panel
 
 signal scene_selected(scene_id: String)
 signal character_called()
+signal map_open_requested()
 
 @onready var vbox: VBoxContainer = $MarginContainer/VBoxContainer
 
@@ -9,11 +10,13 @@ const ANIMATION_DURATION = 0.2
 
 var scene_buttons: Array = []
 var call_button: Button = null
+var map_button: Button = null
 
 func _ready():
 	visible = false
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE # Initially ignore mouse events
 
 func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	# 清除现有按钮
@@ -23,6 +26,9 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	if call_button:
 		call_button.queue_free()
 		call_button = null
+	if map_button:
+		map_button.queue_free()
+		map_button = null
 	
 	# 获取角色名称
 	var character_name = _get_character_name()
@@ -32,6 +38,12 @@ func setup_scenes(scenes_config: Dictionary, current_scene: String):
 	call_button.text = "💬 呼唤" + character_name
 	call_button.pressed.connect(_on_call_button_pressed)
 	vbox.add_child(call_button)
+
+	if current_scene == "entryway" or current_scene == "shop" or current_scene == "rooftop":
+		map_button = Button.new()
+		map_button.text = "🗺️ 打开地图"
+		map_button.pressed.connect(_on_map_button_pressed)
+		vbox.add_child(map_button)
 	
 	# 获取当前场景的连通场景列表
 	var current_scene_data = scenes_config.get(current_scene, {})
@@ -58,12 +70,15 @@ func show_menu(at_position: Vector2):
 	visible = true
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
+	mouse_filter = Control.MOUSE_FILTER_STOP # Stop mouse events from propagating
 	
 	# 等待布局更新
 	await get_tree().process_frame
 	
 	# 手动计算所需高度
-	var button_count = 1 + scene_buttons.size()  # 呼唤按钮 + 场景按钮
+	var button_count = 1 + scene_buttons.size()
+	if map_button:
+		button_count += 1
 	var button_height = 40.0  # 按钮默认高度
 	var separation = 5.0  # 按钮间距
 	var total_height = button_count * button_height + (button_count - 1) * separation
@@ -98,6 +113,7 @@ func hide_menu():
 	
 	await tween.finished
 	visible = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE # Ignore mouse events when hidden
 
 func _on_scene_button_pressed(scene_id: String):
 	scene_selected.emit(scene_id)
@@ -105,6 +121,10 @@ func _on_scene_button_pressed(scene_id: String):
 
 func _on_call_button_pressed():
 	character_called.emit()
+	hide_menu()
+
+func _on_map_button_pressed():
+	map_open_requested.emit()
 	hide_menu()
 
 func _get_character_name() -> String:

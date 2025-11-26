@@ -23,6 +23,18 @@ texture = ExtResource("2_index2")
 expand_mode = 1
 stretch_mode = 5
 
+[node name="ImportButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -120.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+grow_horizontal = 0
+text = "导入存档"
+
 [node name="SetupContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8

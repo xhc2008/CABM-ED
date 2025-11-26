@@ -13,7 +13,7 @@
       "name": "客厅",
       "weight": 5,
       "class": "home",
-      "connect": ["bedroom", "kitchen", "bathroom", "studyroom","rooftop","shop"]
+      "connect": ["bedroom", "kitchen", "bathroom", "studyroom","entryway","rooftop"]
     },
     "bedroom": {
       "name": "卧室",
@@ -37,19 +37,25 @@
       "name": "厨房",
       "weight": 1,
       "class": "home",
-      "connect": ["livingroom"]
+      "connect": ["livingroom","entryway"]
     },
     "rooftop": {
       "name": "天台",
       "weight": 1,
       "class": "outdoor",
-      "connect": ["livingroom"]
+      "connect": ["entryway","livingroom"]
     },
     "shop": {
       "name": "超市",
       "weight": 1,
       "class": "outdoor",
-      "connect": ["livingroom"]
+      "connect": ["entryway"]
+    },
+    "entryway": {
+      "name": "玄关",
+      "weight": 1,
+      "class": "home",
+      "connect": ["livingroom","kitchen","shop","rooftop"]
     }
   }
 }

@@ -13,9 +13,7 @@ signal chat_ended
 var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
-var history_button: Button
 
-var app_config: Dictionary = {}
 var is_input_mode: bool = true
 var waiting_for_continue: bool = false
 
@@ -37,15 +35,10 @@ func _ensure_ui_structure():
 	if input_container != null:
 		input_field = input_container.get_node_or_null("InputField")
 		send_button = input_container.get_node_or_null("SendButton")
-		history_button = input_container.get_node_or_null("HistoryButton")
-		
-		if history_button == null:
-			history_button = Button.new()
-			history_button.name = "HistoryButton"
-			history_button.text = "历史"
-			history_button.custom_minimum_size = Vector2(60, 0)
-			input_container.add_child(history_button)
-			input_container.move_child(history_button, send_button.get_index())
+		# 移除旧的历史按钮（现在由底部按钮控制历史）
+		var old_history_btn = input_container.get_node_or_null("HistoryButton")
+		if old_history_btn != null:
+			old_history_btn.queue_free()
 		
 		print("使用现有的 InputContainer 结构")
 		return
@@ -62,12 +55,6 @@ func _ensure_ui_structure():
 		
 		input_container.add_child(old_input_field)
 		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		
-		history_button = Button.new()
-		history_button.name = "HistoryButton"
-		history_button.text = "历史"
-		history_button.custom_minimum_size = Vector2(60, 0)
-		input_container.add_child(history_button)
 		
 		send_button = Button.new()
 		send_button.name = "SendButton"
@@ -97,12 +84,6 @@ func _ensure_ui_structure():
 		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		input_container.add_child(input_field)
 		
-		history_button = Button.new()
-		history_button.name = "HistoryButton"
-		history_button.text = "历史"
-		history_button.custom_minimum_size = Vector2(60, 0)
-		input_container.add_child(history_button)
-		
 		send_button = Button.new()
 		send_button.name = "SendButton"
 		send_button.text = "发送"
@@ -126,14 +107,13 @@ func _ready():
 	
 	# 连接信号
 	if end_button:
-		end_button.pressed.connect(_on_end_button_pressed)
+		end_button.pressed.connect(_on_history_toggle_pressed)
 	if send_button:
 		send_button.pressed.connect(_on_send_button_pressed)
-	if history_button:
-		history_button.pressed.connect(_on_history_button_pressed)
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
+		_apply_android_input_workaround_to_line_edit(input_field)
 	
 	_load_config()
 	
@@ -155,6 +135,15 @@ func _ready():
 	modulate.a = 0.0
 	scale = Vector2(0.8, 0.8)
 
+func _apply_android_input_workaround_to_line_edit(le: LineEdit):
+	if has_node("/root/PlatformManager"):
+		var pm = get_node("/root/PlatformManager")
+		if pm.is_android():
+			le.context_menu_enabled = false
+			le.shortcut_keys_enabled = false
+			if le.has_method("set_selecting_enabled"):
+				le.selecting_enabled = false
+
 func _init_modules():
 	# 输入处理模块
 	input_handler = preload("res://scripts/chat_dialog_input_handler.gd").new()
@@ -175,6 +164,7 @@ func _init_modules():
 	typing_manager.name = "TypingManager"
 	add_child(typing_manager)
 	typing_manager.setup(self, message_label)
+	typing_manager.sentence_ready_for_tts.connect(_on_sentence_ready_for_tts)
 	typing_manager.sentence_completed.connect(_on_sentence_completed)
 	typing_manager.all_sentences_completed.connect(_on_all_sentences_completed)
 	
@@ -187,32 +177,11 @@ func _init_modules():
 
 func _init_history_manager():
 	history_manager.setup(self, vbox, input_container, input_field,
-						  send_button, end_button, history_button, app_config)
+					  send_button, end_button)
 
 func _load_config():
-	var config_path = "res://config/app_config.json"
-	if FileAccess.file_exists(config_path):
-		var file = FileAccess.open(config_path, FileAccess.READ)
-		var json_string = file.get_as_text()
-		file.close()
-		
-		var json = JSON.new()
-		if json.parse(json_string) == OK:
-			app_config = json.data
-			print("应用配置已加载")
-		else:
-			print("解析应用配置失败")
-			_set_default_config()
-	else:
-		print("应用配置文件不存在，使用默认配置")
-		_set_default_config()
-
-func _set_default_config():
-	app_config = {
-		"user_name": "用户",
-		"character_name": "小助手",
-		"preset_replies": ["你好！", "我在听呢", "有趣！"]
-	}
+	# app_config.json已废弃，不再需要加载配置
+	pass
 
 func _setup_input_mode():
 	is_input_mode = true
@@ -229,12 +198,18 @@ func _setup_input_mode():
 	input_field.modulate.a = 1.0
 	input_container.modulate.a = 1.0
 	custom_minimum_size.y = 120.0
+	_update_action_button_state()
 
 func show_dialog(mode: String = "passive"):
 	"""显示对话框
 	mode: "passive" = 用户先说（输入模式）, "active" = 角色先说（回复模式）, 
 		  "called" = 被呼唤来到场景（角色先说）, "called_here" = 被呼唤但已在场景（角色先说）
 	"""
+	# 如果已经可见，忽略重复调用
+	if visible:
+		print("聊天对话框已显示，忽略重复调用")
+		return
+	
 	visible = true
 	pivot_offset = size / 2.0
 	
@@ -255,12 +230,6 @@ func show_dialog(mode: String = "passive"):
 		if has_node("/root/AIService"):
 			var ai_service = get_node("/root/AIService")
 			ai_service.start_chat("", mode)
-		else:
-			var replies = app_config.get("preset_replies", ["你好！"])
-			var active_reply = replies[randi() % replies.size()]
-			typing_manager.start_stream()
-			typing_manager.add_stream_content(active_reply)
-			typing_manager.end_stream()
 	else:
 		if is_input_mode:
 			input_field.grab_focus()
@@ -273,10 +242,15 @@ func _setup_reply_mode():
 	end_button.visible = false
 	character_name_label.modulate.a = 1.0
 	message_label.modulate.a = 1.0
-	character_name_label.text = app_config.get("character_name", "角色")
+	character_name_label.text = _get_character_name()
 	custom_minimum_size.y = 200.0
 
 func hide_dialog():
+	# 如果已经隐藏，忽略重复调用
+	if not visible:
+		print("聊天对话框已隐藏，忽略重复调用")
+		return
+	
 	pivot_offset = size / 2.0
 	
 	typing_manager.stop()
@@ -336,7 +310,7 @@ func _on_ai_response(response: String):
 func _on_ai_response_completed():
 	"""AI 流式响应完成回调"""
 	if not typing_manager.has_content():
-		var character_name = app_config.get("character_name", "角色")
+		var character_name = _get_character_name()
 		_handle_empty_msg_response(character_name + "欲言又止")
 		return
 	
@@ -347,7 +321,7 @@ func _on_ai_error(error_message: String):
 	print("AI 错误: ", error_message)
 	
 	if error_message.contains("超时"):
-		var character_name = app_config.get("character_name", "角色")
+		var character_name = _get_character_name()
 		_handle_empty_msg_response(character_name + "似乎在思考什么，但没有说出来")
 	else:
 		typing_manager.start_stream()
@@ -359,6 +333,16 @@ func _on_input_text_changed(_new_text: String):
 	if has_node("/root/EventManager"):
 		var event_mgr = get_node("/root/EventManager")
 		event_mgr.reset_idle_timer()
+	_update_action_button_state()
+
+func _update_action_button_state():
+	var has_text = not input_field.text.strip_edges().is_empty()
+	if has_text:
+		send_button.text = "发送"
+		send_button.modulate = Color(0.2, 0.5, 1.0, 0.8)
+	else:
+		send_button.text = "结束"
+		send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
 
 func _on_event_completed(event_name: String, result):
 	"""处理事件完成信号"""
@@ -374,10 +358,24 @@ func _on_event_completed(event_name: String, result):
 			await get_tree().create_timer(0.5).timeout
 			_on_end_button_pressed()
 		elif result.message == "chat_idle_timeout":
+			# 输入模式下长时间无操作，确保UI状态正确后再结束
+			if history_manager.is_history_visible:
+				await history_manager.hide_history()
+			elif not is_input_mode:
+				# 如果不在输入模式（例如在回复模式），先恢复到输入模式
+				waiting_for_continue = false
+				continue_indicator.visible = false
+				await ui_manager.transition_to_input_mode()
+			
+			await get_tree().create_timer(0.3).timeout
 			_on_end_button_pressed()
 
 func _on_send_button_pressed():
-	_on_input_submitted(input_field.text)
+	var text = input_field.text
+	if text.strip_edges().is_empty():
+		_on_end_button_pressed()
+	else:
+		_on_input_submitted(text)
 
 func _on_input_submitted(text: String):
 	if text.strip_edges().is_empty():
@@ -393,7 +391,7 @@ func _on_input_submitted(text: String):
 			ai_service.clear_pending_goto()
 			_hide_goto_notification()
 	
-	await ui_manager.transition_to_reply_mode(app_config.get("character_name", "角色"))
+	await ui_manager.transition_to_reply_mode(_get_character_name())
 	
 	if has_node("/root/EventManager"):
 		var event_mgr = get_node("/root/EventManager")
@@ -408,12 +406,19 @@ func _on_input_submitted(text: String):
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.start_chat(text, "user_initiated")
-	else:
-		var replies = app_config.get("preset_replies", ["你好！"])
-		var reply = replies[randi() % replies.size()]
-		typing_manager.start_stream()
-		typing_manager.add_stream_content(reply)
-		typing_manager.end_stream()
+
+func _on_sentence_ready_for_tts(text: String):
+	"""句子准备好进行TTS处理 - 立即发送到TTS服务
+	这发生在句子从流中提取时，不等待显示完成
+	这样可以在用户等待时预先进行翻译和语音合成
+	"""
+	if not has_node("/root/TTSService"):
+		return
+	
+	var tts = get_node("/root/TTSService")
+	if tts.is_enabled and not text.is_empty():
+		tts.synthesize_speech(text)
+		print("ChatDialog: 发送TTS（早期处理） - ", text)
 
 func _on_sentence_completed():
 	"""单个句子显示完成"""
@@ -463,7 +468,14 @@ func _on_continue_clicked():
 	
 	if typing_manager.has_more_sentences():
 		# 有更多句子，显示下一句
-		typing_manager.show_next_sentence()
+		var next_sentence_hash = typing_manager.show_next_sentence()
+		if next_sentence_hash != "":
+			print("显示句子 hash:%s" % next_sentence_hash.substr(0,8))
+			# 通知 TTS 系统用户显示了新句子
+			if has_node("/root/TTSService"):
+				var tts = get_node("/root/TTSService")
+				tts.on_new_sentence_displayed(next_sentence_hash)
+				print("已通知TTS系统显示句子 hash:%s" % next_sentence_hash.substr(0,8))
 	elif typing_manager.is_receiving_stream:
 		# 流还在继续，但暂时没有新句子
 		# 重新设置等待状态，等待新句子到来
@@ -643,7 +655,7 @@ func _get_scene_name(scene_id: String) -> String:
 	return scene_id
 
 func _show_goto_notification(target_scene: String):
-	var character_name = app_config.get("character_name", "角色")
+	var character_name = _get_character_name()
 	var scene_name = _get_scene_name(target_scene)
 	var notification_text = "%s将前往%s" % [character_name, scene_name]
 	
@@ -714,7 +726,7 @@ func _handle_empty_msg_response(message: String):
 		ai_service.add_to_history("assistant", "……")
 
 func _show_refusal_message(message: String = ""):
-	var character_name = app_config.get("character_name", "角色")
+	var character_name = _get_character_name()
 	var refusal_text = message if not message.is_empty() else (character_name + "似乎不想说话")
 	
 	var refusal_label = Label.new()
@@ -740,5 +752,13 @@ func _show_refusal_message(message: String = ""):
 	
 	refusal_label.queue_free()
 
-func _on_history_button_pressed():
+func _on_history_toggle_pressed():
 	history_manager.toggle_history()
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if not has_node("/root/SaveManager"):
+		return "角色"
+	
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()

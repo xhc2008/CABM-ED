@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=14 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
@@ -8,11 +8,10 @@
 [ext_resource type="Script" uid="uid://dvxm7qwxqj003" path="res://scripts/character_debug.gd" id="5_debug"]
 [ext_resource type="Script" uid="uid://bovp4hs3xx2vc" path="res://scripts/action_menu.gd" id="6_action_menu"]
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
-[ext_resource type="Script" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
-[ext_resource type="PackedScene" path="res://scenes/character_diary_button.tscn" id="12_0d3j1"]
-[ext_resource type="PackedScene" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
+[ext_resource type="Script" uid="uid://dhaaxgkx54mkg" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
+[ext_resource type="PackedScene" path="res://scenes/interactive_element.tscn" id="11_interactive"]
+[ext_resource type="PackedScene" uid="uid://c5826ps5xu45" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
-[ext_resource type="PackedScene" path="res://scenes/music_button.tscn" id="14_music_button"]
 [ext_resource type="PackedScene" path="res://scenes/music_player_panel.tscn" id="15_music_panel"]
 
 [node name="Main" type="Control"]
@@ -42,7 +41,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 
 [node name="Character" type="TextureButton" parent="Background"]
 layout_mode = 1
@@ -147,11 +145,6 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 placeholder_text = "输入消息..."
 
-[node name="HistoryButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
-custom_minimum_size = Vector2(60, 0)
-layout_mode = 2
-text = "历史"
-
 [node name="SendButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
 custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
@@ -159,7 +152,7 @@ text = "发送"
 
 [node name="EndButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "结束聊天"
+text = "查看历史"
 
 [node name="ContinueIndicator" type="Label" parent="ChatDialog"]
 visible = false
@@ -223,7 +216,7 @@ custom_minimum_size = Vector2(120, 0)
 layout_mode = 0
 offset_left = 130.0
 offset_right = 250.0
-offset_bottom = 60.0
+offset_bottom = 100.0
 
 [node name="MarginContainer" type="MarginContainer" parent="ActionMenu/GameSubmenu"]
 layout_mode = 1
@@ -244,6 +237,10 @@ theme_override_constants/separation = 5
 [node name="GomokuButton" type="Button" parent="ActionMenu/GameSubmenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "五子棋"
+
+[node name="ChineseChessButton" type="Button" parent="ActionMenu/GameSubmenu/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "中国象棋"
 
 [node name="SceneMenu" type="Panel" parent="."]
 custom_minimum_size = Vector2(150, 0)
@@ -281,20 +278,30 @@ script = ExtResource("5_debug")
 [node name="AudioManager" type="Node" parent="."]
 script = ExtResource("8_audio_manager")
 
-[node name="CharacterDiaryButton" parent="." instance=ExtResource("12_0d3j1")]
+[node name="CharacterDiaryButton" parent="." instance=ExtResource("11_interactive")]
 layout_mode = 0
+element_id = "character_diary_button"
 
 [node name="CharacterDiaryViewer" parent="." instance=ExtResource("13_m1sh3")]
 layout_mode = 0
 
 [node name="InventoryButton" parent="." instance=ExtResource("12_o6pr8")]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 
-[node name="MusicButton" parent="." instance=ExtResource("14_music_button")]
+[node name="MusicButton" parent="." instance=ExtResource("11_interactive")]
+layout_mode = 0
+element_id = "music_button"
 
 [node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]
+layout_mode = 0
+anchors_preset = 0
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 800.0
+offset_bottom = 600.0
+grow_horizontal = 1
+grow_vertical = 1

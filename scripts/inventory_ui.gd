@@ -1,187 +1,99 @@
-extends Control
+extends UniversalInventoryUI
 
-# 背包UI管理器
+# 主场景背包UI - 使用通用背包UI
 
-@onready var inventory_grid = $Panel/HBoxContainer/InventoryPanel/ScrollContainer/InventoryGrid
-@onready var warehouse_grid = $Panel/HBoxContainer/WarehousePanel/ScrollContainer/WarehouseGrid
-@onready var item_info_panel = $Panel/HBoxContainer/ItemInfoPanel
-@onready var item_name_label = $Panel/HBoxContainer/ItemInfoPanel/VBoxContainer/ItemName
-@onready var item_icon = $Panel/HBoxContainer/ItemInfoPanel/VBoxContainer/ItemIcon
-@onready var item_desc_label = $Panel/HBoxContainer/ItemInfoPanel/VBoxContainer/ScrollContainer/ItemDescription
-@onready var close_button = $Panel/CloseButton
-
-var inventory_slots: Array = []
-var warehouse_slots: Array = []
-
-var selected_slot_index: int = -1
-var selected_storage_type: String = ""
-
-const SLOT_SCENE = preload("res://scenes/inventory_slot.tscn")
+var snow_fox_container: StorageContainer
+var is_showing_warehouse: bool = true  # 当前显示的是仓库还是雪狐背包
+var switch_button: Button
 
 func _ready():
-	hide()
-	_create_slots()
-	_connect_signals()
-	_refresh_all_slots()
-
-func _create_slots():
-	"""创建所有格子"""
-	# 创建背包格子
-	for i in range(InventoryManager.INVENTORY_SIZE):
-		var slot = SLOT_SCENE.instantiate()
-		slot.setup(i, "inventory")
-		slot.slot_clicked.connect(_on_slot_clicked)
-		inventory_grid.add_child(slot)
-		inventory_slots.append(slot)
+	super._ready()
 	
-	# 创建仓库格子
-	for i in range(InventoryManager.WAREHOUSE_SIZE):
-		var slot = SLOT_SCENE.instantiate()
-		slot.setup(i, "warehouse")
-		slot.slot_clicked.connect(_on_slot_clicked)
-		warehouse_grid.add_child(slot)
-		warehouse_slots.append(slot)
-
-func _connect_signals():
-	"""连接信号"""
-	InventoryManager.inventory_changed.connect(_on_inventory_changed)
-	InventoryManager.warehouse_changed.connect(_on_warehouse_changed)
-
-func _refresh_all_slots():
-	"""刷新所有格子显示"""
-	for i in range(inventory_slots.size()):
-		inventory_slots[i].set_item(InventoryManager.inventory[i])
+	# 初始化雪狐背包容器
+	_initialize_snow_fox_container()
 	
-	for i in range(warehouse_slots.size()):
-		warehouse_slots[i].set_item(InventoryManager.warehouse[i])
-
-func _on_inventory_changed():
-	"""背包数据变化"""
-	for i in range(inventory_slots.size()):
-		inventory_slots[i].set_item(InventoryManager.inventory[i])
-
-func _on_warehouse_changed():
-	"""仓库数据变化"""
-	for i in range(warehouse_slots.size()):
-		warehouse_slots[i].set_item(InventoryManager.warehouse[i])
-
-func _on_slot_clicked(slot_index: int, storage_type: String):
-	"""格子被点击"""
-	var storage = InventoryManager.inventory if storage_type == "inventory" else InventoryManager.warehouse
-	var clicked_item = storage[slot_index]
+	# 设置玩家背包和仓库
+	setup_player_inventory(InventoryManager.inventory_container, "背包")
+	setup_other_container(InventoryManager.warehouse_container, "仓库")
 	
-	# 没有选中物品时
-	if selected_slot_index == -1:
-		if clicked_item != null:
-			# 选中该物品
-			_select_slot(slot_index, storage_type)
-			_show_item_info(clicked_item)
-		else:
-			# 点击空格子，高亮但不选中
-			_clear_selection()
-	else:
-		# 已有选中物品时
-		if selected_slot_index == slot_index and selected_storage_type == storage_type:
-			# 点击同一个格子，取消选中
-			_clear_selection()
-		else:
-			# 移动物品
-			var from_storage = InventoryManager.inventory if selected_storage_type == "inventory" else InventoryManager.warehouse
-			var to_storage = storage
-			
-			InventoryManager.move_item(
-				from_storage, selected_slot_index,
-				to_storage, slot_index,
-				selected_storage_type, storage_type
-			)
-			
-			# 移动后显示目标格子的物品信息
-			var target_item = to_storage[slot_index]
-			if target_item != null:
-				_show_item_info(target_item)
-			else:
-				_clear_item_info()
-			
-			_clear_selection()
+	# 创建切换按钮
+	_create_switch_button()
 
-func _select_slot(slot_index: int, storage_type: String):
-	"""选中格子"""
-	_clear_selection()
-	selected_slot_index = slot_index
-	selected_storage_type = storage_type
+func _initialize_snow_fox_container():
+	"""初始化雪狐背包容器（带武器栏）"""
+	const SNOW_FOX_SIZE = 12
+	snow_fox_container = StorageContainer.new(SNOW_FOX_SIZE, InventoryManager.items_config, true)
 	
-	var slots = inventory_slots if storage_type == "inventory" else warehouse_slots
-	slots[slot_index].set_selected(true)
-
-func _clear_selection():
-	"""清除选中状态"""
-	if selected_slot_index != -1:
-		var slots = inventory_slots if selected_storage_type == "inventory" else warehouse_slots
-		if selected_slot_index < slots.size():
-			slots[selected_slot_index].set_selected(false)
+	# 从存档加载雪狐背包
+	if SaveManager and SaveManager.save_data.has("snow_fox_inventory"):
+		snow_fox_container.load_data(SaveManager.save_data.snow_fox_inventory)
 	
-	selected_slot_index = -1
-	selected_storage_type = ""
+	# 连接存储变化信号以自动保存
+	snow_fox_container.storage_changed.connect(_on_snow_fox_storage_changed)
 
-func _show_item_info(item_data: Dictionary):
-	"""显示物品信息"""
-	if not item_name_label or not item_desc_label or not item_icon:
+func _create_switch_button():
+	"""创建切换按钮"""
+	if not container_panel:
 		return
 	
-	var item_config = InventoryManager.get_item_config(item_data.item_id)
+	# 查找或创建切换按钮
+	var vbox = container_panel.get_node_or_null("VBox")
+	if not vbox:
+		return
 	
-	item_name_label.text = item_config.get("name", "未知物品")
-	item_desc_label.text = item_config.get("description", "无描述")
+	switch_button = vbox.get_node_or_null("SwitchButton")
+	if not switch_button:
+		switch_button = Button.new()
+		switch_button.name = "SwitchButton"
+		# 插入到标题后面
+		vbox.add_child(switch_button)
+		vbox.move_child(switch_button, 1)
 	
-	# 显示图标
-	if item_config.has("icon"):
-		var icon_path = "res://assets/images/items/" + item_config.icon
-		if ResourceLoader.exists(icon_path):
-			item_icon.texture = load(icon_path)
-		else:
-			item_icon.texture = null
-	
-	# 显示详细属性
-	var details = "\n\n属性\n"
-	details += "类型: " + item_config.get("type", "未知") + "\n"
-	details += "数量: " + str(item_data.count) + "\n"
-	
-	if item_config.has("weight"):
-		details += "重量: " + str(item_config.weight) + "\n"
-	if item_config.has("max_stack"):
-		details += "最大堆叠: " + str(item_config.max_stack) + "\n"
-	
-	# 武器属性
-	if item_config.get("type") == "weapon":
-		if item_config.has("damage"):
-			details += "伤害: " + str(item_config.damage) + "\n"
-		if item_config.has("fire_rate"):
-			details += "射速: " + str(item_config.fire_rate) + "\n"
-	
-	# 医疗属性
-	if item_config.get("type") == "medical":
-		if item_config.has("heal_amount"):
-			details += "恢复量: " + str(item_config.heal_amount) + "\n"
-	
-	item_desc_label.text += details
+	var character_name = _get_character_name()
+	switch_button.text = "切换到" + character_name + "背包"
+	switch_button.pressed.connect(_on_switch_button_pressed)
 
-func _clear_item_info():
-	"""清空物品信息"""
-	if item_name_label:
-		item_name_label.text = "选择物品查看详情"
-	if item_desc_label:
-		item_desc_label.text = ""
-	if item_icon:
-		item_icon.texture = null
+func _on_switch_button_pressed():
+	"""切换按钮点击"""
+	is_showing_warehouse = !is_showing_warehouse
+	var character_name = _get_character_name()
+	
+	if is_showing_warehouse:
+		setup_other_container(InventoryManager.warehouse_container, "仓库")
+		switch_button.text = "切换到" + character_name + "背包"
+	else:
+		setup_other_container(snow_fox_container, character_name + "的背包")
+		switch_button.text = "切换到仓库"
+	
+	_refresh_all_slots()
+
+func _on_snow_fox_storage_changed():
+	"""雪狐背包变化时保存"""
+	if SaveManager:
+		SaveManager.save_data.snow_fox_inventory = snow_fox_container.get_data()
+		SaveManager.save_inventory_data()
 
 func toggle_visibility():
 	"""切换显示/隐藏"""
-	visible = !visible
 	if visible:
-		_refresh_all_slots()
-		_clear_selection()
-		_clear_item_info()
+		close_inventory()
+	else:
+		# 重新加载雪狐背包（以防在探索模式中修改过）
+		if SaveManager and SaveManager.save_data.has("snow_fox_inventory"):
+			snow_fox_container.load_data(SaveManager.save_data.snow_fox_inventory)
+		
+		# 默认显示仓库
+		is_showing_warehouse = true
+		setup_other_container(InventoryManager.warehouse_container, "仓库")
+		if switch_button:
+			switch_button.text = "切换到"+_get_character_name()+"背包"
+		
+		open_with_container()
 
-func _on_close_button_pressed():
-	"""关闭按钮"""
-	hide()
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if not has_node("/root/SaveManager"):
+		return "角色"
+	
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()

@@ -28,7 +28,7 @@ var scenes = {
 
 var current_scene_id: String = "livingroom"
 var current_time_id: String = "day"
-var current_weather_id: String = "sunny"
+var current_weather_id: String = ""  # 将从存档加载
 var auto_time_enabled: bool = true # 默认开启自动调整时间
 var clock_label: Label
 var auto_checkbox: CheckBox
@@ -51,6 +51,18 @@ var auto_save_timer: Timer
 func _ready():
 	toggle_button.pressed.connect(_on_toggle_pressed)
 	_load_scenes_config()
+	
+	# 从存档加载天气
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		var saved_weather = save_mgr.get_current_weather()
+		if saved_weather != "":
+			current_weather_id = saved_weather
+			print("从存档加载天气: ", current_weather_id)
+		else:
+			current_weather_id = "sunny"  # 默认值
+	else:
+		current_weather_id = "sunny"  # 默认值
 	
 	# 如果启用了自动时间，在构建UI之前先调整时间
 	if auto_time_enabled:
@@ -83,10 +95,7 @@ func _ready():
 	add_child(auto_save_timer)
 	auto_save_timer.start()
 	
-	# 等待自动加载节点准备好
-	await get_tree().process_frame
-	
-	# 监听SaveManager的数据变化信号
+	# 立即连接SaveManager信号（不等待），确保不会错过任何信号
 	if has_node("/root/SaveManager"):
 		var save_mgr = get_node("/root/SaveManager")
 		save_mgr.affection_changed.connect(_update_character_stats)
@@ -97,10 +106,16 @@ func _ready():
 		if save_mgr.has_signal("character_scene_changed"):
 			save_mgr.character_scene_changed.connect(_update_character_stats)
 	
+	# 等待自动加载节点准备好
+	await get_tree().process_frame
+	
 	# 监听AI服务的字段提取信号以实时更新
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.chat_fields_extracted.connect(_on_ai_fields_updated)
+	
+	# 强制刷新一次角色状态显示，确保启动时显示正确
+	_update_character_stats()
 
 func _setup_clock_and_auto():
 	# 在场景列表顶部添加时钟和自动选项
@@ -317,6 +332,8 @@ func _build_scene_list():
 	var separator2 = HSeparator.new()
 	scene_list.add_child(separator2)
 	
+	# 已移除实验性玩法入口
+	
 	# 天气按钮组
 	if scene_data.has("weathers"):
 		var weather_label = Label.new()
@@ -405,6 +422,7 @@ func _update_character_stats(_new_value = null):
 	var scene_name = _get_scene_name(character_scene)
 	var character_name = _get_character_name()
 	character_location_label.text = "%s位于: %s" % [character_name, scene_name]
+	print("[边栏] 更新角色位置显示: %s 位于 %s (场景ID: %s)" % [character_name, scene_name, character_scene])
 	
 	# 好感度
 	var affection = save_mgr.get_affection()
@@ -506,7 +524,7 @@ func _setup_ai_settings(container: VBoxContainer):
 	"""设置 AI 配置区域"""
 	# AI 配置按钮
 	var ai_config_button = Button.new()
-	ai_config_button.text = "AI 配置"
+	ai_config_button.text = "配置选项"
 	ai_config_button.pressed.connect(_on_ai_config_pressed)
 	container.add_child(ai_config_button)
 	
@@ -597,18 +615,17 @@ func _on_ai_config_pressed():
 	"""打开AI配置面板"""
 	# 检查是否已经存在配置面板
 	for child in get_tree().root.get_children():
-		if child.get_script() and child.get_script().resource_path == "res://scripts/ai_config_panel.gd":
-			# 如果已存在，切换显示状态
-			if child.visible:
-				child.queue_free()
-			else:
-				child.visible = true
+		if child is Panel and child.name == "AIConfigPanel":  # 根据你的实际节点名称调整
+			# 如果已存在，直接显示并返回
+			child.show()
+			child.move_to_front()  # 确保显示在最前面
 			return
 	
 	# 如果不存在，创建新面板
 	var config_panel_scene = load("res://scenes/ai_config_panel.tscn")
 	if config_panel_scene:
 		var config_panel = config_panel_scene.instantiate()
+		config_panel.name = "AIConfigPanel"  # 设置一个固定的名称便于识别
 		get_tree().root.add_child(config_panel)
 		# 面板关闭后刷新状态显示
 		config_panel.tree_exited.connect(_load_api_key_display)
@@ -664,17 +681,17 @@ func _get_scene_name(scene_id: String) -> String:
 
 func _get_character_name() -> String:
 	"""获取角色名称"""
-	var app_config_path = "res://config/app_config.json"
-	if not FileAccess.file_exists(app_config_path):
+	if not has_node("/root/SaveManager"):
 		return "角色"
 	
-	var file = FileAccess.open(app_config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		return "角色"
-	
-	var config = json.data
-	return config.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()
+
+func _setup_experimental_section():
+	"""设置实验性玩法部分"""
+	# 标题
+	var exp_label = Label.new()
+	exp_label.text = "实验性玩法（没做）"
+	exp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	exp_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	scene_list.add_child(exp_label)

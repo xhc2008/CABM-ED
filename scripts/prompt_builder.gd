@@ -39,9 +39,8 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 从 app_config.json 读取角色名称
-	var app_config = _load_app_config()
-	var character_name = app_config.get("character_name", "角色")
+	# 从存档读取角色名称
+	var character_name = save_mgr.get_character_name()
 	
 	# 从存档系统读取用户名
 	var user_name = save_mgr.get_user_name()
@@ -82,6 +81,9 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 	var character_preset = _load_character_preset()
 	var character_prompt = character_preset.get("prompt", "")
 	
+	# 获取回复风格
+	var response_style = _get_response_style()
+	
 	# 准备所有占位符的替换字典
 	var replacements = {
 		"{character_name}": character_name,
@@ -99,7 +101,8 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 		"{current_mood}": current_mood,
 		"{current_time}": current_time,
 		"{scenes}": scenes_list,
-		"{character_prompt}": character_prompt
+		"{character_prompt}": character_prompt,
+		"{response_style}": response_style
 	}
 	
 	# 检查使用哪种配置方式
@@ -218,20 +221,7 @@ func get_scene_id_by_index(index: int) -> String:
 	
 	return ""
 
-func _load_app_config() -> Dictionary:
-	"""加载应用配置"""
-	var config_path = "res://config/app_config.json"
-	if not FileAccess.file_exists(config_path):
-		return {}
-	
-	var file = FileAccess.open(config_path, FileAccess.READ)
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) == OK:
-		return json.data
-	return {}
+
 
 func _load_character_preset() -> Dictionary:
 	"""加载当前服装的角色预设配置"""
@@ -261,14 +251,11 @@ func _get_scene_description(scene_id: String) -> String:
 
 func _get_weather_description(weather_id: String) -> String:
 	"""获取天气描述（从配置文件读取）"""
-	var save_mgr = get_node("/root/SaveManager")
-	var current_scene = save_mgr.get_character_scene()
-	
 	var scenes_config = _load_scenes_config()
-	if scenes_config.has("scenes") and scenes_config.scenes.has(current_scene):
-		var scene = scenes_config.scenes[current_scene]
-		if scene.has("weathers") and scene.weathers.has(weather_id):
-			return scene.weathers[weather_id]
+	
+	# 从全局 weathers 配置中读取
+	if scenes_config.has("weathers") and scenes_config.weathers.has(weather_id):
+		return scenes_config.weathers[weather_id]
 	
 	# 如果找不到，返回默认值
 	return "晴天"
@@ -305,7 +292,6 @@ func _convert_affection_to_text(affection: int) -> String:
 
 func _convert_willingness_to_text(willingness: int) -> String:
 	"""将回复意愿数值转换为描述文本"""
-	# TODO: 根据需要自定义回复意愿描述
 	var percentage = float(willingness) / 100.0
 	if percentage >= 0.8:
 		return "高，乐意交流"
@@ -359,19 +345,16 @@ func _format_current_time() -> String:
 
 func _get_trigger_context(trigger_mode: String) -> String:
 	"""获取触发上下文文本"""
-	if not config.has("chat_model") or not config.chat_model.has("trigger_contexts"):
-		# 如果配置中没有trigger_contexts，使用默认值
-		if trigger_mode == "character_initiated":
-			return "现在，你想主动找用户聊天，说点什么吧。"
-		elif trigger_mode == "ongoing":
-			return "你在和用户聊天。"
-		else:
-			return "现在，用户找你聊天。"
 	
 	var trigger_contexts = config.chat_model.trigger_contexts
 	var context = trigger_contexts.get(trigger_mode, "你在和用户聊天。")
 	
 	var save_mgr = get_node("/root/SaveManager")
+	
+	# 如果trigger_context中包含{user_name}占位符，需要替换
+	if context.contains("{user_name}"):
+		var user_name = save_mgr.get_user_name()
+		context = context.replace("{user_name}", user_name)
 	
 	# 如果trigger_context中包含{current_scene}占位符，需要替换
 	if context.contains("{current_scene}"):
@@ -495,9 +478,8 @@ func build_offline_diary_prompt(start_time: String, end_time: String, event_coun
 	
 	var save_mgr = get_node("/root/SaveManager")
 	
-	# 从 app_config.json 读取角色名称
-	var app_config = _load_app_config()
-	var character_name = app_config.get("character_name", "角色")
+	# 从存档读取角色名称
+	var character_name = save_mgr.get_character_name()
 	
 	# 从存档系统读取用户名和称呼
 	var user_name = save_mgr.get_user_name()
@@ -631,3 +613,38 @@ func _get_recent_context_for_query() -> String:
 		recent_turns.append(turn.user + " " + turn.assistant)
 	
 	return " ".join(recent_turns)
+
+func _get_response_style() -> String:
+	"""获取回复风格文本"""
+	# 从用户配置加载回复模式
+	var response_mode = _load_response_mode()
+	
+	# 从ai_config.json获取对应的风格文本
+	var response_styles = config.chat_model.response_style
+	
+	# 如果配置中不存在该模式，使用默认值
+	if not response_styles.has(response_mode):
+		response_mode = "verbal"
+	
+	return response_styles.get(response_mode, response_styles.verbal)
+
+func _load_response_mode() -> String:
+	"""从用户配置加载回复模式"""
+	var config_path = "user://ai_keys.json"
+	
+	if not FileAccess.file_exists(config_path):
+		return "verbal" # 默认为语言表达模式
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if file == null:
+		return "verbal"
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		return "verbal"
+	
+	var user_config = json.data
+	return user_config.get("response_mode", "verbal")

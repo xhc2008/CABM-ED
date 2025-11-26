@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8explore_inv_ui"]
+
+[ext_resource type="PackedScene" uid="uid://bvn8k3nan5p2qrs" path="res://scenes/universal_inventory_ui.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/explore/explore_inventory_ui.gd" id="2"]
+
+[node name="ExploreInventoryUI" instance=ExtResource("1")]
+script = ExtResource("2")

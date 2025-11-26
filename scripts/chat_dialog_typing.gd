@@ -5,6 +5,7 @@ extends Node
 
 signal sentence_completed
 signal all_sentences_completed
+signal sentence_ready_for_tts(text: String) # 句子准备好进行TTS处理
 
 const TYPING_SPEED = 0.05
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
@@ -20,7 +21,7 @@ var is_receiving_stream: bool = false
 
 # 分段输出相关
 var sentence_buffer: String = ""
-var sentence_queue: Array = []
+var sentence_queue: Array = [] # Array of {text: String, sentence_hash: String}
 var current_sentence_index: int = 0
 var is_showing_sentence: bool = false
 
@@ -40,6 +41,7 @@ func start_stream():
 	sentence_queue = []
 	current_sentence_index = 0
 	is_showing_sentence = false
+    
 	message_label.text = ""
 
 func add_stream_content(content: String):
@@ -51,7 +53,13 @@ func end_stream():
 	
 	# 处理剩余的句子缓冲
 	if not sentence_buffer.strip_edges().is_empty():
-		sentence_queue.append(sentence_buffer.strip_edges())
+		var txt = sentence_buffer.strip_edges()
+		var sentence_entry = {
+			"text": txt,
+			"sentence_hash": _compute_sentence_hash(txt)
+		}
+		sentence_queue.append(sentence_entry)
+		sentence_ready_for_tts.emit(sentence_entry.text)
 		sentence_buffer = ""
 	
 	# 如果还没有开始显示句子，开始显示第一句
@@ -61,7 +69,9 @@ func end_stream():
 func has_content() -> bool:
 	return sentence_queue.size() > 0 or not sentence_buffer.strip_edges().is_empty()
 
-func show_next_sentence():
+
+func show_next_sentence() -> String:
+	"""显示下一个句子，返回该句子的哈希"""
 	# 确保当前句子已经显示完成
 	if not typing_timer.is_stopped():
 		print("警告: 上一句还在显示中，等待完成")
@@ -69,7 +79,15 @@ func show_next_sentence():
 		displayed_text = display_buffer
 		message_label.text = displayed_text
 	
+	# 获取下一个句子的哈希（在显示之前）
+	var next_hash = ""
+	if current_sentence_index < sentence_queue.size():
+		next_hash = sentence_queue[current_sentence_index].sentence_hash
+	
 	_show_next_sentence()
+	
+	# 返回下一个句子的哈希
+	return next_hash
 
 func has_more_sentences() -> bool:
 	return current_sentence_index < sentence_queue.size()
@@ -100,8 +118,16 @@ func _extract_sentences_from_buffer():
 		var sentence = sentence_buffer.substr(0, end_pos).strip_edges()
 		
 		if not sentence.is_empty():
-			sentence_queue.append(sentence)
-			print("提取句子: ", sentence)
+			# 为每句话计算哈希并入队
+			var txt = sentence
+			var sentence_entry = {
+				"text": txt,
+				"sentence_hash": _compute_sentence_hash(txt)
+			}
+			sentence_queue.append(sentence_entry)
+			print("提取句子 hash:%s: %s" % [sentence_entry.sentence_hash.substr(0,8), sentence])
+			# 立即发送TTS准备信号，不等待显示
+			sentence_ready_for_tts.emit(sentence)
 		
 		sentence_buffer = sentence_buffer.substr(end_pos)
 	
@@ -135,17 +161,21 @@ func _show_next_sentence():
 		return
 	
 	is_showing_sentence = true
-	var sentence = sentence_queue[current_sentence_index]
+	var sentence_entry = sentence_queue[current_sentence_index]
+	
+	# 在开始显示之前，先通知TTS系统当前要显示的句子
+	if has_node("/root/TTSService"):
+		var tts = get_node("/root/TTSService")
+		tts.on_new_sentence_displayed(sentence_entry.sentence_hash)
+		print("已通知TTS系统开始显示句子 hash:%s" % sentence_entry.sentence_hash.substr(0,8))
+	
 	current_sentence_index += 1
 	
-	print("开始显示句子 #%d: %s" % [current_sentence_index, sentence])
+	print("开始显示句子 hash:%s: %s" % [sentence_entry.sentence_hash.substr(0,8), sentence_entry.text])
 	
 	message_label.text = ""
 	displayed_text = ""
-	display_buffer = sentence
-	
-	# 发送TTS
-	_send_tts(sentence)
+	display_buffer = sentence_entry.text
 	
 	typing_timer.start(TYPING_SPEED)
 
@@ -158,17 +188,19 @@ func _on_typing_timer_timeout():
 		typing_timer.stop()
 		sentence_completed.emit()
 
-func _send_tts(text: String):
-	if not parent_dialog.has_node("/root/TTSService"):
-		return
-	
-	var tts = parent_dialog.get_node("/root/TTSService")
-	if tts.is_enabled and not text.is_empty():
-		tts.synthesize_speech(text)
-		print("ChatDialog: 发送TTS - ", text)
-
 func stop():
 	if typing_timer:
 		typing_timer.stop()
 	is_receiving_stream = false
 	is_showing_sentence = false
+
+
+func _compute_sentence_hash(original_text: String) -> String:
+	"""计算句子原始内容的SHA256哈希（未去除括号、未翻译）"""
+	if original_text == null:
+		return ""
+	var hashing_context = HashingContext.new()
+	hashing_context.start(HashingContext.HASH_SHA256)
+	hashing_context.update(original_text.to_utf8_buffer())
+	var hash_bytes = hashing_context.finish()
+	return hash_bytes.hex_encode()

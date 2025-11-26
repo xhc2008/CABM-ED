@@ -16,7 +16,7 @@ window/keyboard_mode=1
 
 config/name="CABM-ED"
 run/main_scene="res://scenes/game_launcher.tscn"
-config/features=PackedStringArray("4.5", "C#", "GL Compatibility")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 boot_splash/show_image=false
 boot_splash/fullsize=false
 boot_splash/use_filter=false
@@ -24,32 +24,33 @@ config/icon="res://icon.png"
 
 [autoload]
 
+PlatformManager="*res://scripts/platform_manager.gd"
 SaveManager="*res://scripts/save_manager.gd"
 OfflineTimeManager="*res://scripts/offline_time_manager.gd"
 PromptBuilder="*res://scripts/prompt_builder.gd"
 MemoryManager="*res://scripts/memory_manager.gd"
 UnifiedMemorySaver="*res://scripts/unified_memory_saver.gd"
-AIService="*res://scripts/ai_service.gd"
+AIService="*res://scripts/ai_chat/ai_service.gd"
 TTSService="*res://scripts/tts_service.gd"
 EventHelpers="*res://scripts/event_helpers.gd"
 EventManager="*res://scripts/event_manager.gd"
 UIManager="*res://scripts/ui_manager.gd"
 InteractiveElementManager="*res://scripts/interactive_element_manager.gd"
 InventoryManager="*res://scripts/inventory_manager.gd"
+ShopManager="*res://scripts/shop_manager.gd"
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/ios/hide_home_indicator=false
 window/ios/hide_status_bar=false
 window/ios/suppress_ui_gesture=false
 
-[dotnet]
+[editor_plugins]
 
-project/assembly_name="CABM-ED"
+enabled=PackedStringArray("res://addons/virtual_joystick/plugin.cfg")
 
 [gui]
 

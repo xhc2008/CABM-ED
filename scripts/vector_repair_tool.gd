@@ -72,7 +72,7 @@ func start_repair():
 			print("  向量正常，跳过")
 		
 		# 短暂延迟，避免API请求过快
-		await get_tree().create_timer(0.5).timeout
+		# await get_tree().create_timer(0.5).timeout
 	
 	# 最终保存
 	memory_system.save_to_file()

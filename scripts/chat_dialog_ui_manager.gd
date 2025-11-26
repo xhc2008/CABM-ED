@@ -32,18 +32,21 @@ func setup(dialog: Panel, char_label: Label, msg_label: Label,
 	continue_indicator = continue_ind
 
 func transition_to_reply_mode(character_name: String):
-	# 第一步：输入容器和结束按钮淡出
+	# 第一步：设置状态标志
+	parent_dialog.is_input_mode = false
+	
+	# 第二步：输入容器和结束按钮淡出
 	var fade_tween = parent_dialog.create_tween()
 	fade_tween.set_parallel(true)
 	fade_tween.tween_property(input_container, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	fade_tween.tween_property(end_button, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await fade_tween.finished
 	
-	# 第二步：隐藏输入容器和结束按钮
+	# 第三步：隐藏输入容器和结束按钮
 	input_container.visible = false
 	end_button.visible = false
 	
-	# 第三步：准备回复UI元素（但保持透明）
+	# 第四步：准备回复UI元素（但保持透明）
 	character_name_label.visible = true
 	message_label.visible = true
 	character_name_label.text = character_name
@@ -51,7 +54,7 @@ func transition_to_reply_mode(character_name: String):
 	character_name_label.modulate.a = 0.0
 	message_label.modulate.a = 0.0
 	
-	# 第四步：高度变化和内容淡入同时进行
+	# 第五步：高度变化和内容淡入同时进行
 	is_animating = true
 	var combined_tween = parent_dialog.create_tween()
 	combined_tween.set_parallel(true)
@@ -63,27 +66,34 @@ func transition_to_reply_mode(character_name: String):
 	is_animating = false
 
 func transition_to_input_mode():
-	# 第一步：回复内容淡出
+	# 第一步：设置状态标志
+	parent_dialog.is_input_mode = true
+	parent_dialog.waiting_for_continue = false
+	
+	# 第二步：回复内容淡出
 	var fade_tween = parent_dialog.create_tween()
 	fade_tween.set_parallel(true)
 	fade_tween.tween_property(character_name_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	fade_tween.tween_property(message_label, "modulate:a", 0.0, ANIMATION_DURATION * 0.5)
 	await fade_tween.finished
 	
-	# 第二步：隐藏回复UI元素
+	# 第三步：隐藏回复UI元素
 	character_name_label.visible = false
 	message_label.visible = false
 	
-	# 第三步：准备输入容器和结束按钮（但保持透明）
+	# 第四步：准备输入容器和结束按钮（但保持透明）
 	continue_indicator.visible = false
 	input_container.visible = true
 	end_button.visible = true
+	end_button.text = "查看历史"
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
+	if parent_dialog != null and parent_dialog.has_method("_update_action_button_state"):
+		parent_dialog._update_action_button_state()
 	input_container.modulate.a = 0.0
 	end_button.modulate.a = 0.0
 	
-	# 第四步：高度变化和输入容器、结束按钮淡入同时进行
+	# 第五步：高度变化和输入容器、结束按钮淡入同时进行
 	is_animating = true
 	var combined_tween = parent_dialog.create_tween()
 	combined_tween.set_parallel(true)

@@ -13,7 +13,7 @@ func _ready():
 
 func _has_save_file() -> bool:
 	"""检查是否存在存档文件"""
-	var save_path: String = "user://saves/save_slot_1.json"
+	var save_path = "user://saves/save_slot_1.json"
 	return FileAccess.file_exists(save_path)
 
 func _load_intro_story():

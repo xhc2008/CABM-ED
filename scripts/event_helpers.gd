@@ -63,8 +63,8 @@ func get_energy_modifier() -> float:
 		return -0.30
 
 # === 边界常量 ===
-const AFFECTION_MIN = 0
-const AFFECTION_MAX = 100
+const AFFECTION_MIN = -65536
+const AFFECTION_MAX = 65535
 const WILLINGNESS_MIN = 0
 const WILLINGNESS_MAX = 100  # 回复意愿上限为100
 const ENERGY_MIN = 0
@@ -150,23 +150,11 @@ func modify_energy(change: int):
 
 func get_character_name() -> String:
 	"""获取角色名称"""
-	var config_path = "res://config/app_config.json"
-	if not FileAccess.file_exists(config_path):
+	if not has_node("/root/SaveManager"):
 		return "角色"
 	
-	var file = FileAccess.open(config_path, FileAccess.READ)
-	if not file:
-		return "角色"
-	
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	if json.parse(json_string) != OK:
-		return "角色"
-	
-	var data = json.data
-	return data.get("character_name", "角色")
+	var save_mgr = get_node("/root/SaveManager")
+	return save_mgr.get_character_name()
 
 func get_affection() -> int:
 	"""获取当前好感度"""

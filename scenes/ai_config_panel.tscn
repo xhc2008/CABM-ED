@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://ai_config_panel_001"]
 
-[ext_resource type="Script" path="res://scripts/ai_config_panel.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ai_chat/ai_config_panel.gd" id="1"]
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_template"]
 resource_name = "TemplateGroup"
@@ -41,7 +41,7 @@ layout_mode = 2
 [node name="Title" type="Label" parent="MarginContainer/VBoxContainer/TitleContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "AI 配置"
+text = "配置选项"
 horizontal_alignment = 1
 
 [node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/TitleContainer"]
@@ -191,7 +191,7 @@ text = "模型名称:"
 
 [node name="SummaryModelInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Qwen/Qwen3-8B"
+placeholder_text = "Qwen/Qwen3-30B-A3B"
 
 [node name="SummaryBaseURLLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/ScrollContainer/VBoxContainer"]
 layout_mode = 2
@@ -330,6 +330,17 @@ layout_mode = 2
 text = "80%"
 horizontal_alignment = 1
 
+[node name="LanguageContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
+layout_mode = 2
+
+[node name="LanguageLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/LanguageContainer"]
+layout_mode = 2
+text = "语言"
+
+[node name="LanguageOption" type="OptionButton" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer/LanguageContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/语音设置/VBoxContainer"]
 layout_mode = 2
 
@@ -390,6 +401,97 @@ text = "提示：
 • 手机端可在文件管理器的Documents目录找到导出的文件
 • 可将日志压缩后分享给开发者用于问题诊断
 • 日志包含对话内容，请注意隐私保护"
+autowrap_mode = 3
+
+[node name="存档导出" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/存档导出"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="WarningPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer/WarningPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer/WarningPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WarningIcon" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer/WarningPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 32
+text = "⚠️"
+horizontal_alignment = 1
+
+[node name="WarningTitle" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer/WarningPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 18
+text = "重要警告"
+horizontal_alignment = 1
+
+[node name="WarningText" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer/WarningPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.3, 1)
+theme_override_font_sizes/font_size = 14
+text = "存档将包含包括API密钥在内的一切信息
+请妥善保管导出的文件，不要分享给他人"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator1" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="InfoLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "为了确认导出操作，请输入API密钥"
+horizontal_alignment = 1
+
+[node name="APIKeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "对话模型（或快速配置）的API密钥："
+
+[node name="APIKeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "输入API密钥"
+secret = true
+
+[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="ExportButton" type="Button" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "导出存档"
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator3" type="HSeparator" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="HintLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/存档导出/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "提示：导出的存档包含所有游戏数据和配置，可在初始配置页面导入。导入后游戏将自动重启。Android平台存档导出到 Documents/CABM-ED_Saves/ 目录。"
 autowrap_mode = 3
 
 [node name="修复记忆" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer"]

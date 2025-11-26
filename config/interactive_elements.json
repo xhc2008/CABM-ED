@@ -15,7 +15,14 @@
       "scenes": [
         "bedroom"
       ],
-      "enabled": true
+      "enabled": true,
+      "options": [
+        {
+          "text": "📖 {character_name}的日记",
+          "action": "diary_selected",
+          "signal": "diary_selected"
+        }
+      ]
     },
     "costume_button": {
       "name": "换装入口",
@@ -32,7 +39,14 @@
       "scenes": [
         "bathroom"
       ],
-      "enabled": true
+      "enabled": true,
+      "options": [
+        {
+          "text": "👗 换装",
+          "action": "costume_selector",
+          "signal": "costume_selector_requested"
+        }
+      ]
     },
     "music_button": {
       "name": "音乐播放器入口",
@@ -49,7 +63,86 @@
       "scenes": [
         "studyroom"
       ],
-      "enabled": true
+      "enabled": true,
+      "options": [
+        {
+          "text": "🎵 音乐播放器",
+          "action": "music_player",
+          "signal": null
+        }
+      ]
+    },
+    "cook_button": {
+      "name": "烹饪入口",
+      "type": "click_area",
+      "size": {
+        "width": 200,
+        "height": 150
+      },
+      "position": {
+        "anchor": "right_center",
+        "offset_x": -240,
+        "offset_y": 30
+      },
+      "scenes": [
+        "kitchen"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🍳 做饭",
+          "action": "start_cook",
+          "signal": "start_cook"
+        }
+      ]
+    },
+    "shop_button": {
+      "name": "商店入口",
+      "type": "click_area",
+      "size": {
+        "width": 150,
+        "height": 220
+      },
+      "position": {
+        "anchor": "center",
+        "offset_x": -30,
+        "offset_y": 10
+      },
+      "scenes": [
+        "shop"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🏪 商店",
+          "action": "enter_shop",
+          "signal": "enter_shop"
+        }
+      ]
+    },
+    "farming_button": {
+      "name": "菜园入口",
+      "type": "click_area",
+      "size": {
+        "width": 300,
+        "height": 250
+      },
+      "position": {
+        "anchor": "center",
+        "offset_x": 50,
+        "offset_y": 200
+      },
+      "scenes": [
+        "rooftop"
+      ],
+      "enabled": true,
+      "options": [
+        {
+          "text": "🥦 菜园",
+          "action": "enter_farming",
+          "signal": "enter_farming"
+        }
+      ]
     }
   },
   "position_anchors": {

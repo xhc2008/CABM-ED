@@ -18,7 +18,7 @@
 		},
 		{
 			"id": 2,
-			"name": "难过",
+			"name": "委屈",
 			"name_en": "sad",
 			"image": "sad.png",
 			"color": "#4D9FFF",
@@ -50,7 +50,7 @@
 		},
 		{
 			"id": 6,
-			"name": "嫌弃",
+			"name": "厌恶",
 			"name_en": "disgusted",
 			"image": "disgusted.png",
 			"color": "#7FFF4D",
