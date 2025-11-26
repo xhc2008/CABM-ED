@@ -1,9 +1,14 @@
-[gd_resource type="Theme" load_steps=2 format=3]
+[gd_resource type="Theme" load_steps=3 format=3]
 
 [ext_resource type="FontFile" path="res://zh-cn.ttf" id="1_font"]
+[ext_resource type="FontFile" path="res://NotoColorEmoji.ttf" id="2_emoji_font"]
+
+[sub_resource type="FontVariation" id="1_font_variation"]
+base_font = ExtResource("1_font")
+fallback_fonts = [ExtResource("2_emoji_font")]
 
 [resource]
-default_font = ExtResource("1_font")
+default_font = SubResource("1_font_variation")
 default_font_size = 24
 
 ; 按钮样式
