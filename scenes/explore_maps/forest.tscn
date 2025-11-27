@@ -1,6 +1,6 @@
 [gd_scene load_steps=11 format=4 uid="uid://d18upn0jywghu"]
 
-[ext_resource type="Texture2D" uid="uid://but00hra5v33o" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="1_4jpwj"]
+[ext_resource type="Texture2D" uid="uid://bhks7rmlhgeen" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="1_4jpwj"]
 [ext_resource type="Texture2D" uid="uid://c27anlstvtwhu" path="res://assets/images/explore/Tilemap/minecraft.png" id="2_4mvv2"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_oknes"]

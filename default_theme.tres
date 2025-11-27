@@ -1,25 +1,16 @@
-[gd_resource type="Theme" load_steps=3 format=3]
+[gd_resource type="Theme" load_steps=3 format=3 uid="uid://contcf3ey12vl"]
 
-[ext_resource type="FontFile" path="res://zh-cn.ttf" id="1_font"]
-[ext_resource type="FontFile" path="res://NotoColorEmoji.ttf" id="2_emoji_font"]
+[ext_resource type="FontFile" uid="uid://b47500waig6ar" path="res://zh-cn.ttf" id="1_font"]
 
 [sub_resource type="FontVariation" id="1_font_variation"]
 base_font = ExtResource("1_font")
-fallback_fonts = [ExtResource("2_emoji_font")]
 
 [resource]
 default_font = SubResource("1_font_variation")
 default_font_size = 24
-
-; 按钮样式
 Button/font_sizes/font_size = 24
 Button/constants/h_separation = 8
 
-; 标签样式
 Label/font_sizes/font_size = 24
-
-; 输入框样式
 LineEdit/font_sizes/font_size = 24
-
-; 复选框样式
 CheckBox/font_sizes/font_size = 22
