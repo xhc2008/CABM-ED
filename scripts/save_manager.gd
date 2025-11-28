@@ -129,7 +129,7 @@ func _on_auto_save_timeout():
 		save_game(current_slot)
 		print("自动保存完成")
 
-func save_game(slot: int = 1) -> bool:
+func save_game(slot: int = 1, update_last_played_at: bool = true) -> bool:
 	"""保存游戏数据
 	
 	参数:
@@ -140,6 +140,7 @@ func save_game(slot: int = 1) -> bool:
 		- last_played_at: 每次保存时更新（记录退出时间，用于离线时间计算）
 		- last_refresh_date: 只在每日刷新时更新（用于判断是否需要刷新）
 	"""
+	print("保存游戏到槽位 ", slot, "；更新时间戳: ", update_last_played_at)
 	var save_path = SAVE_DIR + SAVE_FILE_PREFIX + str(slot) + SAVE_FILE_EXT
 	
 	# 保存背包数据
@@ -165,8 +166,9 @@ func save_game(slot: int = 1) -> bool:
 	var now = Time.get_datetime_string_from_system()
 	var now_unix = Time.get_unix_time_from_system()
 	save_data.timestamp.last_saved_at = now
-	save_data.timestamp.last_played_at = now
-	save_data.timestamp.last_played_at_unix = now_unix
+	if update_last_played_at:
+		save_data.timestamp.last_played_at = now
+		save_data.timestamp.last_played_at_unix = now_unix
 	
 	# 转换为JSON
 	var json_string = JSON.stringify(save_data, "\t")
@@ -307,7 +309,7 @@ func _perform_daily_refresh(new_date: String):
 	call_deferred("_add_missing_unique_items_on_daily_refresh")
 	
 	# 4. 保存刷新后的数据
-	call_deferred("save_game", current_slot)
+	call_deferred("save_game", current_slot, false)
 
 # === 角色数据访问方法 ===
 
@@ -512,7 +514,7 @@ func _add_missing_unique_items_on_daily_refresh():
 			inventory_mgr.add_item_to_warehouse(item_id, 1)
 	
 	# 保存更新后的数据
-	save_inventory_data()
+	save_game(current_slot, false)
 	print("[SaveManager] 唯一物品检查完成")
 
 func _deep_merge(base: Dictionary, overlay: Dictionary) -> Dictionary:

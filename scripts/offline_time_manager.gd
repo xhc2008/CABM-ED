@@ -38,6 +38,7 @@ func check_and_apply_offline_changes():
 	
 	# 如果没有Unix时间戳，尝试从字符串解析（旧格式兼容）
 	if last_played_unix == 0.0:
+		print("Unix解析失败！")
 		var last_played_str = SaveManager.save_data.timestamp.get("last_played_at", "")
 		if last_played_str == "":
 			print("首次进入游戏，无需处理离线时间")
