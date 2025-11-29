@@ -554,6 +554,9 @@ func _handle_summary_response(response: Dictionary):
 
 	await _save_memory_and_diary(summary, conversation_text, timestamp)
 
+	# 调用 tuple 模型以提取三元组并保存到图谱文件
+	_call_tuple_model(summary, conversation_text, timestamp)
+
 	# 总结成功后才清除上下文
 	_clear_conversation_context()
 
@@ -706,6 +709,68 @@ func _call_address_api(conversation_text: String):
 		push_error("称呼模型请求失败: " + str(error))
 		address_request.queue_free()
 
+func _call_tuple_model(summary_text: String, conversation_text: String, custom_timestamp = null):
+	"""调用tuple模型，将返回结果保存到 `user://memory_graph.json`"""
+	var summary_config = config_loader.config.summary_model
+	var model = summary_config.model
+	var base_url = summary_config.base_url
+
+	if model.is_empty() or base_url.is_empty():
+		print("Tuple 模型配置不完整，跳过图谱保存")
+		return
+
+	var url = base_url + "/chat/completions"
+
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + config_loader.api_key
+	]
+
+	# 准备系统提示词（使用配置中的 tuple 部分）
+	var tuple_params = summary_config.get("tuple", {})
+	var system_prompt = tuple_params.get("system_prompt", "")
+
+	# 替换占位符（如有）
+	var save_mgr = get_node("/root/SaveManager")
+	var helpers = get_node_or_null("/root/EventHelpers")
+	var char_name = helpers.get_character_name() if helpers else ""
+	var user_name = save_mgr.get_user_name()
+	system_prompt = system_prompt.replace("{character_name}", char_name)
+	system_prompt = system_prompt.replace("{user_name}", user_name)
+
+	var messages = [
+		{"role": "system", "content": system_prompt},
+		{"role": "user", "content": summary_text}
+	]
+
+	var body = {
+		"model": model,
+		"messages": messages,
+		"max_tokens": int(tuple_params.get("max_tokens", 256)),
+		"temperature": float(tuple_params.get("temperature", 0.1)),
+		"top_p": float(tuple_params.get("top_p", 0.7))
+	}
+
+	var json_body = JSON.stringify(body)
+
+	logger.log_api_request("TUPLE_REQUEST", body, json_body)
+
+	var tuple_request = HTTPRequest.new()
+	add_child(tuple_request)
+	tuple_request.request_completed.connect(_on_tuple_request_completed)
+
+	tuple_request.set_meta("request_type", "tuple")
+	tuple_request.set_meta("summary", summary_text)
+	tuple_request.set_meta("conversation_text", conversation_text)
+	# 保存messages用于日志
+	tuple_request.set_meta("messages", messages)
+	tuple_request.set_meta("timestamp", custom_timestamp)
+
+	var error = tuple_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	if error != OK:
+		push_error("Tuple 模型请求失败: " + str(error))
+		tuple_request.queue_free()
+
 func _on_address_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""称呼模型请求完成回调"""
 	var address_request = null
@@ -740,6 +805,67 @@ func _on_address_request_completed(result: int, response_code: int, _headers: Pa
 
 	if address_request:
 		address_request.queue_free()
+
+
+func _on_tuple_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
+	"""处理 tuple 模型响应并保存到 user://memory_graph.json"""
+	# 找到触发本回调的请求节点并准备清理
+	var tuple_request = null
+	for child in get_children():
+		if child is HTTPRequest and child.has_meta("request_type") and child.get_meta("request_type") == "tuple":
+			tuple_request = child
+			break
+
+	if result != HTTPRequest.RESULT_SUCCESS:
+		push_error("Tuple 请求失败: " + str(result))
+		if tuple_request:
+			tuple_request.queue_free()
+		return
+
+	if response_code != 200:
+		var error_text = body.get_string_from_utf8()
+		print("Tuple 模型API错误 (%d): %s" % [response_code, error_text])
+		if tuple_request:
+			tuple_request.queue_free()
+		return
+
+	var response_text = body.get_string_from_utf8()
+	var json = JSON.new()
+	if json.parse(response_text) != OK:
+		push_error("Tuple 响应解析失败，保存原始文本")
+		# 仍然保存原始响应到图谱文件
+		_save_tuple_to_file(tuple_request.get_meta("timestamp"), tuple_request.get_meta("summary"), response_text)
+		if tuple_request:
+			tuple_request.queue_free()
+		return
+
+	var data = json.data
+	# 期望模型返回 JSON 格式（例如 {"choices": [...] } 或直接 JSON 数组）
+	var tuples = null
+
+	if data.has("choices") and not data.choices.is_empty():
+		# 取第一个choice的message.content并尝试解析
+		var msg = data.choices[0].message
+		if msg and msg.has("content"):
+			var content = str(msg.content)
+			var p = JSON.new()
+			if p.parse(content) == OK:
+				tuples = p.data
+			else:
+				# 如果content不是JSON，尝试直接解析response.data
+				pass
+	else:
+		# 如果返回直接是数组/对象，直接使用
+		tuples = data
+
+	# 保存到文件
+	_save_tuple_to_file(tuple_request.get_meta("timestamp"), tuple_request.get_meta("summary"), tuples)
+
+	logger.log_api_call("TUPLE_RESPONSE", tuple_request.get_meta("messages", []), response_text)
+
+	if tuple_request:
+		tuple_request.queue_free()
+
 
 func _handle_address_response(response: Dictionary, address_request: HTTPRequest):
 	"""处理称呼模型响应"""
@@ -863,6 +989,139 @@ func _save_relationship(relationship_summary: String):
 	save_mgr.save_game(save_mgr.current_slot)
 
 	print("关系信息已保存: ", relationship_summary)
+
+
+func _save_tuple_to_file(custom_timestamp, summary_text, tuples_data):
+	"""将 tuple 模型输出追加保存到 `user://memory_graph.json`
+	参数:
+		custom_timestamp: 原对话时间戳（可能为 null 或 unix 时间戳）
+		summary_text: 本次总结文本
+		tuples_data: 解析后的结构（Array/Dictionary）或原始文本
+	"""
+	var filepath = "user://memory_graph.json"
+
+	var existing = {}
+	if FileAccess.file_exists(filepath):
+		var f = FileAccess.open(filepath, FileAccess.READ)
+		if f:
+			var content = f.get_as_text()
+			f.close()
+			var j = JSON.new()
+			if j.parse(content) == OK:
+				existing = j.data
+
+	# 确保结构
+	if not existing.has("graphs"):
+		existing.graphs = []
+
+	# 格式化时间戳为 ISO 字符串
+	var ts_string = null
+	if custom_timestamp != null:
+		# custom_timestamp 可能是 unix 秒
+		if typeof(custom_timestamp) == TYPE_INT or typeof(custom_timestamp) == TYPE_FLOAT:
+			var timezone_offset = _get_timezone_offset()
+			var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
+			ts_string = "%04d-%02d-%02dT%02d:%02d:%02d" % [
+				local_dict.year, local_dict.month, local_dict.day,
+				local_dict.hour, local_dict.minute, local_dict.second
+			]
+		else:
+			ts_string = str(custom_timestamp)
+	else:
+		ts_string = _get_local_datetime_string()
+
+	# 期望最终存储为一个大数组：existing.graphs = [ {S,P,O,I,T,source_summary,created_at}, ... ]
+	# 如果 tuples_data 是字符串，尝试解析为 JSON
+	var parsed = tuples_data
+	if typeof(tuples_data) == TYPE_STRING and tuples_data.strip_edges() != "":
+		var jp = JSON.new()
+		if jp.parse(str(tuples_data)) == OK:
+			parsed = jp.data
+
+	var getv = func(d, keys, default_val=""):
+		for k in keys:
+			if d.has(k):
+				return d[k]
+		return default_val
+
+	var normalize_one = func(obj) -> Dictionary:
+		var out = {
+			"S": "",
+			"P": "",
+			"O": "",
+			"I": 1,
+			"T": ts_string,
+			"source_summary": summary_text,
+			"created_at": _get_local_datetime_string()
+		}
+
+		if typeof(obj) == TYPE_DICTIONARY:
+			# 支持多种键名
+			out.S = str(getv.call(obj, ["S","s","subject"," subj","subject_name"]))
+			out.P = str(getv.call(obj, ["P","p","predicate","relation","rel"]))
+			out.O = str(getv.call(obj, ["O","o","object","obj","object_name"]))
+			# importance
+			var imp = getv.call(obj, ["I","i","importance","I_score","score"], 1)
+			out.I = int(imp) if typeof(imp) in [TYPE_INT, TYPE_FLOAT] else int(str(imp).to_int()) if str(imp) != "" else 1
+			return out
+
+		elif typeof(obj) == TYPE_ARRAY:
+			# 数组可能是 [S,P,O,I]
+			if obj.size() >= 3:
+				out.S = str(obj[0])
+				out.P = str(obj[1])
+				out.O = str(obj[2])
+				if obj.size() >= 4:
+					var imp2 = obj[3]
+					out.I = int(imp2) if typeof(imp2) in [TYPE_INT, TYPE_FLOAT] else int(str(imp2).to_int()) if str(imp2) != "" else 1
+			return out
+
+		else:
+			# 其他类型，存为summary文本引用
+			out.S = ""
+			out.P = "extracted"
+			out.O = str(obj)
+			return out
+
+	# 根据 parsed 的类型展开并追加 entries
+	var appended = 0
+
+	if typeof(parsed) == TYPE_ARRAY:
+		for item in parsed:
+			var e = normalize_one.call(item)
+			existing.graphs.append(e)
+			appended += 1
+	elif typeof(parsed) == TYPE_DICTIONARY:
+		# 如果字典包含items/data/tuples数组，优先使用
+		if parsed.has("tuples") and typeof(parsed.tuples) == TYPE_ARRAY:
+			for item in parsed.tuples:
+				var e = normalize_one.call(item)
+				existing.graphs.append(e)
+				appended += 1
+		elif parsed.has("data") and typeof(parsed.data) == TYPE_ARRAY:
+			for item in parsed.data:
+				var e = normalize_one.call(item)
+				existing.graphs.append(e)
+				appended += 1
+		else:
+			# 单条三元组字典
+			var e = normalize_one.call(parsed)
+			existing.graphs.append(e)
+			appended += 1
+	else:
+		# 否则保存为单条记录，其中O字段存原始文本
+		var e = normalize_one.call(str(parsed))
+		existing.graphs.append(e)
+		appended += 1
+
+	# 写回文件
+	var wf = FileAccess.open(filepath, FileAccess.WRITE)
+	if wf:
+		wf.store_string(JSON.stringify(existing, "\t"))
+		wf.close()
+		print("已保存图谱到: %s (新增 %d 条，总计 %d 条)" % [filepath, appended, existing.graphs.size()])
+	else:
+		push_error("无法写入图谱文件: %s" % filepath)
 
 func _calculate_word_limit(conversation_count: int) -> int:
 	"""根据对话条数动态计算字数限制
