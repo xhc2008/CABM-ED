@@ -610,7 +610,7 @@ func _retrieve_knowledge_memory(query: String) -> String:
 		var p = r.get("P", "")
 		var o = r.get("O", "")
 		var i = r.get("I", 1)
-		lines.append("[%s] %s %s %s (I=%s)" % [t, s, p, o, str(i)])
+		lines.append("[%s] %s %s %s (权重：%s)" % [t, s, p, o, str(i)])
 
 	var mem_prompts = config.get("knowledge_memory", {}).get("prompts", {})
 	var prefix = mem_prompts.get("memory_prefix")

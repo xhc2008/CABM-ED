@@ -14,6 +14,9 @@ var config_loader: Node
 var http_client_module: Node
 var response_parser: Node
 var logger: Node
+var summary_manager: Node
+var tuple_manager: Node
+var relationship_manager: Node
 
 # HTTP 请求节点
 var http_request: HTTPRequest
@@ -59,6 +62,23 @@ func _ready():
 
 	logger = preload("res://scripts/ai_chat/ai_logger.gd").new()
 	add_child(logger)
+
+	# Managers (split out to keep ai_service.gd small)
+	summary_manager = preload("res://scripts/ai_chat/ai_summary_manager.gd").new()
+	add_child(summary_manager)
+	summary_manager.owner_service = self
+	summary_manager.config_loader = config_loader
+	summary_manager.logger = logger
+
+	tuple_manager = preload("res://scripts/ai_chat/ai_tuple_manager.gd").new()
+	add_child(tuple_manager)
+	tuple_manager.owner_service = self
+	tuple_manager.logger = logger
+
+	relationship_manager = preload("res://scripts/ai_chat/ai_relationship_manager.gd").new()
+	add_child(relationship_manager)
+	relationship_manager.owner_service = self
+	relationship_manager.logger = logger
 
 	# 创建 HTTP 请求节点（用于非流式请求）
 	http_request = HTTPRequest.new()
@@ -343,7 +363,7 @@ func end_chat():
 	summary_retry_count = 0
 
 	# 调用总结API
-	_call_summary_api_with_data(conversation_text, conversation_copy)
+	summary_manager.call_summary_api_with_data(conversation_text, conversation_copy)
 
 func get_goto_field() -> int:
 	"""获取goto字段值"""
@@ -405,76 +425,12 @@ func remove_goto_from_history():
 			print("已从历史记录中移除goto字段")
 
 func _call_summary_api_with_data(conversation_text: String, conversation_data: Array):
-	"""调用总结 API（使用指定的对话数据）"""
-	var summary_config = config_loader.config.summary_model
-	# 严格使用用户配置，不进行任何回退
-	var model = summary_config.model
-	var base_url = summary_config.base_url
-
-	if model.is_empty() or base_url.is_empty():
-		push_error("总结模型配置不完整: model='%s', base_url='%s'" % [model, base_url])
-		_handle_summary_failure("总结模型配置不完整")
+	# Delegates to `summary_manager` when available (backwards compatibility wrapper)
+	if summary_manager:
+		summary_manager.call_summary_api_with_data(conversation_text, conversation_data)
 		return
-
-	var url = base_url + "/chat/completions"
-
-	var headers = [
-		"Content-Type: application/json",
-		"Authorization: Bearer " + config_loader.api_key
-	]
-
-	# 获取角色和用户信息用于占位符替换
-	var save_mgr = get_node("/root/SaveManager")
-	var helpers = get_node("/root/EventHelpers")
-	var char_name = helpers.get_character_name()
-	var user_name = save_mgr.get_user_name()
-	var user_address = save_mgr.get_user_address()
-
-	# 根据对话条数动态计算字数限制
-	var conversation_count = conversation_data.size()
-	var word_limit = _calculate_word_limit(conversation_count)
-
-	# 使用新的配置结构
-	var summary_params = summary_config.summary
-	var system_prompt = summary_params.system_prompt
-	system_prompt = system_prompt.replace("{character_name}", char_name)
-	system_prompt = system_prompt.replace("{user_name}", user_name)
-	system_prompt = system_prompt.replace("{user_address}", user_address)
-	system_prompt = system_prompt.replace("{word_limit}", str(word_limit))
-
-	var messages = [
-		{"role": "system", "content": system_prompt},
-		{"role": "user", "content": conversation_text}
-	]
-
-	var body = {
-		"model": model,  # 严格使用用户配置的模型
-		"messages": messages,
-		"max_tokens": int(summary_params.max_tokens),
-		"temperature": float(summary_params.temperature),
-		"top_p": float(summary_params.top_p)
-	}
-
-	var json_body = JSON.stringify(body)
-
-	logger.log_api_request("SUMMARY_REQUEST", body, json_body)
-
-	# 如果http_request正在处理请求，先取消它
-	if http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
-		print("检测到http_request正在忙碌，取消当前请求")
-		http_request.cancel_request()
-		# 等待一帧确保取消完成
-		await get_tree().process_frame
-
-	http_request.set_meta("request_type", "summary")
-	http_request.set_meta("request_body", body)
-	http_request.set_meta("messages", messages)
-	http_request.set_meta("conversation_text", conversation_text)
-	http_request.set_meta("conversation_data", conversation_data)
-
-	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
-	if error != OK:
-		push_error("总结请求失败: " + str(error))
+	push_error("Summary manager not available to handle summary request")
+	_handle_summary_failure("Summary manager not available")
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""HTTP 请求完成回调"""
@@ -523,131 +479,31 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		return
 
 	if request_type == "summary":
-		_handle_summary_response(json.data)
+		# delegate to summary manager
+		if summary_manager:
+			summary_manager.handle_summary_response(json.data)
+		else:
+			_handle_summary_response(json.data)
 	elif request_type == "relationship":
-		_handle_relationship_response(json.data)
+		# delegate to relationship manager
+		if relationship_manager:
+			relationship_manager.handle_relationship_response(json.data)
+		else:
+			_handle_relationship_response(json.data)
 
 func _handle_summary_response(response: Dictionary):
-	"""处理总结响应"""
-	if not response.has("choices") or response.choices.is_empty():
-		push_error("总结响应格式错误")
-		_handle_summary_failure("总结响应格式错误")
+	# Backwards-compatible wrapper: delegate to summary_manager if present
+	if summary_manager:
+		summary_manager.handle_summary_response(response)
 		return
-
-	var message = response.choices[0].message
-	var summary = message.content
-
-	var messages = http_request.get_meta("messages", [])
-	logger.log_api_call("SUMMARY_RESPONSE", messages, summary)
-
-	var conversation_text = http_request.get_meta("conversation_text", "")
-	var conversation_data = http_request.get_meta("conversation_data", [])
-
-	# 使用对话数据中的时间戳（取最后一条消息的时间戳作为对话结束时间）
-	var timestamp = null
-	if not conversation_data.is_empty():
-		# 从后往前找第一条有timestamp的消息
-		for i in range(conversation_data.size() - 1, -1, -1):
-			if conversation_data[i].has("timestamp"):
-				timestamp = conversation_data[i].timestamp
-				break
-
-	await _save_memory_and_diary(summary, conversation_text, timestamp)
-
-	# 调用 tuple 模型以提取三元组并保存到图谱文件
-	_call_tuple_model(summary, conversation_text, timestamp)
-
-	# 总结成功后才清除上下文
-	_clear_conversation_context()
-
-	# 清除待总结数据
-	pending_summary_data.clear()
-	summary_retry_count = 0
-
-	# 总结完成后删除临时文件
-	_delete_temp_conversation()
-
-	summary_completed.emit(summary)
+	push_error("Summary manager not available to process summary response")
 
 func _save_memory_and_diary(summary: String, conversation_text: String, custom_timestamp = null):
-	"""保存记忆到存档，同时保存总结和详细对话到日记"""
-	var save_mgr = get_node("/root/SaveManager")
-
-	if not save_mgr.save_data.has("ai_data"):
-		save_mgr.save_data.ai_data = {
-			"memory": [],
-			"accumulated_summary_count": 0,
-			"relationship_history": []
-		}
-
-	if not save_mgr.save_data.ai_data.has("accumulated_summary_count"):
-		save_mgr.save_data.ai_data.accumulated_summary_count = 0
-	else:
-		save_mgr.save_data.ai_data.accumulated_summary_count = int(save_mgr.save_data.ai_data.accumulated_summary_count)
-
-	if not save_mgr.save_data.ai_data.has("relationship_history"):
-		save_mgr.save_data.ai_data.relationship_history = []
-
-	# 使用统一记忆保存器
-	var unified_saver = get_node_or_null("/root/UnifiedMemorySaver")
-	if unified_saver:
-		await unified_saver.save_memory(
-			summary,
-			unified_saver.MemoryType.CHAT,
-			custom_timestamp,
-			conversation_text,
-			{}
-		)
-	else:
-		# 降级方案：使用旧逻辑
-		push_warning("UnifiedMemorySaver 未找到，使用旧的保存逻辑")
-		
-		# 使用自定义时间戳（断点恢复）或当前时间
-		var timestamp: String
-		if custom_timestamp != null:
-			var timezone_offset = _get_timezone_offset()
-			var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
-			timestamp = "%04d-%02d-%02dT%02d:%02d:%02d" % [
-				local_dict.year, local_dict.month, local_dict.day,
-				local_dict.hour, local_dict.minute, local_dict.second
-			]
-		else:
-			timestamp = _get_local_datetime_string()
-
-		var cleaned_summary = summary.strip_edges()
-
-		var memory_item = {
-			"timestamp": timestamp,
-			"content": cleaned_summary
-		}
-
-		save_mgr.save_data.ai_data.memory.append(memory_item)
-
-		var max_items = config_loader.config.memory.max_memory_items
-		if save_mgr.save_data.ai_data.memory.size() > max_items:
-			save_mgr.save_data.ai_data.memory = save_mgr.save_data.ai_data.memory.slice(-max_items)
-
-		save_mgr.save_game(save_mgr.current_slot)
-
-		logger.save_to_diary(cleaned_summary, conversation_text, custom_timestamp)
-
-		if has_node("/root/MemoryManager"):
-			var memory_mgr = get_node("/root/MemoryManager")
-			await memory_mgr.add_conversation_summary(cleaned_summary, {}, timestamp)
-
-	print("记忆已保存: ", summary)
-
-	# 更新累计计数
-	save_mgr.save_data.ai_data.accumulated_summary_count += 1
-
-	_call_address_api(conversation_text)
-
-	var max_memory_items = config_loader.config.memory.max_memory_items
-	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_memory_items:
-		print("累计条目数达到上限，调用关系模型...")
-		_call_relationship_api()
-		save_mgr.save_data.ai_data.accumulated_summary_count = 0
-		save_mgr.save_game(save_mgr.current_slot)
+	# delegate to summary_manager if available
+	if summary_manager:
+		summary_manager._save_memory_and_diary(summary, conversation_text, custom_timestamp)
+		return
+	push_error("Summary manager not available to save memory/diary")
 
 func _call_address_api(conversation_text: String):
 	"""调用称呼模型 API"""
@@ -698,7 +554,11 @@ func _call_address_api(conversation_text: String):
 
 	var address_request = HTTPRequest.new()
 	add_child(address_request)
-	address_request.request_completed.connect(_on_address_request_completed)
+	# route completion to summary_manager for handling
+	if summary_manager:
+		address_request.request_completed.connect(summary_manager.on_address_request_completed)
+	else:
+		address_request.request_completed.connect(_on_address_request_completed)
 
 	address_request.set_meta("request_type", "address")
 	address_request.set_meta("request_body", body)
@@ -710,493 +570,70 @@ func _call_address_api(conversation_text: String):
 		address_request.queue_free()
 
 func _call_tuple_model(summary_text: String, conversation_text: String, custom_timestamp = null):
-	"""调用tuple模型，将返回结果保存到 `user://memory_graph.json`"""
-	var summary_config = config_loader.config.summary_model
-	var model = summary_config.model
-	var base_url = summary_config.base_url
-
-	if model.is_empty() or base_url.is_empty():
-		print("Tuple 模型配置不完整，跳过图谱保存")
+	# delegate to tuple_manager
+	if tuple_manager:
+		tuple_manager.call_tuple_model(summary_text, conversation_text, custom_timestamp)
 		return
-
-	var url = base_url + "/chat/completions"
-
-	var headers = [
-		"Content-Type: application/json",
-		"Authorization: Bearer " + config_loader.api_key
-	]
-
-	# 准备系统提示词（使用配置中的 tuple 部分）
-	var tuple_params = summary_config.get("tuple", {})
-	var system_prompt = tuple_params.get("system_prompt", "")
-
-	# 替换占位符（如有）
-	var save_mgr = get_node("/root/SaveManager")
-	var helpers = get_node_or_null("/root/EventHelpers")
-	var char_name = helpers.get_character_name() if helpers else ""
-	var user_name = save_mgr.get_user_name()
-	system_prompt = system_prompt.replace("{character_name}", char_name)
-	system_prompt = system_prompt.replace("{user_name}", user_name)
-
-	var messages = [
-		{"role": "system", "content": system_prompt},
-		{"role": "user", "content": summary_text}
-	]
-
-	var body = {
-		"model": model,
-		"messages": messages,
-		"max_tokens": int(tuple_params.get("max_tokens", 256)),
-		"temperature": float(tuple_params.get("temperature", 0.1)),
-		"top_p": float(tuple_params.get("top_p", 0.7))
-	}
-
-	var json_body = JSON.stringify(body)
-
-	logger.log_api_request("TUPLE_REQUEST", body, json_body)
-
-	# 在调用tuple模型前，先执行遗忘机制：对现有图谱中的每条记录的I值减1，若小于0则删除该记录
-	_apply_forgetting_to_graph()
-
-	var tuple_request = HTTPRequest.new()
-	add_child(tuple_request)
-	tuple_request.request_completed.connect(_on_tuple_request_completed)
-
-	tuple_request.set_meta("request_type", "tuple")
-	tuple_request.set_meta("summary", summary_text)
-	tuple_request.set_meta("conversation_text", conversation_text)
-	# 保存messages用于日志
-	tuple_request.set_meta("messages", messages)
-	tuple_request.set_meta("timestamp", custom_timestamp)
-
-	var error = tuple_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
-	if error != OK:
-		push_error("Tuple 模型请求失败: " + str(error))
-		tuple_request.queue_free()
+	push_error("Tuple manager not available")
 
 func _on_address_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""称呼模型请求完成回调"""
-	var address_request = null
-	for child in get_children():
-		if child is HTTPRequest and child.has_meta("request_type") and child.get_meta("request_type") == "address":
-			address_request = child
-			break
-
-	if result != HTTPRequest.RESULT_SUCCESS:
-		push_error("称呼模型请求失败: " + str(result))
-		if address_request:
-			address_request.queue_free()
+	if summary_manager:
+		summary_manager.on_address_request_completed(result, response_code, _headers, body)
 		return
-
-	if response_code != 200:
-		var error_text = body.get_string_from_utf8()
-		var error_msg = "称呼模型API错误 (%d): %s" % [response_code, error_text]
-		print(error_msg)
-		if address_request:
-			address_request.queue_free()
-		return
-
-	var response_text = body.get_string_from_utf8()
-	var json = JSON.new()
-	if json.parse(response_text) != OK:
-		push_error("称呼模型响应解析失败")
-		if address_request:
-			address_request.queue_free()
-		return
-
-	_handle_address_response(json.data, address_request)
-
-	if address_request:
-		address_request.queue_free()
+	push_error("Summary manager missing to handle address response")
 
 
 func _on_tuple_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""处理 tuple 模型响应并保存到 user://memory_graph.json"""
-	# 找到触发本回调的请求节点并准备清理
-	var tuple_request = null
-	for child in get_children():
-		if child is HTTPRequest and child.has_meta("request_type") and child.get_meta("request_type") == "tuple":
-			tuple_request = child
-			break
-
-	if result != HTTPRequest.RESULT_SUCCESS:
-		push_error("Tuple 请求失败: " + str(result))
-		if tuple_request:
-			tuple_request.queue_free()
+	if tuple_manager:
+		tuple_manager._on_tuple_request_completed(result, response_code, _headers, body)
 		return
-
-	if response_code != 200:
-		var error_text = body.get_string_from_utf8()
-		print("Tuple 模型API错误 (%d): %s" % [response_code, error_text])
-		if tuple_request:
-			tuple_request.queue_free()
-		return
-
-	var response_text = body.get_string_from_utf8()
-	var json = JSON.new()
-	if json.parse(response_text) != OK:
-		push_error("Tuple 响应解析失败，保存原始文本")
-		# 仍然保存原始响应到图谱文件
-		_save_tuple_to_file(tuple_request.get_meta("timestamp"), tuple_request.get_meta("summary"), response_text)
-		if tuple_request:
-			tuple_request.queue_free()
-		return
-
-	var data = json.data
-	# 期望模型返回 JSON 格式（例如 {"choices": [...] } 或直接 JSON 数组）
-	var tuples = null
-
-	if data.has("choices") and not data.choices.is_empty():
-		# 取第一个choice的message.content并尝试解析
-		var msg = data.choices[0].message
-		if msg and msg.has("content"):
-			var content = str(msg.content)
-			var p = JSON.new()
-			if p.parse(content) == OK:
-				tuples = p.data
-			else:
-				# 如果content不是JSON，尝试直接解析response.data
-				pass
-	else:
-		# 如果返回直接是数组/对象，直接使用
-		tuples = data
-
-	# 保存到文件
-	_save_tuple_to_file(tuple_request.get_meta("timestamp"), tuple_request.get_meta("summary"), tuples)
-
-	logger.log_api_call("TUPLE_RESPONSE", tuple_request.get_meta("messages", []), response_text)
-
-	if tuple_request:
-		tuple_request.queue_free()
+	push_error("Tuple manager missing to handle tuple response")
 
 
 func _handle_address_response(response: Dictionary, address_request: HTTPRequest):
-	"""处理称呼模型响应"""
-	if not response.has("choices") or response.choices.is_empty():
-		push_error("称呼模型响应格式错误")
+	if summary_manager:
+		summary_manager._handle_address_response(response, address_request)
 		return
-
-	var message = response.choices[0].message
-	var new_address = message.content.strip_edges()
-
-	var messages = address_request.get_meta("messages", [])
-	logger.log_api_call("ADDRESS_RESPONSE", messages, new_address)
-
-	# 获取角色名称用于验证
-	var save_mgr = get_node("/root/SaveManager")
-	var char_name = save_mgr.get_character_name()
-
-	# 检查返回的称呼是否包含角色名，如果包含则认为是模型出错，抛弃此次更新
-	if new_address.contains(char_name):
-		print("称呼模型返回包含角色名 '%s'，判定为错误，抛弃此次更新: %s" % [char_name, new_address])
-		return
-	save_mgr.set_user_address(new_address)
-
-	print("称呼已更新: ", new_address)
+	push_error("Summary manager missing to handle address response")
 
 func _call_relationship_api():
-	"""调用关系模型 API"""
-	var summary_config = config_loader.config.summary_model
-	# 严格使用用户配置，不进行任何回退
-	var model = summary_config.model
-	var base_url = summary_config.base_url
-
-	if model.is_empty() or base_url.is_empty():
-		push_error("关系模型配置不完整: model='%s', base_url='%s'" % [model, base_url])
+	if relationship_manager:
+		relationship_manager.call_relationship_api()
 		return
-
-	var url = base_url + "/chat/completions"
-
-	var headers = [
-		"Content-Type: application/json",
-		"Authorization: Bearer " + config_loader.api_key
-	]
-
-	var prompt_builder = get_node("/root/PromptBuilder")
-	var current_relationship = prompt_builder.get_relationship_context()
-	var memory_context = prompt_builder.get_memory_context()
-
-	# 使用新的配置结构
-	var relationship_params = summary_config.relationship
-	var system_prompt = relationship_params.system_prompt.replace("{relationship}", current_relationship)
-
-	var messages = [
-		{"role": "system", "content": system_prompt},
-		{"role": "user", "content": memory_context}
-	]
-
-	var body = {
-		"model": model,  # 严格使用用户配置的模型
-		"messages": messages,
-		"max_tokens": int(relationship_params.max_tokens),
-		"temperature": float(relationship_params.temperature),
-		"top_p": float(relationship_params.top_p)
-	}
-
-	var json_body = JSON.stringify(body)
-
-	logger.log_api_request("RELATIONSHIP_REQUEST", body, json_body)
-
-	# 如果http_request正在处理请求，先取消它
-	if http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
-		print("检测到http_request正在忙碌，取消当前请求")
-		http_request.cancel_request()
-		# 等待一帧确保取消完成
-		await get_tree().process_frame
-
-	http_request.set_meta("request_type", "relationship")
-	http_request.set_meta("request_body", body)
-	http_request.set_meta("messages", messages)
-
-	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
-	if error != OK:
-		push_error("关系模型请求失败: " + str(error))
+	push_error("Relationship manager not available to call relationship API")
 
 func _handle_relationship_response(response: Dictionary):
-	"""处理关系模型响应"""
-	if not response.has("choices") or response.choices.is_empty():
-		push_error("关系模型响应格式错误")
+	if relationship_manager:
+		relationship_manager.handle_relationship_response(response)
 		return
-
-	var message = response.choices[0].message
-	var relationship_summary = message.content
-
-	var messages = http_request.get_meta("messages", [])
-	logger.log_api_call("RELATIONSHIP_RESPONSE", messages, relationship_summary)
-
-	_save_relationship(relationship_summary)
-
-	print("关系模型已更新: ", relationship_summary)
+	push_error("Relationship manager missing to handle relationship response")
 
 func _save_relationship(relationship_summary: String):
-	"""保存关系信息到存档"""
-	var save_mgr = get_node("/root/SaveManager")
-
-	if not save_mgr.save_data.ai_data.has("relationship_history"):
-		save_mgr.save_data.ai_data.relationship_history = []
-
-	var timestamp = _get_local_datetime_string()
-	var cleaned_summary = relationship_summary.strip_edges()
-
-	var relationship_item = {
-		"timestamp": timestamp,
-		"content": cleaned_summary
-	}
-
-	save_mgr.save_data.ai_data.relationship_history.append(relationship_item)
-
-	var max_relationship_history = config_loader.config.memory.get("max_relationship_history", 2)
-	if save_mgr.save_data.ai_data.relationship_history.size() > max_relationship_history:
-		save_mgr.save_data.ai_data.relationship_history = save_mgr.save_data.ai_data.relationship_history.slice(-max_relationship_history)
-
-	save_mgr.save_game(save_mgr.current_slot)
-
-	print("关系信息已保存: ", relationship_summary)
+	if relationship_manager:
+		relationship_manager._save_relationship(relationship_summary)
+		return
+	push_error("Relationship manager missing to save relationship")
 
 
 func _save_tuple_to_file(custom_timestamp, summary_text, tuples_data):
-	"""将 tuple 模型输出追加保存到 `user://memory_graph.json`
-	参数:
-		custom_timestamp: 原对话时间戳（可能为 null 或 unix 时间戳）
-		summary_text: 本次总结文本
-		tuples_data: 解析后的结构（Array/Dictionary）或原始文本
-	"""
-	var filepath = "user://memory_graph.json"
-
-	var existing = {}
-	if FileAccess.file_exists(filepath):
-		var f = FileAccess.open(filepath, FileAccess.READ)
-		if f:
-			var content = f.get_as_text()
-			f.close()
-			var j = JSON.new()
-			if j.parse(content) == OK:
-				existing = j.data
-
-	# 确保结构
-	if not existing.has("graphs"):
-		existing.graphs = []
-
-	# 格式化时间戳为 ISO 字符串
-	var ts_string = null
-	if custom_timestamp != null:
-		# custom_timestamp 可能是 unix 秒
-		if typeof(custom_timestamp) == TYPE_INT or typeof(custom_timestamp) == TYPE_FLOAT:
-			var timezone_offset = _get_timezone_offset()
-			var local_dict = Time.get_datetime_dict_from_unix_time(int(custom_timestamp + timezone_offset))
-			ts_string = "%04d-%02d-%02dT%02d:%02d:%02d" % [
-				local_dict.year, local_dict.month, local_dict.day,
-				local_dict.hour, local_dict.minute, local_dict.second
-			]
-		else:
-			ts_string = str(custom_timestamp)
-	else:
-		ts_string = _get_local_datetime_string()
-
-	# 期望最终存储为一个大数组：existing.graphs = [ {S,P,O,I,T,source_summary,created_at}, ... ]
-	# 如果 tuples_data 是字符串，尝试解析为 JSON
-	var parsed = tuples_data
-	if typeof(tuples_data) == TYPE_STRING and tuples_data.strip_edges() != "":
-		var jp = JSON.new()
-		if jp.parse(str(tuples_data)) == OK:
-			parsed = jp.data
-
-	var getv = func(d, keys, default_val=""):
-		for k in keys:
-			if d.has(k):
-				return d[k]
-		return default_val
-
-	var normalize_one = func(obj) -> Dictionary:
-		var out = {
-			"S": "",
-			"P": "",
-			"O": "",
-			"I": 1,
-			"T": ts_string,
-			# "source_summary": summary_text,
-			# "created_at": _get_local_datetime_string()
-		}
-
-		if typeof(obj) == TYPE_DICTIONARY:
-			# 支持多种键名
-			out.S = str(getv.call(obj, ["S","s","subject"," subj","subject_name"]))
-			out.P = str(getv.call(obj, ["P","p","predicate","relation","rel"]))
-			out.O = str(getv.call(obj, ["O","o","object","obj","object_name"]))
-			# importance
-			var imp = getv.call(obj, ["I","i","importance","I_score","score"], 1)
-			out.I = int(imp) if typeof(imp) in [TYPE_INT, TYPE_FLOAT] else int(str(imp).to_int()) if str(imp) != "" else 1
-			return out
-
-		elif typeof(obj) == TYPE_ARRAY:
-			# 数组可能是 [S,P,O,I]
-			if obj.size() >= 3:
-				out.S = str(obj[0])
-				out.P = str(obj[1])
-				out.O = str(obj[2])
-				if obj.size() >= 4:
-					var imp2 = obj[3]
-					out.I = int(imp2) if typeof(imp2) in [TYPE_INT, TYPE_FLOAT] else int(str(imp2).to_int()) if str(imp2) != "" else 1
-			return out
-
-		else:
-			# 其他类型，存为summary文本引用
-			out.S = ""
-			out.P = "extracted"
-			out.O = str(obj)
-			return out
-
-	# 根据 parsed 的类型展开并追加 entries
-	var appended = 0
-
-	if typeof(parsed) == TYPE_ARRAY:
-		for item in parsed:
-			var e = normalize_one.call(item)
-			existing.graphs.append(e)
-			appended += 1
-	elif typeof(parsed) == TYPE_DICTIONARY:
-		# 如果字典包含items/data/tuples数组，优先使用
-		if parsed.has("tuples") and typeof(parsed.tuples) == TYPE_ARRAY:
-			for item in parsed.tuples:
-				var e = normalize_one.call(item)
-				existing.graphs.append(e)
-				appended += 1
-		elif parsed.has("data") and typeof(parsed.data) == TYPE_ARRAY:
-			for item in parsed.data:
-				var e = normalize_one.call(item)
-				existing.graphs.append(e)
-				appended += 1
-		else:
-			# 单条三元组字典
-			var e = normalize_one.call(parsed)
-			existing.graphs.append(e)
-			appended += 1
-	else:
-		# 否则保存为单条记录，其中O字段存原始文本
-		var e = normalize_one.call(str(parsed))
-		existing.graphs.append(e)
-		appended += 1
-
-	# 写回文件
-	var wf = FileAccess.open(filepath, FileAccess.WRITE)
-	if wf:
-		wf.store_string(JSON.stringify(existing, "\t"))
-		wf.close()
-		print("已保存图谱到: %s (新增 %d 条，总计 %d 条)" % [filepath, appended, existing.graphs.size()])
-	else:
-		push_error("无法写入图谱文件: %s" % filepath)
+	if tuple_manager:
+		tuple_manager._save_tuple_to_file(custom_timestamp, summary_text, tuples_data)
+		return
+	push_error("Tuple manager missing to save tuple data")
 
 
 func _apply_forgetting_to_graph():
-	"""遗忘机制：将 `user://memory_graph.json` 中每条记录的 I 减 1，
-	如果减到小于 0，则移除该记录；保存后输出日志。
-	"""
-	var filepath = "user://memory_graph.json"
-	if not FileAccess.file_exists(filepath):
+	if tuple_manager:
+		tuple_manager._apply_forgetting_to_graph()
 		return
-
-	var f = FileAccess.open(filepath, FileAccess.READ)
-	if not f:
-		return
-
-	var content = f.get_as_text()
-	f.close()
-
-	var j = JSON.new()
-	if j.parse(content) != OK:
-		print("遗忘机制：无法解析图谱文件，跳过遗忘")
-		return
-
-	var data = j.data
-	if not data.has("graphs") or typeof(data.graphs) != TYPE_ARRAY:
-		return
-
-	var new_graphs = []
-	var removed_count = 0
-	for item in data.graphs:
-		var Ival = 1
-		if item.has("I"):
-			Ival = int(item.I)
-		# 递减
-		Ival -= 1
-		if Ival < 0:
-			removed_count += 1
-			continue
-		# 更新并保留
-		item.I = Ival
-		new_graphs.append(item)
-
-	data.graphs = new_graphs
-
-	# 写回文件
-	var wf = FileAccess.open(filepath, FileAccess.WRITE)
-	if wf:
-		wf.store_string(JSON.stringify(data, "\t"))
-		wf.close()
-		print("遗忘机制已执行：移除 %d 条记录，剩余 %d 条" % [removed_count, data.graphs.size()])
-	else:
-		push_error("遗忘机制：无法写回图谱文件: %s" % filepath)
+	push_error("Tuple manager not available to apply forgetting")
 
 func _calculate_word_limit(conversation_count: int) -> int:
-	"""根据对话条数动态计算字数限制
-    
-    规则：
-    - 1-2条对话：30字
-    - 3-4条对话：50字
-    - 5-6条对话：70字
-    - 7-8条对话：90字
-    - 9条及以上：110字
-	"""
-	if conversation_count <= 2:
-		return 30
-	elif conversation_count <= 4:
-		return 50
-	elif conversation_count <= 6:
-		return 70
-	elif conversation_count <= 8:
-		return 90
-	else:
-		return 110
+	if summary_manager:
+		return summary_manager._calculate_word_limit(conversation_count)
+	return 110
 
 func _save_temp_conversation():
 	"""保存当前对话到临时文件"""
@@ -1295,7 +732,7 @@ func _recover_pending_summary(temp_data: Dictionary):
 
 	if not conv_copy.is_empty():
 		print("恢复的对话包含 %d 条记录，继续总结..." % conv_copy.size())
-		_call_summary_api_with_data(conv_text, conv_copy)
+		summary_manager.call_summary_api_with_data(conv_text, conv_copy)
 	else:
 		print("警告: 待总结数据为空，删除临时文件")
 		_delete_temp_conversation()
@@ -1327,7 +764,7 @@ func _start_summary_for_expired_conversation(temp_data: Dictionary):
 	_save_temp_conversation()
 
 	# 调用总结API，使用恢复的对话数据
-	_call_summary_api_with_data(conversation_text, recovered_conversation)
+	summary_manager.call_summary_api_with_data(conversation_text, recovered_conversation)
 
 func _flatten_conversation_from_data(conversation_data: Array) -> String:
 	"""从指定的对话数据扁平化对话历史"""
