@@ -1051,8 +1051,8 @@ func _save_tuple_to_file(custom_timestamp, summary_text, tuples_data):
 			"O": "",
 			"I": 1,
 			"T": ts_string,
-			"source_summary": summary_text,
-			"created_at": _get_local_datetime_string()
+			# "source_summary": summary_text,
+			# "created_at": _get_local_datetime_string()
 		}
 
 		if typeof(obj) == TYPE_DICTIONARY:

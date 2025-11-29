@@ -92,6 +92,7 @@ func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term
 		"{current_scene}": _get_scene_description(save_mgr.get_character_scene()),
 		"{current_weather}": _get_weather_description(save_mgr.get_current_weather()),
 		"{long_term_memory}": "{long_term_memory}" if keep_long_term_memory_placeholder else "", # 保留或清空
+		"{knowledge_memory}": "{knowledge_memory}" if keep_long_term_memory_placeholder else "", # 知识图谱占位符
 		"{memory_context}": memory_context,
 		"{relationship_context}": relationship_context,
 		"{moods}": moods,
@@ -528,14 +529,16 @@ func build_system_prompt_with_long_term_memory(trigger_mode: String, user_input:
 	# 先构建基础提示词（保留长期记忆占位符）
 	var base_prompt = build_system_prompt(trigger_mode, true)
 	
-	# 检索长期记忆
+	# 检索长期记忆（短期/长期摘要）和知识图谱
 	var long_term_memory = await _retrieve_long_term_memory(user_input)
-	
-	# 替换长期记忆占位符
-	print("替换前占位符存在: %s" % str(base_prompt.contains("{long_term_memory}")))
+	var knowledge_memory = _retrieve_knowledge_memory(user_input)
+
+	# 替换占位符
+	print("替换前占位符存在: long_term=%s, knowledge=%s" % [str(base_prompt.contains("{long_term_memory}")), str(base_prompt.contains("{knowledge_memory}"))])
 	base_prompt = base_prompt.replace("{long_term_memory}", long_term_memory)
-	print("替换后占位符存在: %s" % str(base_prompt.contains("{long_term_memory}")))
-	
+	base_prompt = base_prompt.replace("{knowledge_memory}", knowledge_memory)
+	print("替换后占位符存在: long_term=%s, knowledge=%s" % [str(base_prompt.contains("{long_term_memory}")), str(base_prompt.contains("{knowledge_memory}"))])
+
 	return base_prompt
 
 func _retrieve_long_term_memory(query: String) -> String:
@@ -547,33 +550,76 @@ func _retrieve_long_term_memory(query: String) -> String:
 	Returns:
 		格式化的长期记忆提示词
 	"""
-	# 检查MemoryManager是否存在
-	if not has_node("/root/MemoryManager"):
-		return ""
-	
-	var memory_mgr = get_node("/root/MemoryManager")
-	
-	# 等待记忆系统就绪
-	if not memory_mgr.is_initialized:
-		await memory_mgr.memory_system_ready
-	
-	# 如果查询为空，使用最近的对话上下文作为查询
+	# 首先尝试使用 MemoryManager（如果存在）
+	var memory_prompt = ""
+	if has_node("/root/MemoryManager"):
+		var memory_mgr = get_node("/root/MemoryManager")
+		# 等待记忆系统就绪
+		if not memory_mgr.is_initialized:
+			await memory_mgr.memory_system_ready
+
+		# 如果查询为空，使用最近的对话上下文作为查询
+		if query.strip_edges().is_empty():
+			query = _get_recent_context_for_query()
+
+		# 获取短期记忆的时间戳，用于排除
+		var exclude_timestamps = _get_short_term_memory_timestamps()
+
+		print("正在检索长期记忆（MemoryManager），查询: %s，排除最近 %d 条" % [query.substr(0, 50), exclude_timestamps.size()])
+		memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query, exclude_timestamps)
+
+		if memory_prompt.is_empty():
+			print("MemoryManager：未找到相关长期记忆")
+		else:
+			print("MemoryManager：找到长期记忆，长度: %d 字符" % memory_prompt.length())
+
+	# 现在 _retrieve_long_term_memory 仅负责 MemoryManager 的检索，
+	# 知识图谱检索已拆分到 _retrieve_knowledge_memory
+	return memory_prompt
+
+
+func _retrieve_knowledge_memory(query: String) -> String:
+	"""检索知识图谱并返回格式化的知识记忆提示段（只包含KG部分）"""
 	if query.strip_edges().is_empty():
 		query = _get_recent_context_for_query()
-	
-	# 获取短期记忆的时间戳，用于排除
-	var exclude_timestamps = _get_short_term_memory_timestamps()
-	
-	# 检索相关记忆（排除短期记忆）
-	print("正在检索长期记忆，查询: %s，排除最近 %d 条" % [query.substr(0, 50), exclude_timestamps.size()])
-	var memory_prompt = await memory_mgr.get_relevant_memory_for_chat(query, exclude_timestamps)
-	
-	if memory_prompt.is_empty():
-		print("未找到相关长期记忆")
-	else:
-		print("找到长期记忆，长度: %d 字符" % memory_prompt.length())
-	
-	return memory_prompt
+
+	var kg_prompt = ""
+
+	# 提取关键词（debug 会在 keyword_extractor 中打印 tokens/keywords）
+	var ke = preload("res://scripts/keyword_extractor.gd").new()
+	var keywords = ke.extract_keywords(query, config.get("knowledge_memory", {}).get("query", {}).get("top_k", 6))
+	print("[PromptBuilder] extracted keywords:", keywords)
+
+	if keywords.is_empty():
+		return ""
+
+	# 查询知识图谱
+	var mg = preload("res://scripts/memory_graph.gd").new()
+	var top_k = config.get("knowledge_memory", {}).get("query", {}).get("top_k", 6)
+	var graph_results = mg.query_by_keywords(keywords, top_k)
+
+	if graph_results.is_empty():
+		print("PromptBuilder: 知识图谱未检索到相关条目")
+		return ""
+
+	# 格式化为提示词段落
+	var lines = []
+	for r in graph_results:
+		var t = r.get("T", "")
+		var s = r.get("S", "")
+		var p = r.get("P", "")
+		var o = r.get("O", "")
+		var i = r.get("I", 1)
+		lines.append("[%s] %s %s %s (I=%s)" % [t, s, p, o, str(i)])
+
+	var mem_prompts = config.get("knowledge_memory", {}).get("prompts", {})
+	var prefix = mem_prompts.get("memory_prefix")
+	var suffix = mem_prompts.get("memory_suffix")
+	kg_prompt = prefix + "\n".join(lines) + suffix
+
+	print("PromptBuilder: 知识图谱检索到 %d 条记录" % graph_results.size())
+
+	return kg_prompt
 
 func _get_short_term_memory_timestamps() -> Array:
 	"""获取短期记忆的时间戳列表，用于排除重复检索

@@ -15,6 +15,7 @@
             "current_status": "时间：{current_time}\n你和{user_name}位于：{current_scene}\n天气：{current_weather}\n对{user_name}的好感度：{affection_level}\n互动意愿：{interaction_level}\n目前心情：{current_mood}",
             "relationship": "{relationship_context}",
             "long_term_memory": "{long_term_memory}",
+            "knowledge_memory": "{knowledge_memory}",
             "memory": "```\n{memory_context}\n```",
             "trigger": "{trigger_context}",
             "task": "列出你在{start_time}到{end_time}这段{user_name}不在的时间里做的{event_count}件事情。这些事情应该符合你的角色设定，可以包括日常活动等。需要注意时间上的合理性。"
@@ -40,6 +41,10 @@
                 {
                     "title": "以前发生的事情",
                     "field": "long_term_memory"
+                },
+                {
+                    "title": "相关的知识记忆",
+                    "field": "knowledge_memory"
                 },
                 {
                     "title": "最近发生的事情",
@@ -78,7 +83,7 @@
         },
         "response_style":{
             "verbal":"你要说的话。根据实际情况可长可短，可以是简短的语气词，也可以是长篇大论。禁止换行，禁止使用markdown。必须使用中文标点。",
-            "narrative":"你回复用户的内容。除了说的话，还要使用小括号（）详细描写你的动作、神态、心理活动等。不限制字数，篇幅尽可能长。禁止换行，禁止使用markdown。必须使用中文标点。",
+            "narrative":"你回复用户的内容。除了说的话，还要使用小括号（）详细描写你的动作、神态、心理活动等。不限制字数，篇幅尽可能长。禁止换行，禁止使用markdown。必须使用中文标点，使用「」代替双引号。",
             "story":"你要说的话。必须在5句以上。禁止换行，禁止使用markdown。必须使用中文标点。"
         }
     },
@@ -115,7 +120,7 @@
             "max_tokens": 256,
             "temperature": 0.1,
             "top_p": 0.7,
-            "system_prompt": "你是一个专业的知识图谱工程师。你的任务是从用户的对话中精准抽取出结构化的关系数据。你的输出是一个JSON，包含一个数组，每个元素包含:\n\"S\": 主体\n\"P\": 关系\n\"O\": 客体\n\"I\": 这条关系重要程度，必须是1~9之间的一个整数\n最多包含6个元素。如果没有有用信息，数组可以为空"
+            "system_prompt": "你是一个专业的知识图谱工程师。你的任务是从用户的对话中精准抽取出结构化的关系数据。你的输出是一个JSON，包含一个数组，每个元素包含:\n\"S\": 主体\n\"P\": 关系\n\"O\": 客体\n\"I\": 这条关系重要程度，必须是1~9之间的一个整数\n包含0~6个元素。只有主体、关系和客体非常明确才提取。如果没有有用信息，数组可以为空"
         }
     },
     "embedding_model": {
@@ -148,6 +153,15 @@
             "store_summaries": true,
             "store_diaries": true,
             "summary_before_storage": false
+        }
+    },
+    "knowledge_memory": {
+        "prompts": {
+            "memory_prefix": "\n```\n",
+            "memory_suffix": "\n```\n以上是当前输入相关的认知，可作为参考。"
+        },
+        "query": {
+            "top_k": 6
         }
     },
     "tts_model": {

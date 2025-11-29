@@ -40,7 +40,9 @@ Array JiebaKeywordExtractor::extract_keywords(const String &text, int top_k) {
         extractor.Extract(utf8_text, keywords, top_k);
 
         for (size_t i = 0; i < keywords.size(); ++i) {
-            result.append(String(keywords[i].c_str()));
+            const std::string &kw = keywords[i];
+            // keywords are UTF-8 encoded; use String::utf8 to construct Godot String correctly
+            result.append(String::utf8(kw.c_str(), (int64_t)kw.size()));
         }
 
 
