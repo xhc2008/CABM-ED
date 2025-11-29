@@ -1,6 +1,7 @@
 assets/images/character
 config/character_presets
 *.jks
+CABM-ED/
 # ================================
 # Godot 项目忽略规则
 # ================================

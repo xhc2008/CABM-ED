@@ -18,10 +18,10 @@ mkdir "dist\addons\jieba\bin" >nul 2>&1
 mkdir "dist\addons\jieba\config" >nul 2>&1
 
 copy "addons\cosine_calculator\cosine_calculator.gdextension" "dist\addons\cosine_calculator\"
-copy "addons\cosine_calculator\bin\libcosine_calculator.windows.template_release.x86_64.dll" "dist\addons\cosine_calculator\bin\"
+copy "addons\cosine_calculator\bin\libcosine_calculator.windows.template_debug.x86_64.dll" "dist\addons\cosine_calculator\bin\"
 
 copy "addons\jieba\jieba.gdextension" "dist\addons\jieba\"
-copy "addons\jieba\bin\libjieba.windows.template_release.x86_64.dll" "dist\addons\jieba\bin\"
+copy "addons\jieba\bin\libjieba.windows.template_debug.x86_64.dll" "dist\addons\jieba\bin\"
 xcopy "addons\jieba\config" "dist\addons\jieba\config\" /E /I /Y
 
 REM 打包
