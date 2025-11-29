@@ -236,9 +236,9 @@ func _apply_forgetting_to_graph():
     var new_graphs = []
     var removed_count = 0
     for item in data.graphs:
-        var Ival = 1
+        var Ival = 1.0
         if item.has("I"):
-            Ival = int(item.I)
+            Ival = item.I
         Ival -= 0.1
         if Ival < 0:
             removed_count += 1

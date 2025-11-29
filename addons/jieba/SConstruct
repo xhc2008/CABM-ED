@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import shutil
 
 # 获取 godot-cpp 路径（基于项目根）
 godot_cpp_path = "../../godot-cpp"
@@ -27,5 +28,38 @@ else:
         "bin/libjieba{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
         source=sources,
     )
+
+# 添加资源文件复制功能
+def copy_jieba_resources(target, source, env):
+    platform = env["platform"]
+    target_path = target[0].dir.abspath if hasattr(target[0], 'dir') else os.path.dirname(str(target[0]))
+    
+    # 对于 Android 平台，需要特殊处理资源路径
+    if platform == "android":
+        print("正在复制 jieba 资源文件用于 Android 构建...")
+        
+        # 复制整个 config 目录到 bin 目录下
+        config_src = "config"
+        config_dst = os.path.join(os.path.dirname(target_path), "config")
+        
+        try:
+            if os.path.exists(config_dst):
+                shutil.rmtree(config_dst)
+            shutil.copytree(config_src, config_dst)
+            print(f"成功复制 config 目录到: {config_dst}")
+        except Exception as e:
+            print(f"复制 config 目录失败: {e}")
+        
+        # 同时复制到项目根目录的 addons/jieba/config 以确保 Godot 能识别
+        project_config_dst = "../../addons/jieba/config"
+        if not os.path.exists(project_config_dst):
+            try:
+                shutil.copytree(config_src, project_config_dst)
+                print(f"成功复制 config 目录到项目: {project_config_dst}")
+            except Exception as e:
+                print(f"复制到项目目录失败: {e}")
+
+# 在构建完成后复制资源文件
+env.AddPostAction(library, copy_jieba_resources)
 
 Default(library)
