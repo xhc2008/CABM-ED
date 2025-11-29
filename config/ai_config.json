@@ -110,6 +110,12 @@
             "temperature": 0.2,
             "top_p": 0.7,
             "system_prompt": "你是一个翻译专家。把用户输入的句子翻译成**{language}**。直接给出结果，不要多余的输出或解释。"
+        },
+        "tuple": {
+            "max_tokens": 256,
+            "temperature": 0.2,
+            "top_p": 0.7,
+            "system_prompt": "你是一个翻译专家。把用户输入的句子翻译成**{language}**。直接给出结果，不要多余的输出或解释。"
         }
     },
     "embedding_model": {

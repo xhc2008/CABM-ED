@@ -153,6 +153,17 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 	
 	# 创建记忆项（使用确定的时间戳）
 	var item = MemoryItem.new(formatted_text, vector, item_type)
+	# 预计算向量模长并存入 metadata，便于后续快速相似度计算
+	var mag = 0.0
+	for i in range(vector.size()):
+		mag += vector[i] * vector[i]
+	mag = sqrt(mag)
+	if metadata.has("mag"):
+		# 不覆盖已有值，除非为空
+		if metadata.get("mag", 0.0) == 0.0:
+			item.metadata["mag"] = mag
+	else:
+		item.metadata["mag"] = mag
 	item.timestamp = timestamp  # 覆盖构造函数中的时间戳
 	
 	# 只在有实际内容时才设置 metadata
@@ -342,7 +353,7 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 		if exclude_timestamps.has(item.timestamp):
 			continue
 		
-		var similarity = _calculate_similarity(query_vector, item.vector)
+		var similarity = _calculate_similarity(query_vector, item.vector, item.metadata)
 		
 		if similarity >= min_similarity:
 			similarities.append({
@@ -366,14 +377,26 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 	
 	return results
 
-func _calculate_similarity(vec1: Array, vec2: Array) -> float:
+func _calculate_similarity(vec1: Array, vec2: Array, item_metadata: Dictionary = {}) -> float:
 	"""计算余弦相似度"""
 	if cosine_calculator != null:
-		return cosine_calculator.calculate(vec1, vec2)
+		# 转换为 PackedFloat64Array 后调用 C++ 实现
+		var p1 = _to_packed_float64_array(vec1)
+		var p2 = _to_packed_float64_array(vec2)
+		return float(cosine_calculator.calculate(p1, p2))
 	else:
-		return _calculate_similarity_gdscript(vec1, vec2)
+		return _calculate_similarity_gdscript(vec1, vec2, item_metadata)
 
-func _calculate_similarity_gdscript(vec1: Array, vec2: Array) -> float:
+func _to_packed_float64_array(vec: Array) -> PackedFloat64Array:
+	var p = PackedFloat64Array()
+	if vec == null:
+		return p
+	p.resize(vec.size())
+	for i in range(vec.size()):
+		p.set(i, float(vec[i]))
+	return p
+
+func _calculate_similarity_gdscript(vec1: Array, vec2: Array, item_metadata: Dictionary = {}) -> float:
 	"""GDScript实现的余弦相似度（降级方案）"""
 	if vec1.size() != vec2.size() or vec1.size() == 0:
 		return 0.0
@@ -385,10 +408,19 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array) -> float:
 	for i in range(vec1.size()):
 		dot += vec1[i] * vec2[i]
 		mag1 += vec1[i] * vec1[i]
-		mag2 += vec2[i] * vec2[i]
+		# 如果item_metadata中预存了模长（平方和或模长），优先使用
+		# 支持 metadata.mag 为模长（不是平方和）
+		if item_metadata.has("mag"):
+			mag2 = item_metadata.get("mag", 0.0)
+		else:
+			mag2 += vec2[i] * vec2[i]
 	
 	mag1 = sqrt(mag1)
-	mag2 = sqrt(mag2)
+	if mag2 != 0.0 and item_metadata.has("mag"):
+		# 已经是模长值
+		mag2 = mag2
+	else:
+		mag2 = sqrt(mag2)
 	
 	if mag1 == 0.0 or mag2 == 0.0:
 		return 0.0

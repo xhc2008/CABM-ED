@@ -1,5 +1,6 @@
 assets/images/character
 config/character_presets
+*.jks
 # ================================
 # Godot 项目忽略规则
 # ================================
@@ -10,7 +11,7 @@ config/character_presets
 export.cfg
 export_presets.cfg
 godot-cpp/
-addons/
+
 RAG/
 bin/
 temp.txt
