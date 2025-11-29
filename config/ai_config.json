@@ -106,9 +106,9 @@
         },
         "relationship": {
             "max_tokens": 256,
-            "temperature": 0.4,
+            "temperature": 0.5,
             "top_p": 0.7,
-            "system_prompt": "你是一个总结专家。请根据对话内容更新两人之间的关系、人物特点等，不超过100字。目前的关系：{relationship}"
+            "system_prompt": "你是一个总结专家。请根据对话内容总结两人之间的关系、人物特点等，不超过100字。例如：{relationship}"
         },
         "translation": {
             "max_tokens": 256,
@@ -133,6 +133,8 @@
     "memory": {
         "max_memory_items": 12,
         "max_conversation_history": 16,
+        "auto_summary_threshold": 16,
+        "auto_summary_chunk_size": 16,
         "max_relationship_history": 2,
         "vector_db": {
             "enable": true,

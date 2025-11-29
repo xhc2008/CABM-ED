@@ -1,7 +1,7 @@
-[gd_scene load_steps=14 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=15 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Theme" path="res://default_theme.tres" id="1_ragmj"]
+[ext_resource type="Theme" uid="uid://contcf3ey12vl" path="res://default_theme.tres" id="1_ragmj"]
 [ext_resource type="Script" uid="uid://tj3864tln2oi" path="res://scripts/sidebar.gd" id="2_sidebar"]
 [ext_resource type="Script" uid="uid://bvxm7qwxqj001" path="res://scripts/character.gd" id="3_character"]
 [ext_resource type="Script" uid="uid://cvxm7qwxqj002" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://scenes/interactive_element.tscn" id="11_interactive"]
 [ext_resource type="PackedScene" uid="uid://c5826ps5xu45" path="res://scenes/inventory_button.tscn" id="12_o6pr8"]
 [ext_resource type="PackedScene" path="res://scenes/character_diary_viewer.tscn" id="13_m1sh3"]
+[ext_resource type="PackedScene" path="res://scenes/ui/auto_save_indicator.tscn" id="14_m1sh3"]
 [ext_resource type="PackedScene" path="res://scenes/music_player_panel.tscn" id="15_music_panel"]
 
 [node name="Main" type="Control"]
@@ -305,3 +306,12 @@ offset_right = 800.0
 offset_bottom = 600.0
 grow_horizontal = 1
 grow_vertical = 1
+
+[node name="AutoSaveIndicator" parent="." instance=ExtResource("14_m1sh3")]
+layout_mode = 1
+anchors_preset = 1
+offset_left = -134.0
+offset_top = 677.0
+offset_right = -134.0
+offset_bottom = 677.0
+grow_horizontal = 0

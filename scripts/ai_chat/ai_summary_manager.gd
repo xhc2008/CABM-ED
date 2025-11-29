@@ -9,7 +9,7 @@ var logger: Node = null
 func _init():
 	pass
 
-func call_summary_api_with_data(conversation_text: String, conversation_data: Array):
+func call_summary_api_with_data(conversation_text: String, conversation_data: Array, auto_save: bool = false):
 	if not owner_service:
 		push_error("SummaryManager: owner_service not set")
 		return
@@ -70,6 +70,7 @@ func call_summary_api_with_data(conversation_text: String, conversation_data: Ar
 	owner_service.http_request.set_meta("messages", messages)
 	owner_service.http_request.set_meta("conversation_text", conversation_text)
 	owner_service.http_request.set_meta("conversation_data", conversation_data)
+	owner_service.http_request.set_meta("auto_save", auto_save)
 
 	var error = owner_service.http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
@@ -98,19 +99,35 @@ func handle_summary_response(response: Dictionary):
 				timestamp = conversation_data[i].timestamp
 				break
 
+	# 如果是自动保存或任意保存，记录最后被总结的消息时间戳，便于上层避免重复总结
+	var is_auto = false
+	if owner_service.http_request.has_meta("auto_save"):
+		is_auto = bool(owner_service.http_request.get_meta("auto_save", false))
+
+	if timestamp != null:
+		# 记录为 owner_service 的 last_summarized_timestamp，无论是否为自动保存
+		owner_service.last_summarized_timestamp = float(timestamp)
+
 	await _save_memory_and_diary(summary, conversation_text, timestamp)
 
 	# call tuple and relationship via owner's managers
 	owner_service.tuple_manager.call_tuple_model(summary, conversation_text, timestamp)
 
-	# after successful summary, clear context via owner
-	owner_service._clear_conversation_context()
+	# 根据是否为自动保存(auto_save)决定是否清理会话上下文
 
-	owner_service.pending_summary_data.clear()
-	owner_service.summary_retry_count = 0
+	if not is_auto:
+		# 非自动保存：执行原有的清理和后续流程
+		owner_service._clear_conversation_context()
+		owner_service.pending_summary_data.clear()
+		owner_service.summary_retry_count = 0
+		owner_service._delete_temp_conversation()
+	else:
+		# 自动保存：不要清除全局上下文，仅清除 pending_summary 并更新临时文件
+		owner_service.pending_summary_data.clear()
+		owner_service.summary_retry_count = 0
+		owner_service._save_temp_conversation()
 
-	owner_service._delete_temp_conversation()
-
+	# 通知 owner summary 完成（无论是否自动保存）
 	owner_service.summary_completed.emit(summary)
 
 func _save_memory_and_diary(summary: String, conversation_text: String, custom_timestamp = null):
@@ -174,10 +191,14 @@ func _calculate_word_limit(conversation_count: int) -> int:
 		return 50
 	elif conversation_count <= 6:
 		return 70
-	elif conversation_count <= 8:
+	elif conversation_count <= 9:
 		return 90
-	else:
+	elif conversation_count <= 12:
 		return 110
+	elif conversation_count <= 15:
+		return 130
+	else:
+		return 150
 
 # handle address request created here
 func on_address_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):

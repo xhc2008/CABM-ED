@@ -8,6 +8,8 @@ signal chat_response_completed()
 signal chat_fields_extracted(fields: Dictionary)
 signal chat_error(error_message: String)
 signal summary_completed(summary: String)
+signal auto_save_started(message: String)
+signal auto_save_completed(summary: String)
 
 # 子模块
 var config_loader: Node
@@ -33,6 +35,8 @@ var summary_retry_count: int = 0
 var max_summary_retries: int = 3
 var summary_retry_delay: float = 2.0 # 重试延迟（秒）
 var pending_summary_data: Dictionary = {} # 待总结的数据
+var auto_save_in_progress: bool = false
+var last_summarized_timestamp: float = 0.0 # 最近一次被总结的消息时间戳（用于避免重复总结）
 
 # 公共访问器（向后兼容）
 var api_key: String:
@@ -69,6 +73,8 @@ func _ready():
 	summary_manager.owner_service = self
 	summary_manager.config_loader = config_loader
 	summary_manager.logger = logger
+	# 监听summary完成以处理自动保存完成回调
+	self.connect("summary_completed", Callable(self, "_on_summary_completed"))
 
 	tuple_manager = preload("res://scripts/ai_chat/ai_tuple_manager.gd").new()
 	add_child(tuple_manager)
@@ -288,6 +294,10 @@ func _finalize_stream_response():
 
 	chat_response_completed.emit()
 
+	# 启动自动保存/总结机制（不结束对话）
+	# 如果对话数达到阈值，则对最近若干条进行总结并触发相关后续流程
+	_post_reply_auto_summary_check()
+
 func _apply_mood_immediately(mood_id: int):
 	"""立即应用mood字段"""
 	if not has_node("/root/SaveManager"):
@@ -344,8 +354,36 @@ func end_chat():
 	if current_conversation.is_empty():
 		return
 
-	# 先保存完整对话的拷贝用于总结
-	var conversation_copy = current_conversation.duplicate(true)
+	# 如果正在进行自动保存（auto-save），等待其完成以避免重复总结
+	if auto_save_in_progress:
+		print("end_chat: 检测到自动保存正在进行，等待完成...")
+		var wait_iter = 0
+		while auto_save_in_progress and wait_iter < 100:
+			await get_tree().create_timer(0.1).timeout
+			wait_iter += 1
+		if auto_save_in_progress:
+			print("end_chat: 等待超时，继续处理")
+
+	# 只总结尚未被总结的消息（基于 last_summarized_timestamp）
+	var start_index = 0
+	if last_summarized_timestamp > 0:
+		for i in range(current_conversation.size() - 1, -1, -1):
+			var msg = current_conversation[i]
+			if msg.has("timestamp") and float(msg.timestamp) <= last_summarized_timestamp:
+				start_index = i + 1
+				break
+
+	if start_index >= current_conversation.size():
+		print("end_chat: 没有未总结的消息，直接清理上下文并返回")
+		# 触发清理（仿照原有结束流程）
+		pending_summary_data = {"original_count": current_conversation.size()}
+		_clear_conversation_context()
+		_delete_temp_conversation()
+		return
+
+	# 截取需要总结的部分
+	var conversation_slice = current_conversation.slice(start_index)
+	var conversation_copy = conversation_slice.duplicate(true)
 	var conversation_text = _flatten_conversation_from_data(conversation_copy)
 
 	# 保存待总结的数据（用于重试和断点恢复）
@@ -356,14 +394,15 @@ func end_chat():
 		"timestamp": Time.get_unix_time_from_system()
 	}
 
-	# 先保存完整对话到临时文件（包含待总结标记）
+	# 保存到临时文件并重置重试计数
 	_save_temp_conversation()
-
-	# 重置重试计数
 	summary_retry_count = 0
 
-	# 调用总结API
-	summary_manager.call_summary_api_with_data(conversation_text, conversation_copy)
+	# 调用总结API（可能是整个对话的一部分）
+	if summary_manager:
+		summary_manager.call_summary_api_with_data(conversation_text, conversation_copy)
+	else:
+		push_error("Summary manager not available to handle end_chat summary")
 
 func get_goto_field() -> int:
 	"""获取goto字段值"""
@@ -903,3 +942,56 @@ func _clear_conversation_context():
 
 	# 重置为第一条消息状态
 	is_first_message = true
+
+
+func _post_reply_auto_summary_check():
+	"""在回复结束后检查是否需要自动保存（总结最近几条对话），但不结束对话。"""
+	if not config_loader:
+		return
+
+	var mem_conf = config_loader.config.memory
+	var threshold = int(mem_conf.get("auto_summary_threshold", 0))
+	var chunk_size = int(mem_conf.get("auto_summary_chunk_size", 0))
+
+	if threshold <= 0 or chunk_size <= 0:
+		return
+	print("自动保存检查：当前对话数 %d，阈值 %d，块大小 %d" % [current_conversation.size(), threshold, chunk_size])
+	if current_conversation.size()%threshold <=1 or current_conversation.size() ==0:
+		return
+
+	# 准备最近 chunk_size 条消息用于总结
+	var start_index = max(0, current_conversation.size() - chunk_size)
+	var conv_slice = current_conversation.slice(start_index)
+	if conv_slice.is_empty():
+		return
+
+	var conversation_text = _flatten_conversation_from_data(conv_slice)
+
+	# 设置待总结数据，便于重试与断点恢复（但保留原始全部上下文）
+	pending_summary_data = {
+		"conversation_copy": conv_slice,
+		"conversation_text": conversation_text,
+		"original_count": current_conversation.size(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	# 标记正在进行自动保存
+	auto_save_in_progress = true
+	auto_save_started.emit("保存中……")
+
+	# 调用 summary_manager 进行总结，但告知为 auto_save 模式
+	if summary_manager:
+		summary_manager.call_summary_api_with_data(conversation_text, conv_slice, true)
+	else:
+		push_error("Summary manager not available to perform auto-save")
+
+
+func _on_summary_completed(summary: String):
+	# 当 summary_manager 完成后，处理 auto-save 状态
+	if auto_save_in_progress:
+		auto_save_in_progress = false
+		auto_save_completed.emit(summary)
+		# 保存临时会话状态（更新last_time，清除pending_summary等）
+		pending_summary_data.clear()
+		summary_retry_count = 0
+		_save_temp_conversation()
