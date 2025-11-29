@@ -755,6 +755,9 @@ func _call_tuple_model(summary_text: String, conversation_text: String, custom_t
 
 	logger.log_api_request("TUPLE_REQUEST", body, json_body)
 
+	# 在调用tuple模型前，先执行遗忘机制：对现有图谱中的每条记录的I值减1，若小于0则删除该记录
+	_apply_forgetting_to_graph()
+
 	var tuple_request = HTTPRequest.new()
 	add_child(tuple_request)
 	tuple_request.request_completed.connect(_on_tuple_request_completed)
@@ -1122,6 +1125,57 @@ func _save_tuple_to_file(custom_timestamp, summary_text, tuples_data):
 		print("已保存图谱到: %s (新增 %d 条，总计 %d 条)" % [filepath, appended, existing.graphs.size()])
 	else:
 		push_error("无法写入图谱文件: %s" % filepath)
+
+
+func _apply_forgetting_to_graph():
+	"""遗忘机制：将 `user://memory_graph.json` 中每条记录的 I 减 1，
+	如果减到小于 0，则移除该记录；保存后输出日志。
+	"""
+	var filepath = "user://memory_graph.json"
+	if not FileAccess.file_exists(filepath):
+		return
+
+	var f = FileAccess.open(filepath, FileAccess.READ)
+	if not f:
+		return
+
+	var content = f.get_as_text()
+	f.close()
+
+	var j = JSON.new()
+	if j.parse(content) != OK:
+		print("遗忘机制：无法解析图谱文件，跳过遗忘")
+		return
+
+	var data = j.data
+	if not data.has("graphs") or typeof(data.graphs) != TYPE_ARRAY:
+		return
+
+	var new_graphs = []
+	var removed_count = 0
+	for item in data.graphs:
+		var Ival = 1
+		if item.has("I"):
+			Ival = int(item.I)
+		# 递减
+		Ival -= 1
+		if Ival < 0:
+			removed_count += 1
+			continue
+		# 更新并保留
+		item.I = Ival
+		new_graphs.append(item)
+
+	data.graphs = new_graphs
+
+	# 写回文件
+	var wf = FileAccess.open(filepath, FileAccess.WRITE)
+	if wf:
+		wf.store_string(JSON.stringify(data, "\t"))
+		wf.close()
+		print("遗忘机制已执行：移除 %d 条记录，剩余 %d 条" % [removed_count, data.graphs.size()])
+	else:
+		push_error("遗忘机制：无法写回图谱文件: %s" % filepath)
 
 func _calculate_word_limit(conversation_count: int) -> int:
 	"""根据对话条数动态计算字数限制
