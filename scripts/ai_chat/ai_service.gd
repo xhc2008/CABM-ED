@@ -956,7 +956,7 @@ func _post_reply_auto_summary_check():
 	if threshold <= 0 or chunk_size <= 0:
 		return
 	print("自动保存检查：当前对话数 %d，阈值 %d，块大小 %d" % [current_conversation.size(), threshold, chunk_size])
-	if current_conversation.size()%threshold >1 or current_conversation.size() ==0:
+	if current_conversation.size()%threshold >1 or current_conversation.size() < threshold:
 		return
 
 	# 准备最近 chunk_size 条消息用于总结

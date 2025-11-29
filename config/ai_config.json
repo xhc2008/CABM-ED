@@ -134,7 +134,7 @@
         "max_memory_items": 12,
         "max_conversation_history": 16,
         "auto_summary_threshold": 16,
-        "auto_summary_chunk_size": 16,
+        "auto_summary_chunk_size": 20,
         "max_relationship_history": 2,
         "vector_db": {
             "enable": true,
