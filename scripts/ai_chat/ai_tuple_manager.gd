@@ -41,7 +41,8 @@ func call_tuple_model(summary_text: String, conversation_text: String, custom_ti
         "messages": messages,
         "max_tokens": int(tuple_params.get("max_tokens", 256)),
         "temperature": float(tuple_params.get("temperature", 0.1)),
-        "top_p": float(tuple_params.get("top_p", 0.7))
+        "top_p": float(tuple_params.get("top_p", 0.7)),
+        "response_format": {"type": "json_object"},
     }
 
     var json_body = JSON.stringify(body)
@@ -86,6 +87,10 @@ func _on_tuple_request_completed(result: int, response_code: int, _headers: Pack
         return
 
     var response_text = body.get_string_from_utf8()
+    
+    # 处理被代码块标记包裹的响应
+    response_text = _strip_code_blocks(response_text)
+    
     var json = JSON.new()
     if json.parse(response_text) != OK:
         push_error("Tuple 响应解析失败，保存原始文本")
@@ -101,6 +106,8 @@ func _on_tuple_request_completed(result: int, response_code: int, _headers: Pack
         var msg = data.choices[0].message
         if msg and msg.has("content"):
             var content = str(msg.content)
+            # 处理被代码块标记包裹的内容
+            content = _strip_code_blocks(content)
             var p = JSON.new()
             if p.parse(content) == OK:
                 tuples = p.data
@@ -115,7 +122,20 @@ func _on_tuple_request_completed(result: int, response_code: int, _headers: Pack
     if tuple_request:
         tuple_request.queue_free()
 
-func _save_tuple_to_file(custom_timestamp, summary_text, tuples_data):
+# 添加一个新函数用于去除代码块标记
+func _strip_code_blocks(text: String) -> String:
+    var stripped = text.strip_edges()
+    if stripped.begins_with("```json"):
+        stripped = stripped.substr(7)
+    elif stripped.begins_with("```"):
+        stripped = stripped.substr(3)
+    
+    if stripped.ends_with("```"):
+        stripped = stripped.substr(0, stripped.length() - 3)
+    
+    return stripped.strip_edges()
+    
+func _save_tuple_to_file(custom_timestamp, _summary_text, tuples_data):
     var filepath = "user://memory_graph.json"
 
     var existing = {}
