@@ -710,8 +710,8 @@ func _on_character_scene_changed(new_scene: String):
 	if show_notification:
 		_show_character_move_message(new_scene)
 	
-	await scene_manager.load_scene(new_scene, scene_manager.current_weather, scene_manager.current_time)
-	sidebar.set_current_scene(new_scene)
+	# await scene_manager.load_scene(new_scene, scene_manager.current_weather, scene_manager.current_time)
+	# sidebar.set_current_scene(new_scene)
 	character.load_character_for_scene(scene_manager.current_scene)
 
 func _show_character_move_message(new_scene: String):
