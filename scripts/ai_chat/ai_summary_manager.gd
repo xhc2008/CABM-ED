@@ -83,11 +83,37 @@ func handle_summary_response(response: Dictionary):
 		return
 
 	var message = response.choices[0].message
-	var summary = message.content
+	var content = message.content
 
 	var messages = owner_service.http_request.get_meta("messages", [])
 	if logger:
-		logger.log_api_call("SUMMARY_RESPONSE", messages, summary)
+		logger.log_api_call("SUMMARY_RESPONSE", messages, content)
+
+	# 移除可能的 ```json``` 或 ``` 标记
+	var cleaned_content = content.strip_edges()
+	if cleaned_content.begins_with("```json"):
+		cleaned_content = cleaned_content.substr(7)
+	elif cleaned_content.begins_with("```"):
+		cleaned_content = cleaned_content.substr(3)
+	if cleaned_content.ends_with("```"):
+		cleaned_content = cleaned_content.substr(0, cleaned_content.length() - 3)
+	cleaned_content = cleaned_content.strip_edges()
+
+	# 解析 JSON
+	var json = JSON.new()
+	if json.parse(cleaned_content) != OK:
+		push_error("总结响应 JSON 解析失败: " + cleaned_content)
+		owner_service._handle_summary_failure("总结响应 JSON 解析失败")
+		return
+
+	var data = json.data
+	if not data.has("summary"):
+		push_error("总结响应缺少 summary 字段")
+		owner_service._handle_summary_failure("总结响应格式错误")
+		return
+
+	var summary = data.summary
+	var new_address = data.get("address", "")
 
 	var conversation_text = owner_service.http_request.get_meta("conversation_text", "")
 	var conversation_data = owner_service.http_request.get_meta("conversation_data", [])
@@ -107,6 +133,9 @@ func handle_summary_response(response: Dictionary):
 	if timestamp != null:
 		# 记录为 owner_service 的 last_summarized_timestamp，无论是否为自动保存
 		owner_service.last_summarized_timestamp = float(timestamp)
+
+	# 处理称呼更新
+	_handle_address_update(new_address, conversation_text)
 
 	await _save_memory_and_diary(summary, conversation_text, timestamp)
 
@@ -175,8 +204,6 @@ func _save_memory_and_diary(summary: String, conversation_text: String, custom_t
 
 	save_mgr.save_data.ai_data.accumulated_summary_count += 1
 
-	owner_service._call_address_api(conversation_text)
-
 	var max_memory_items = owner_service.config_loader.config.memory.max_memory_items
 	if save_mgr.save_data.ai_data.accumulated_summary_count >= max_memory_items:
 		print("累计条目数达到上限，调用关系模型...")
@@ -200,68 +227,44 @@ func _calculate_word_limit(conversation_count: int) -> int:
 	else:
 		return 150
 
-# handle address request created here
-func on_address_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
-	# Try to find the address HTTPRequest under owner_service (not this manager)
-	var address_request: HTTPRequest = null
-	if owner_service:
-		for child in owner_service.get_children():
-			if child is HTTPRequest and child.has_meta("request_type") and child.get_meta("request_type") == "address":
-				address_request = child
-				break
-	else:
-		push_error("SummaryManager: owner_service not set when handling address response")
+func _handle_address_update(new_address: String, conversation_text: String):
+	if new_address.is_empty():
+		print("称呼字段为空，不更新")
 		return
 
-	if result != HTTPRequest.RESULT_SUCCESS:
-		push_error("称呼模型请求失败: " + str(result))
-		if address_request:
-			address_request.queue_free()
-		return
-
-	if response_code != 200:
-		var error_text = body.get_string_from_utf8()
-		var error_msg = "称呼模型API错误 (%d): %s" % [response_code, error_text]
-		print(error_msg)
-		if address_request:
-			address_request.queue_free()
-		return
-
-	var response_text = body.get_string_from_utf8()
-	var json = JSON.new()
-	if json.parse(response_text) != OK:
-		push_error("称呼模型响应解析失败")
-		if address_request:
-			address_request.queue_free()
-		return
-
-	_handle_address_response(json.data, address_request)
-
-	if address_request:
-		address_request.queue_free()
-
-func _handle_address_response(response: Dictionary, address_request: HTTPRequest):
-	if not response.has("choices") or response.choices.is_empty():
-		push_error("称呼模型响应格式错误")
-		return
-
-	var message = response.choices[0].message
-	var new_address = message.content.strip_edges()
-
-	var messages = []
-	# Safely obtain messages meta: prefer the request node, fall back to owner_service.http_request
-	if address_request and address_request.has_meta("messages"):
-		messages = address_request.get_meta("messages", [])
-	elif owner_service and owner_service.http_request and owner_service.http_request.has_meta("messages"):
-		messages = owner_service.http_request.get_meta("messages", [])
-
-	if logger:
-		logger.log_api_call("ADDRESS_RESPONSE", messages, new_address)
-
+	new_address = new_address.strip_edges()
+	
 	var save_mgr = owner_service.get_node("/root/SaveManager")
 	var char_name = save_mgr.get_character_name()
+	var user_name = save_mgr.get_user_name()
+	var current_address = save_mgr.get_user_address()
+
+	# 抛弃机制1：包含角色名
 	if new_address.contains(char_name):
-		print("称呼模型返回包含角色名 '%s'，判定为错误，抛弃此次更新: %s" % [char_name, new_address])
+		print("称呼包含角色名 '%s'，判定为错误，抛弃此次更新: %s" % [char_name, new_address])
 		return
+
+	# 抛弃机制2：AI判断结果为用户名，且当前称呼不为用户名，且对话中没有出现用户名
+	if new_address == user_name and current_address != user_name:
+		# 检查对话中是否出现用户名（排除前面的"{用户名}: "格式）
+		var conversation_lines = conversation_text.split("\n")
+		var user_name_mentioned = false
+		for line in conversation_lines:
+			# 移除开头的 "{用户名}: " 格式
+			var cleaned_line = line
+			if cleaned_line.begins_with(user_name):
+				cleaned_line = cleaned_line.substr(user_name.length())
+			
+			# 检查剩余内容是否包含用户名
+			if cleaned_line.contains(user_name):
+				print("[称呼判断]:对话内容包含用户名")
+				user_name_mentioned = true
+				break
+		
+		if not user_name_mentioned:
+			print("AI判断称呼为用户名 '%s'，但当前称呼不是用户名且对话中未提及，抛弃此次更新" % user_name)
+			return
+
+	# 通过所有检查，更新称呼
 	save_mgr.set_user_address(new_address)
 	print("称呼已更新: ", new_address)
