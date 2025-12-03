@@ -154,7 +154,7 @@ func _receive_stream_chunk():
         if response_code != 200:
             is_streaming = false
             var error_text = get_http_error_text(response_code)
-            stream_error.emit("API 错误: %s (%s)" % [error_text, response_code])
+            stream_error.emit("%s (错误代码：%s)" % [error_text, response_code])
             return
 
         var chunk = http_client.read_response_body_chunk()
