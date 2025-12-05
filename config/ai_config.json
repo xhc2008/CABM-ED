@@ -94,7 +94,7 @@
         "enable_thinking": false,    
         "summary": {
             "max_tokens": 512,
-            "temperature": 0.6,
+            "temperature": 0.3,
             "top_p": 0.7,
             "system_prompt": "你是一个总结专家。请你以{character_name}的视角，以JSON格式给出两个字段：\"summary\": 用内心独白的形式总结你和{user_name}的对话。保持主语清晰，不要出现动作描写。保持精炼，不超过{word_limit}字。\"address\": 你对{user_name}的称呼。如果对话中没有明确提及称呼，就留空。"
         },

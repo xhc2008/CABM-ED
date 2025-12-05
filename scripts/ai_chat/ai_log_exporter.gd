@@ -116,42 +116,61 @@ func export_ai_logs(export_dir: String) -> Dictionary:
     print("AI日志已导出: ", dest_path)
     return {"success": true, "count": 1}
 
-## 导出Godot日志（stdout）
+## 导出Godot日志目录（logs/）下的所有文件
 func export_godot_logs(export_dir: String) -> Dictionary:
-    var log_paths = [
-        "user://logs/godot.log",
-        OS.get_user_data_dir() + "/logs/godot.log"
+    # 定义可能的日志目录路径
+    var log_dirs = [
+        "user://logs",
+        OS.get_user_data_dir() + "/logs"
     ]
     
     var count = 0
     
-    for log_path in log_paths:
-        if FileAccess.file_exists(log_path):
-            var source_file = FileAccess.open(log_path, FileAccess.READ)
-            if source_file == null:
-                continue
+    for log_dir in log_dirs:
+        var dir = DirAccess.open(log_dir)
+        if dir == null:
+            continue
+        
+        # 创建目标目录的logs子目录
+        var target_logs_dir = export_dir + "/logs"
+        DirAccess.make_dir_recursive_absolute(target_logs_dir)
+        
+        # 列出日志目录中的所有文件
+        dir.list_dir_begin()
+        var file_name = dir.get_next()
+        while file_name != "":
+            if not dir.current_is_dir():
+                var source_path = log_dir + "/" + file_name
+                var source_file = FileAccess.open(source_path, FileAccess.READ)
+                if source_file != null:
+                    var content = source_file.get_as_text()
+                    source_file.close()
+                    
+                    var dest_path = target_logs_dir + "/" + file_name
+                    var dest_file = FileAccess.open(dest_path, FileAccess.WRITE)
+                    if dest_file != null:
+                        dest_file.store_string(content)
+                        dest_file.close()
+                        
+                        print("日志文件已导出: ", dest_path)
+                        count += 1
             
-            var content = source_file.get_as_text()
-            source_file.close()
-            
-            var filename = log_path.get_file()
-            var dest_path = export_dir + "/" + filename
-            var dest_file = FileAccess.open(dest_path, FileAccess.WRITE)
-            if dest_file == null:
-                continue
-            
-            dest_file.store_string(content)
-            dest_file.close()
-            
-            print("Godot日志已导出: ", dest_path)
-            count += 1
+            file_name = dir.get_next()
+        
+        dir.list_dir_end()
     
-    # 如果没有找到日志文件，创建一个包含当前输出的文件
+    # 如果没有找到任何日志文件，创建一个包含当前输出的文件
     if count == 0:
-        var dest_path = export_dir + "/godot_output.txt"
+        var target_logs_dir = export_dir + "/logs"
+        DirAccess.make_dir_recursive_absolute(target_logs_dir)
+        
+        var dest_path = target_logs_dir + "/godot_output.txt"
         var dest_file = FileAccess.open(dest_path, FileAccess.WRITE)
         if dest_file:
-            dest_file.store_string("Godot日志文件未找到\n")
+            dest_file.store_string("日志文件未找到\n")
+            dest_file.store_string("搜索的日志目录:\n")
+            for log_dir in log_dirs:
+                dest_file.store_string("  - " + log_dir + "\n")
             dest_file.store_string("用户数据目录: " + OS.get_user_data_dir() + "\n")
             dest_file.store_string("导出时间: " + Time.get_datetime_string_from_system() + "\n")
             dest_file.close()
