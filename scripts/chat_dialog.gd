@@ -13,6 +13,7 @@ signal chat_ended
 var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
+var mic_button: Button
 
 var is_input_mode: bool = true
 var waiting_for_continue: bool = false
@@ -28,6 +29,15 @@ const GOTO_COOLDOWN_DURATION = 60.0
 var goto_cooldown_end_time: float = 0.0
 var goto_notification_label: Label = null
 
+# 语音录制
+var is_recording: bool = false
+var recording_bus_index: int = -1
+var capture_effect: AudioEffectCapture
+var mic_player: AudioStreamPlayer
+var mic_stream: AudioStreamMicrophone
+var recording_buffer: PackedVector2Array = PackedVector2Array()
+var mic_icon: Texture2D
+
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
 	input_container = vbox.get_node_or_null("InputContainer")
@@ -35,13 +45,29 @@ func _ensure_ui_structure():
 	if input_container != null:
 		input_field = input_container.get_node_or_null("InputField")
 		send_button = input_container.get_node_or_null("SendButton")
-		# 移除旧的历史按钮（现在由底部按钮控制历史）
+		mic_button = input_container.get_node_or_null("MicButton")
 		var old_history_btn = input_container.get_node_or_null("HistoryButton")
 		if old_history_btn != null:
 			old_history_btn.queue_free()
 		
-		print("使用现有的 InputContainer 结构")
-		return
+		# 如果不存在麦克风按钮，则创建并插入到发送按钮左侧
+		if mic_button == null:
+			mic_button = Button.new()
+			mic_button.name = "MicButton"
+			mic_button.custom_minimum_size = Vector2(80, 0)
+			mic_button.focus_mode = Control.FOCUS_NONE
+			input_container.add_child(mic_button)
+			if send_button:
+				var send_index = send_button.get_index()
+				input_container.move_child(mic_button, max(0, send_index))
+				# 设置图标
+				var icon_res: Texture2D = load("res://assets/images/chat/microphone.svg")
+				if icon_res:
+					mic_button.icon = icon_res
+				mic_button.tooltip_text = "语音输入"
+			
+			print("使用现有的 InputContainer 结构")
+			return
 	
 	var old_input_field = vbox.get_node_or_null("InputField")
 	if old_input_field != null:
@@ -56,10 +82,21 @@ func _ensure_ui_structure():
 		input_container.add_child(old_input_field)
 		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		
+		# 麦克风按钮（在发送按钮左侧）
+		mic_button = Button.new()
+		mic_button.name = "MicButton"
+		mic_button.custom_minimum_size = Vector2(80, 0)
+		mic_button.focus_mode = Control.FOCUS_NONE
+		var mic_icon_tex: Texture2D = load("res://assets/images/chat/microphone.svg")
+		if mic_icon_tex:
+			mic_button.icon = mic_icon_tex
+			mic_button.tooltip_text = "语音输入"
+		
 		send_button = Button.new()
 		send_button.name = "SendButton"
 		send_button.text = "发送"
-		send_button.custom_minimum_size = Vector2(80, 0)
+		send_button.custom_minimum_size = Vector2(40, 0)
+		input_container.add_child(mic_button)
 		input_container.add_child(send_button)
 		
 		if end_button:
@@ -84,10 +121,20 @@ func _ensure_ui_structure():
 		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		input_container.add_child(input_field)
 		
+		mic_button = Button.new()
+		mic_button.name = "MicButton"
+		mic_button.custom_minimum_size = Vector2(80, 0)
+		mic_button.focus_mode = Control.FOCUS_NONE
+		var mic_icon_tex2: Texture2D = load("res://assets/images/chat/microphone.svg")
+		if mic_icon_tex2:
+			mic_button.icon = mic_icon_tex2
+		mic_button.tooltip_text = "语音输入"
+		
 		send_button = Button.new()
 		send_button.name = "SendButton"
 		send_button.text = "发送"
 		send_button.custom_minimum_size = Vector2(80, 0)
+		input_container.add_child(mic_button)
 		input_container.add_child(send_button)
 		
 		if end_button:
@@ -110,6 +157,8 @@ func _ready():
 		end_button.pressed.connect(_on_history_toggle_pressed)
 	if send_button:
 		send_button.pressed.connect(_on_send_button_pressed)
+	if mic_button:
+		mic_button.pressed.connect(_on_mic_button_pressed)
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
@@ -123,6 +172,8 @@ func _ready():
 		ai_service.chat_response_received.connect(_on_ai_response)
 		ai_service.chat_response_completed.connect(_on_ai_response_completed)
 		ai_service.chat_error.connect(_on_ai_error)
+		ai_service.stt_result.connect(_on_stt_result)
+		ai_service.stt_error.connect(_on_stt_error)
 	
 	# 连接事件管理器信号
 	if has_node("/root/EventManager"):
@@ -343,6 +394,9 @@ func _update_action_button_state():
 	else:
 		send_button.text = "结束"
 		send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
+	# 更新麦克风按钮外观
+	if mic_button:
+		mic_button.modulate = Color(1.0, 0.2, 0.2, 1.0) if is_recording else Color(1.0, 1.0, 1.0, 1.0)
 
 func _on_event_completed(event_name: String, result):
 	"""处理事件完成信号"""
@@ -377,6 +431,12 @@ func _on_send_button_pressed():
 	else:
 		_on_input_submitted(text)
 
+func _on_mic_button_pressed():
+	if not is_recording:
+		_start_recording()
+	else:
+		_stop_and_send_recording()
+
 func _on_input_submitted(text: String):
 	if text.strip_edges().is_empty():
 		return
@@ -406,6 +466,151 @@ func _on_input_submitted(text: String):
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.start_chat(text, "user_initiated")
+
+func _process(_delta: float):
+	if is_recording and capture_effect:
+		var chunk = 1024
+		while capture_effect.can_get_buffer(chunk):
+			var buf = capture_effect.get_buffer(chunk)
+			if buf.size() > 0:
+				recording_buffer.append_array(buf)
+
+func _start_recording():
+	# 初始化录音总线与采集器
+	if recording_bus_index == -1:
+		var count = AudioServer.get_bus_count()
+		AudioServer.add_bus(count)
+		recording_bus_index = count
+		AudioServer.set_bus_name(recording_bus_index, "Record")
+		capture_effect = AudioEffectCapture.new()
+		AudioServer.add_bus_effect(recording_bus_index, capture_effect, 0)
+
+	# 创建麦克风播放器并开始播放（路由到录音总线）
+	if not mic_player:
+		mic_player = AudioStreamPlayer.new()
+		add_child(mic_player)
+		mic_player.bus = AudioServer.get_bus_name(recording_bus_index)
+
+	mic_stream = AudioStreamMicrophone.new()
+	mic_player.stream = mic_stream
+	mic_player.play()
+
+	recording_buffer.clear()
+	is_recording = true
+	if mic_button:
+		mic_button.modulate = Color(1.0, 0.2, 0.2, 1.0)
+	_update_action_button_state()
+
+func _stop_and_send_recording():
+	# 停止录音
+	is_recording = false
+	if mic_player and mic_player.playing:
+		mic_player.stop()
+	# 将采集到的帧转换为wav字节
+	if recording_buffer.size() == 0:
+		print("录音缓冲为空，可能未启用音频输入或设备没有数据")
+		if mic_button:
+			mic_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		_update_action_button_state()
+		return
+	var wav_bytes = _frames_to_wav_bytes(recording_buffer, AudioServer.get_mix_rate())
+	# 清空缓冲以释放内存
+	recording_buffer = PackedVector2Array()
+
+	# 发送到STT
+	if has_node("/root/AIService"):
+		var ai_service = get_node("/root/AIService")
+		ai_service.transcribe_audio(wav_bytes, "recording.wav")
+
+	# 恢复按钮外观
+	_update_action_button_state()
+
+func _send_button_reset():
+	send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
+	send_button.text = "结束" if is_recording else "发送"
+
+func _frames_to_wav_bytes(frames: PackedVector2Array, sample_rate: int) -> PackedByteArray:
+	var target_rate = 16000
+	var mono_samples: Array = []
+	mono_samples.resize(frames.size())
+	for i in range(frames.size()):
+		var f = frames[i]
+		mono_samples[i] = clamp((f.x + f.y) * 0.5, -1.0, 1.0)
+
+	var target_len = int(ceil(float(mono_samples.size()) * float(target_rate) / float(sample_rate)))
+	var resampled: Array = []
+	resampled.resize(target_len)
+	if mono_samples.size() <= 1:
+		resampled.fill(0.0)
+	else:
+		for t in range(target_len):
+			var src_pos = float(t) * float(sample_rate) / float(target_rate)
+			var i0 = int(floor(src_pos))
+			var i1 = min(i0 + 1, mono_samples.size() - 1)
+			var alpha = src_pos - float(i0)
+			var v = mono_samples[i0] * (1.0 - alpha) + mono_samples[i1] * alpha
+			resampled[t] = v
+
+	var channels = 1
+	var bits_per_sample = 16
+	var byte_rate = target_rate * channels * (bits_per_sample / 8)
+	var block_align = channels * (bits_per_sample / 8)
+	var data_bytes = PackedByteArray()
+	data_bytes.resize(resampled.size() * 2)
+	var idx = 0
+	for v in resampled:
+		var s = int(clamp(v, -1.0, 1.0) * 32767.0)
+		data_bytes[idx] = s & 0xFF
+		data_bytes[idx+1] = (s >> 8) & 0xFF
+		idx += 2
+
+	var header = PackedByteArray()
+	header.append_array("RIFF".to_utf8_buffer())
+	var total_size = 36 + data_bytes.size()
+	header.append_array(_u32le(total_size))
+	header.append_array("WAVE".to_utf8_buffer())
+	header.append_array("fmt ".to_utf8_buffer())
+	header.append_array(_u32le(16))
+	header.append_array(_u16le(1))
+	header.append_array(_u16le(channels))
+	header.append_array(_u32le(target_rate))
+	header.append_array(_u32le(byte_rate))
+	header.append_array(_u16le(block_align))
+	header.append_array(_u16le(bits_per_sample))
+	header.append_array("data".to_utf8_buffer())
+	header.append_array(_u32le(data_bytes.size()))
+
+	var wav = PackedByteArray()
+	wav.append_array(header)
+	wav.append_array(data_bytes)
+	return wav
+
+func _u16le(n: int) -> PackedByteArray:
+	var a = PackedByteArray()
+	a.resize(2)
+	a[0] = n & 0xFF
+	a[1] = (n >> 8) & 0xFF
+	return a
+
+func _u32le(n: int) -> PackedByteArray:
+	var a = PackedByteArray()
+	a.resize(4)
+	a[0] = n & 0xFF
+	a[1] = (n >> 8) & 0xFF
+	a[2] = (n >> 16) & 0xFF
+	a[3] = (n >> 24) & 0xFF
+	return a
+
+func _on_stt_result(text: String):
+	if input_field:
+		var prefix = " " if not input_field.text.is_empty() else ""
+		input_field.text += prefix + text
+		_update_action_button_state()
+		input_field.grab_focus()
+
+func _on_stt_error(err: String):
+	print("STT 错误: ", err)
+	_send_button_reset()
 
 func _on_sentence_ready_for_tts(text: String):
 	"""句子准备好进行TTS处理 - 立即发送到TTS服务

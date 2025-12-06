@@ -8,6 +8,8 @@ signal chat_response_completed()
 signal chat_fields_extracted(fields: Dictionary)
 signal chat_error(error_message: String)
 signal summary_completed(summary: String)
+signal stt_result(text: String)
+signal stt_error(error_message: String)
 signal auto_save_started(message: String)
 signal auto_save_completed(summary: String)
 
@@ -22,6 +24,7 @@ var relationship_manager: Node
 
 # HTTP 请求节点
 var http_request: HTTPRequest
+var stt_request: HTTPRequest
 
 # 对话状态
 var current_conversation: Array = []
@@ -91,6 +94,11 @@ func _ready():
 	add_child(http_request)
 	http_request.request_completed.connect(_on_request_completed)
 
+	# 创建 STT 请求节点
+	stt_request = HTTPRequest.new()
+	add_child(stt_request)
+	stt_request.request_completed.connect(_on_stt_request_completed)
+
 	# 检查断点恢复
 	_check_and_recover_interrupted_conversation()
 
@@ -99,6 +107,103 @@ func reload_config():
 	if config_loader:
 		config_loader.load_all()
 		print("AI 配置已重新加载")
+
+func transcribe_audio(audio_bytes: PackedByteArray, filename: String = "recording.wav"):
+	if config_loader == null:
+		stt_error.emit("配置加载器不可用")
+		return
+
+	var api_key_local = config_loader.api_key
+	var stt_cfg = config_loader.config.get("stt_model", {})
+	var model = stt_cfg.get("model", "")
+	var base_url = stt_cfg.get("base_url", "")
+	var timeout_s = int(stt_cfg.get("timeout", 10))
+
+	if api_key_local.is_empty():
+		stt_error.emit("API 密钥未配置")
+		return
+	if model.is_empty():
+		stt_error.emit("STT 模型未配置")
+		return
+	if base_url.is_empty():
+		stt_error.emit("STT 基础地址未配置")
+		return
+
+	if base_url.ends_with("/"):
+		base_url = base_url.substr(0, base_url.length() - 1)
+	var url = base_url + "/audio/transcriptions"
+	var boundary = "----GodotFormBoundary" + str(Time.get_ticks_msec())
+	var headers = [
+		"Authorization: Bearer " + api_key_local,
+		"Content-Type: multipart/form-data; boundary=" + boundary
+	]
+
+	# 构建multipart/form-data
+	var crlf = "\r\n"
+	var body = PackedByteArray()
+
+	# file 字段
+	var part1 = "--" + boundary + crlf
+	part1 += "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"" + crlf
+	part1 += "Content-Type: audio/wav" + crlf + crlf
+	body.append_array(part1.to_utf8_buffer())
+	body.append_array(audio_bytes)
+	body.append_array((crlf).to_utf8_buffer())
+
+	# model 字段
+	var part2 = "--" + boundary + crlf
+	part2 += "Content-Disposition: form-data; name=\"model\"" + crlf + crlf
+	part2 += model + crlf
+	body.append_array(part2.to_utf8_buffer())
+
+	# 结束边界
+	var end_marker = "--" + boundary + "--" + crlf
+	body.append_array(end_marker.to_utf8_buffer())
+
+	stt_request.timeout = timeout_s
+	stt_request.request_raw(url, headers, HTTPClient.METHOD_POST, body)
+
+func _on_stt_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
+	if result != HTTPRequest.RESULT_SUCCESS:
+		stt_error.emit("请求失败: " + str(result))
+		return
+
+	var text = body.get_string_from_utf8()
+	if response_code != 200:
+		# 尝试解析错误详情
+		var json = JSON.new()
+		if json.parse(text) == OK:
+			var data = json.data
+			var err_msg = data.get("error", {}).get("message", text)
+			stt_error.emit("HTTP" + str(response_code) + ": " + err_msg)
+		else:
+			stt_error.emit("HTTP" + str(response_code) + ": " + text)
+		return
+
+	# 解析返回的文本
+	var json = JSON.new()
+	if json.parse(text) == OK:
+		var data = json.data
+		var transcribed = ""
+		if typeof(data) == TYPE_DICTIONARY:
+			transcribed = data.get("text", data.get("transcription", ""))
+			if transcribed.is_empty() and data.has("segments"):
+				var segs = data.get("segments", [])
+				var parts: Array = []
+				for s in segs:
+					if typeof(s) == TYPE_DICTIONARY:
+						var t = s.get("text", s.get("transcript", ""))
+						if not t.is_empty():
+							parts.append(t)
+				transcribed = " ".join(parts)
+		else:
+			transcribed = text
+		if transcribed.is_empty():
+			transcribed = text
+		stt_result.emit(transcribed)
+	else:
+		# 非JSON，直接作为文本
+		stt_result.emit(text)
 
 func add_to_history(role: String, content: String):
 	"""手动添加消息到对话历史"""
