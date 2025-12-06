@@ -71,23 +71,23 @@
       "max_stack": 64,
       "caliber": "9mm"
     },
-    "medkit_small": {
-      "name": "小型医疗包",
-      "type": "消耗品",
-      "description": "恢复50点生命值",
-      "icon": "medkit_small.png",
-      "weight": 0.8,
-      "max_stack": 3,
+    "bandage": {
+      "name": "绷带",
+      "type": "药品",
+      "description": "恢复10点生命值",
+      "icon": "bandage.png",
+      "weight": 0.2,
+      "max_stack": 64,
       "heal_amount": 50,
       "use_time": 3.0
     },
-    "medkit_large": {
-      "name": "大型医疗包",
-      "type": "消耗品",
-      "description": "恢复100点生命值",
-      "icon": "medkit_large.png",
+    "medkit": {
+      "name": "医疗箱",
+      "type": "药品",
+      "description": "恢复80点生命值",
+      "icon": "medkit.png",
       "weight": 1.5,
-      "max_stack": 2,
+      "max_stack": 16,
       "heal_amount": 100,
       "use_time": 5.0
     },

@@ -59,9 +59,11 @@ func update_display():
 				icon_texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 				icon_texture.texture = load(icon_path)
 			else:
-				icon_texture.texture = null
+				icon_texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				icon_texture.texture = load("res://assets/images/error.png")
 		else:
-			icon_texture.texture = null
+			icon_texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			icon_texture.texture = load("res://assets/images/error.png")
 		
 		# 显示弹药信息（如果是远程武器）
 		if item_config.get("subtype") == "远程":

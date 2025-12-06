@@ -507,18 +507,26 @@ func _show_item_info(item_data: Dictionary):
 		return
 	
 	var item_config = player_container.get_item_config(item_data.item_id)
+	var is_unknown = item_config.is_empty()
 	
 	info_name.text = item_config.get("name", "未知物品")
-	info_desc.text = item_config.get("description", "无描述")
+	if is_unknown:
+		info_desc.text = "该物品可能已被删除，可以丢弃到地图上"
+	else:
+		info_desc.text = item_config.get("description", "无描述")
 	
-	# 显示图标 - 保持原始比例
-	if item_config.has("icon"):
+	if is_unknown:
+		info_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		info_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		info_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		info_icon.texture = load("res://assets/images/error.png")
+	elif item_config.has("icon"):
 		var icon_path = "res://assets/images/items/" + item_config.icon
 		# 设置保持比例的缩放模式
 		info_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		info_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		info_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		if ResourceLoader.exists(icon_path):	
+		if ResourceLoader.exists(icon_path): 
 			# 加载纹理
 			var texture = load(icon_path)
 			info_icon.texture = texture
@@ -531,7 +539,7 @@ func _show_item_info(item_data: Dictionary):
 			info_icon.texture = texture
 			push_warning("图标文件不存在: " + icon_path)
 	else:
-		info_icon.texture = null
+		info_icon.texture = load("res://assets/images/error.png")
 
 	
 	# 显示详细属性
@@ -556,7 +564,7 @@ func _show_item_info(item_data: Dictionary):
 			details += "射速: " + str(item_config.fire_rate) + "\n"
 	
 	# 医疗属性
-	if item_config.get("type") == "消耗品":
+	if item_config.get("type") == "药品":
 		if item_config.has("heal_amount"):
 			details += "恢复量: " + str(item_config.heal_amount) + "\n"
 	# 食材属性

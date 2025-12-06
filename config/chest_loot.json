@@ -22,10 +22,16 @@
           "probability": 0.3
         },
         {
-          "item_id": "medkit_small",
+          "item_id": "medkit",
           "min_count": 1,
-          "max_count": 2,
-          "probability": 0.5
+          "max_count": 1,
+          "probability": 0.4
+        },
+        {
+          "item_id": "bandage",
+          "min_count": 1,
+          "max_count": 10,
+          "probability": 0.7
         },
         {
           "item_id": "apple",
@@ -57,9 +63,15 @@
       "name": "行李箱",
       "items": [
         {
-          "item_id": "medkit_large",
+          "item_id": "medkit",
           "min_count": 1,
           "max_count": 2,
+          "probability": 0.7
+        },
+        {
+          "item_id": "bandage",
+          "min_count": 1,
+          "max_count": 10,
           "probability": 0.7
         },
         {
