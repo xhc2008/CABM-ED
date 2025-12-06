@@ -78,17 +78,17 @@
       "icon": "bandage.png",
       "weight": 0.2,
       "max_stack": 64,
-      "heal_amount": 50,
+      "heal_amount": 10,
       "use_time": 3.0
     },
     "medkit": {
       "name": "医疗箱",
       "type": "药品",
-      "description": "恢复80点生命值",
+      "description": "恢复50点生命值",
       "icon": "medkit.png",
       "weight": 1.5,
       "max_stack": 16,
-      "heal_amount": 100,
+      "heal_amount": 50,
       "use_time": 5.0
     },
     "note": {

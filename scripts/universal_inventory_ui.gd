@@ -18,6 +18,7 @@ var info_panel: PanelContainer
 var info_name: Label
 var info_icon: TextureRect
 var info_desc: Label
+var use_button: Button
 
 var close_button: Button
 
@@ -50,6 +51,15 @@ func _ready():
 	hide()
 	if close_button:
 		close_button.pressed.connect(_on_close_pressed)
+	# 创建“使用”按钮
+	var info_vbox = get_node_or_null("Panel/HBoxContainer/InfoPanel/VBox")
+	if info_vbox:
+		use_button = Button.new()
+		use_button.text = "使用"
+		use_button.custom_minimum_size = Vector2(0, 36)
+		use_button.hide()
+		info_vbox.add_child(use_button)
+		use_button.pressed.connect(_on_use_button_pressed)
 	
 	# 确保全屏布局
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -574,6 +584,22 @@ func _show_item_info(item_data: Dictionary):
 	
 	info_desc.text += details
 
+	# 更新“使用”按钮的显示
+	var can_use = not is_unknown and item_config.get("type") == "药品" and _is_in_explore_scene()
+	if use_button:
+		if can_use and not selected_is_weapon_slot and selected_storage_type == "player" and selected_slot_index != -1:
+			use_button.show()
+			# 如果玩家已满血则禁用
+			var scene = get_tree().current_scene
+			var disabled := false
+			if scene and scene.has_node("Player"):
+				var p = scene.player
+				if p:
+					disabled = int(p.health) >= int(p.max_health)
+			use_button.disabled = disabled
+		else:
+			use_button.hide()
+
 func _clear_item_info():
 	"""清空物品信息"""
 	if info_name:
@@ -582,6 +608,46 @@ func _clear_item_info():
 		info_desc.text = ""
 	if info_icon:
 		info_icon.texture = null
+	if use_button:
+		use_button.hide()
+
+func _on_use_button_pressed():
+	if selected_is_weapon_slot:
+		return
+	if selected_storage_type != "player" or selected_slot_index < 0:
+		return
+	if not player_container:
+		return
+	var item = player_container.storage[selected_slot_index]
+	if item == null:
+		return
+	var cfg = player_container.get_item_config(item.item_id)
+	if cfg.get("type") != "药品":
+		return
+	var heal_amount = int(cfg.get("heal_amount", 0))
+	var scene = get_tree().current_scene
+	if scene and scene.has_node("Player"):
+		var p = scene.player
+		if p:
+			var max_h = int(p.max_health)
+			p.health = min(max_h, int(p.health) + heal_amount)
+			p.health_changed.emit(int(p.health), max_h)
+	# 消耗一个
+	if int(item.count) > 1:
+		item.count = int(item.count) - 1
+		player_container.storage[selected_slot_index] = item
+	else:
+		player_container.storage[selected_slot_index] = null
+	player_container.storage_changed.emit()
+	if has_node("/root/SaveManager"):
+		var sm = get_node("/root/SaveManager")
+		sm.save_game(sm.current_slot)
+	_clear_selection()
+	_clear_item_info()
+
+func _is_in_explore_scene() -> bool:
+	var s = get_tree().current_scene
+	return s != null and s.has_method("get_checkpoint_data")
 
 func _input(event: InputEvent):
 	if not visible:

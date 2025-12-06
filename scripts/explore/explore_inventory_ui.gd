@@ -107,6 +107,9 @@ func _enable_player_controls():
 	if explore_scene and explore_scene.has_method("set_player_controls_enabled"):
 		explore_scene.set_player_controls_enabled(true)
 
+func _is_in_explore_scene() -> bool:
+	return true
+
 func _on_drag_ended(_slot_index: int, _storage_type: String):
 	if not is_dragging or dragging_is_weapon_slot:
 		return

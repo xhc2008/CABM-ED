@@ -431,7 +431,7 @@ func _open_map_from_explore():
 		}
 		
 		if loading_view:
-			loading_view.set_status("离开当前区域...")
+			loading_view.set_status("正在清点物资...")
 		
 		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
 	
