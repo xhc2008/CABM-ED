@@ -93,7 +93,7 @@ func _send_stream_request():
     var headers_array = get_meta("stream_headers", [])
     var body = get_meta("stream_body", "")
 
-    var path = "/v1/chat/completions"
+    var path = "/chat/completions"
 
     var err = http_client.request(HTTPClient.METHOD_POST, path, headers_array, body)
     if err != OK:

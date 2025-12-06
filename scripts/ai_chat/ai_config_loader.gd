@@ -119,6 +119,22 @@ func _load_new_format_config(path: String):
         if embedding.has("base_url"):
             config.embedding_model.base_url = embedding.base_url
 
+    if user_config.has("view_model"):
+        var view = user_config.view_model
+        # 直接使用用户配置的值，不提供默认值回退
+        if view.has("model"):
+            config.view_model.model = view.model
+        if view.has("base_url"):
+            config.view_model.base_url = view.base_url
+
+    if user_config.has("stt_model"):
+        var stt = user_config.stt_model
+        # 直接使用用户配置的值，不提供默认值回退
+        if stt.has("model"):
+            config.stt_model.model = stt.model
+        if stt.has("base_url"):
+            config.stt_model.base_url = stt.base_url
+
     # 兼容旧的 api_key 字段（用于快速配置）
     if user_config.has("api_key") and api_key.is_empty():
         api_key = user_config.api_key

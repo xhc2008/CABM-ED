@@ -76,12 +76,22 @@ func _save_api_key(api_key: String):
 		},
 		"tts_model": {
 			"model": "FunAudioLLM/CosyVoice2-0.5B",
-			"base_url": "https://api.siliconflow.cn",
+			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
 		},
 		"embedding_model": {
 			"model": "BAAI/bge-m3",
-			"base_url": "https://api.siliconflow.cn",
+			"base_url": "https://api.siliconflow.cn/v1",
+			"api_key": api_key
+		},
+		"view_model": {
+			"model": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
+			"base_url": "https://api.siliconflow.cn/v1",
+			"api_key": api_key
+		},
+		"stt_model": {
+			"model": "FunAudioLLM/SenseVoiceSmall",
+			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
 		}
 	}

@@ -174,5 +174,20 @@
             "en":"You asked me what I am afraid of? I am not afraid of failure, but of being forgotten.",
             "ja":"何を恐れてかと聞かれたら、私は失敗を恐れていない恐れ去られることを恐いで言う。" 
         } 
+    },
+    "view_model": {
+        "model": "",
+        "base_url": "",
+        "timeout": 30 ,
+        "enable_thinking": false,    
+        "max_tokens": 512,
+        "temperature": 0.3,
+        "top_p": 0.7,
+        "system_prompt": "你是一个识图专家，你需要使用精炼的语言描述用户输入的图像。"
+    },
+    "stt_model": {
+        "model": "",
+        "base_url": "",
+        "timeout": 5
     }
 }

@@ -20,11 +20,19 @@ const CONFIG_TEMPLATES = {
             "base_url": "https://api.siliconflow.cn/v1"
         },
         "tts_model": {
-            "model": "",
-            "base_url": "",
+            "model": "【DISABLED】",
+            "base_url": "【DISABLED】",
         },
         "embedding_model": {
             "model": "BAAI/bge-m3",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "view_model": {
+            "model": "THUDM/GLM-4.1V-9B-Thinking",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "stt_model": {
+            "model": "FunAudioLLM/SenseVoiceSmall",
             "base_url": "https://api.siliconflow.cn/v1"
         }
     },
@@ -41,10 +49,18 @@ const CONFIG_TEMPLATES = {
         },
         "tts_model": {
             "model": "FunAudioLLM/CosyVoice2-0.5B",
-            "base_url": "https://api.siliconflow.cn"
+            "base_url": "https://api.siliconflow.cn/v1"
         },
         "embedding_model": {
             "model": "BAAI/bge-m3",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "view_model": {
+            "model": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "stt_model": {
+            "model": "FunAudioLLM/SenseVoiceSmall",
             "base_url": "https://api.siliconflow.cn/v1"
         }
     }

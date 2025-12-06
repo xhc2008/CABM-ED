@@ -87,6 +87,16 @@ func apply_quick_config(api_key: String) -> Dictionary:
             "model": template.embedding_model.model,
             "base_url": template.embedding_model.base_url,
             "api_key": api_key
+        },
+        "view_model": {
+            "model": template.view_model.model,
+            "base_url": template.view_model.base_url,
+            "api_key": api_key
+        },
+        "stt_model": {
+            "model": template.stt_model.model,
+            "base_url": template.stt_model.base_url,
+            "api_key": api_key
         }
     }
     

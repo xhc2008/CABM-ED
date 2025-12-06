@@ -373,7 +373,7 @@ func upload_reference_audio(force: bool = false, lang: String = ""):
 		tts_error.emit(error_msg)
 		return
 	
-	var url = tts_base_url + "/v1/uploads/audio/voice"
+	var url = tts_base_url + "/uploads/audio/voice"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: multipart/form-data; boundary=" + boundary
@@ -680,7 +680,7 @@ func _synthesize_with_voice(sentence_hash: String, text: String, lang: String):
 		http_request.queue_free()
 		return
 
-	var url = tts_base_url + "/v1/audio/speech"
+	var url = tts_base_url + "/audio/speech"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: application/json"
