@@ -1,45 +1,77 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://bv5myh566oue2"]
 
-[ext_resource type="Script" path="res://scripts/death_view.gd" id="1_m8k5w"]
+[ext_resource type="Script" uid="uid://cstlgjskhcsvt" path="res://scripts/death_view.gd" id="1_m8k5w"]
 
 [node name="DeathView" type="Control"]
+layout_mode = 3
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 script = ExtResource("1_m8k5w")
 
 [node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.5)
+mouse_filter = 2
+color = Color(0.5, 0, 0, 0.4)
+
+[node name="VignetteEffect" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.2, 0, 0, 0)
 
 [node name="Panel" type="Panel" parent="."]
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -140.0
-offset_right = 240.0
-offset_bottom = 140.0
+offset_left = -280.0
+offset_top = -160.0
+offset_right = 280.0
+offset_bottom = 160.0
+pivot_offset = Vector2(280, 160)
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = -20.0
-theme_override_constants/separation = 16
+offset_left = 30.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = -30.0
+pivot_offset = Vector2(250, 130)
+theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 40
 text = "你已倒下"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 26
+
+[node name="Spacer1" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
 
 [node name="Desc" type="Label" parent="Panel/VBox"]
-text = "返回安全区以恢复状态"
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 22
+text = "你的全部物品已掉落！"
 horizontal_alignment = 1
 
+[node name="Spacer2" type="Control" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_vertical = 3
+
 [node name="ReturnButton" type="Button" parent="Panel/VBox"]
-text = "返回安全区"
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "撤退"

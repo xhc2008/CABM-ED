@@ -111,3 +111,15 @@ func load_save_data(data: Dictionary):
 
 func _make_id(item_id: String) -> String:
 	return str(Time.get_unix_time_from_system()) + "_" + item_id + "_" + str(randi())
+
+func disable_all_drops():
+	"""禁用所有掉落物的交互（用于死亡或撤离时）"""
+	for node in nodes_by_id.values():
+		if node and is_instance_valid(node):
+			# DropItem 本身就是 Area2D，直接禁用
+			if node is Area2D:
+				node.set_deferred("monitoring", false)
+				node.set_deferred("monitorable", false)
+			# 禁用掉落物的处理
+			node.set_process(false)
+			node.set_physics_process(false)

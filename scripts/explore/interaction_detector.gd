@@ -123,3 +123,15 @@ func check_map_points(tilemap_layer: TileMapLayer):
 						"distance": distance
 					})
 	return map_tiles
+
+func clear_interactions():
+	"""清空所有交互对象（用于暂停或退出场景时）"""
+	nearby_interactables.clear()
+	_emit_interactions_changed()
+
+func disable():
+	"""禁用交互检测器"""
+	monitoring = false
+	monitorable = false
+	set_process(false)
+	clear_interactions()
