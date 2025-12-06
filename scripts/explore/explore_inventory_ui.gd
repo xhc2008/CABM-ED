@@ -120,7 +120,7 @@ func _on_drag_ended(_slot_index: int, _storage_type: String):
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
 				explore_scene = get_tree().current_scene
-				if explore_scene and explore_scene.has_method("get_checkpoint_data"):
+				if explore_scene and explore_scene.has_method("get_checkpoint_data") and "current_explore_id" in explore_scene:
 					scene_id = explore_scene.current_explore_id
 				if scene_id == "" and has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")
@@ -162,7 +162,7 @@ func _on_weapon_drag_ended(_storage_type: String):
 				var pos = explore_scene.player.global_position if explore_scene.has_node("Player") else Vector2.ZERO
 				var scene_id = ""
 				var explore_scene2 = get_tree().current_scene
-				if explore_scene2 and explore_scene2.has_method("get_checkpoint_data"):
+				if explore_scene2 and explore_scene2.has_method("get_checkpoint_data") and "current_explore_id" in explore_scene2:
 					scene_id = explore_scene2.current_explore_id
 				if scene_id == "" and has_node("/root/SaveManager"):
 					var sm = get_node("/root/SaveManager")

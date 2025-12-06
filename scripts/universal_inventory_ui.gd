@@ -678,8 +678,9 @@ func _process(_delta):
 		drag_preview.global_position = get_global_mouse_position() - drag_preview.size / 2
 
 func _get_slot_under_mouse() -> Dictionary:
-	"""获取鼠标下的格子"""
+	"""获取鼠标下的格子（包括间隔容差）"""
 	var mouse_pos = get_global_mouse_position()
+	var tolerance = 10  # 间隔容差（像素）
 	
 	# 检查玩家武器槽
 	if player_weapon_slot:
@@ -707,7 +708,56 @@ func _get_slot_under_mouse() -> Dictionary:
 		if rect.has_point(mouse_pos):
 			return {"index": i, "type": "other", "is_weapon_slot": false}
 	
-	return {}
+	# 如果没有直接命中，查找最近的格子（带容差）
+	var nearest_slot = {}
+	var nearest_distance = tolerance
+	
+	# 检查玩家武器槽（带容差）
+	if player_weapon_slot:
+		var rect = Rect2(player_weapon_slot.global_position, player_weapon_slot.size)
+		var distance = _distance_to_rect(mouse_pos, rect)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_slot = {"index": -1, "type": "player", "is_weapon_slot": true}
+	
+	# 检查玩家背包格子（带容差）
+	for i in range(player_slots.size()):
+		var slot = player_slots[i]
+		var rect = Rect2(slot.global_position, slot.size)
+		var distance = _distance_to_rect(mouse_pos, rect)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_slot = {"index": i, "type": "player", "is_weapon_slot": false}
+	
+	# 检查其他容器武器槽（带容差）
+	if other_weapon_slot:
+		var rect = Rect2(other_weapon_slot.global_position, other_weapon_slot.size)
+		var distance = _distance_to_rect(mouse_pos, rect)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_slot = {"index": -1, "type": "other", "is_weapon_slot": true}
+	
+	# 检查其他容器格子（带容差）
+	for i in range(other_slots.size()):
+		var slot = other_slots[i]
+		var rect = Rect2(slot.global_position, slot.size)
+		var distance = _distance_to_rect(mouse_pos, rect)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_slot = {"index": i, "type": "other", "is_weapon_slot": false}
+	
+	return nearest_slot
+
+func _distance_to_rect(point: Vector2, rect: Rect2) -> float:
+	"""计算点到矩形的最短距离"""
+	# 如果点在矩形内，距离为0
+	if rect.has_point(point):
+		return 0.0
+	
+	# 计算点到矩形边界的最短距离
+	var dx = max(rect.position.x - point.x, 0.0, point.x - rect.end.x)
+	var dy = max(rect.position.y - point.y, 0.0, point.y - rect.end.y)
+	return sqrt(dx * dx + dy * dy)
 
 
 func _on_weapon_slot_clicked(storage_type: String):

@@ -405,7 +405,7 @@ func _open_map_from_explore():
 	_pause_exploration()
 	
 	# 显示加载界面
-	_show_loading_view("正在撤离...", "正在清点物资...")
+	_show_loading_view("正在撤离...", "离开当前区域...")
 	await get_tree().create_timer(0.1).timeout
 	
 	# 保存状态
