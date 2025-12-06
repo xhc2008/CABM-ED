@@ -22,6 +22,11 @@ boot_splash/fullsize=false
 boot_splash/use_filter=false
 config/icon="res://icon.png"
 
+[audio]
+
+driver/enable_input=true
+driver/mix_rate=44100
+
 [autoload]
 
 PlatformManager="*res://scripts/platform_manager.gd"

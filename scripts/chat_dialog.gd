@@ -37,6 +37,12 @@ var mic_player: AudioStreamPlayer
 var mic_stream: AudioStreamMicrophone
 var recording_buffer: PackedVector2Array = PackedVector2Array()
 var mic_icon: Texture2D
+var mic_base_icon: Texture2D
+var mic_wave_image: Image
+var mic_wave_texture: ImageTexture
+var mic_wave_bars: int = 32
+var mic_wave_size: Vector2i = Vector2i(40, 40)
+var mic_wave_history: Array = []
 
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
@@ -54,7 +60,7 @@ func _ensure_ui_structure():
 		if mic_button == null:
 			mic_button = Button.new()
 			mic_button.name = "MicButton"
-			mic_button.custom_minimum_size = Vector2(80, 0)
+			mic_button.custom_minimum_size = Vector2(40, 0)
 			mic_button.focus_mode = Control.FOCUS_NONE
 			input_container.add_child(mic_button)
 			if send_button:
@@ -64,7 +70,7 @@ func _ensure_ui_structure():
 				var icon_res: Texture2D = load("res://assets/images/chat/microphone.svg")
 				if icon_res:
 					mic_button.icon = icon_res
-				mic_button.tooltip_text = "语音输入"
+				mic_button.tooltip_text = "语音输入（不可用）"
 			
 			print("使用现有的 InputContainer 结构")
 			return
@@ -85,12 +91,12 @@ func _ensure_ui_structure():
 		# 麦克风按钮（在发送按钮左侧）
 		mic_button = Button.new()
 		mic_button.name = "MicButton"
-		mic_button.custom_minimum_size = Vector2(80, 0)
+		mic_button.custom_minimum_size = Vector2(40, 0)
 		mic_button.focus_mode = Control.FOCUS_NONE
 		var mic_icon_tex: Texture2D = load("res://assets/images/chat/microphone.svg")
 		if mic_icon_tex:
 			mic_button.icon = mic_icon_tex
-			mic_button.tooltip_text = "语音输入"
+			mic_button.tooltip_text = "语音输入（不可用）"
 		
 		send_button = Button.new()
 		send_button.name = "SendButton"
@@ -123,12 +129,12 @@ func _ensure_ui_structure():
 		
 		mic_button = Button.new()
 		mic_button.name = "MicButton"
-		mic_button.custom_minimum_size = Vector2(80, 0)
+		mic_button.custom_minimum_size = Vector2(40, 0)
 		mic_button.focus_mode = Control.FOCUS_NONE
 		var mic_icon_tex2: Texture2D = load("res://assets/images/chat/microphone.svg")
 		if mic_icon_tex2:
 			mic_button.icon = mic_icon_tex2
-		mic_button.tooltip_text = "语音输入"
+		mic_button.tooltip_text = "语音输入（不可用）"
 		
 		send_button = Button.new()
 		send_button.name = "SendButton"
@@ -159,6 +165,9 @@ func _ready():
 		send_button.pressed.connect(_on_send_button_pressed)
 	if mic_button:
 		mic_button.pressed.connect(_on_mic_button_pressed)
+		mic_base_icon = load("res://assets/images/chat/microphone.svg")
+		if mic_base_icon:
+			mic_button.icon = mic_base_icon
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
@@ -432,6 +441,9 @@ func _on_send_button_pressed():
 		_on_input_submitted(text)
 
 func _on_mic_button_pressed():
+	if OS.get_name() == "Windows":
+		print("语音输入暂不可用：请在 Windows 录音设备的高级选项将默认格式设置为单声道后再试，或暂时关闭语音输入")
+		return
 	if not is_recording:
 		_start_recording()
 	else:
@@ -474,18 +486,35 @@ func _process(_delta: float):
 			var buf = capture_effect.get_buffer(chunk)
 			if buf.size() > 0:
 				recording_buffer.append_array(buf)
+				var lvl = _compute_rms(buf)
+				mic_wave_history.append(lvl)
+				if mic_wave_history.size() > mic_wave_bars:
+					mic_wave_history.pop_front()
+				_update_mic_wave_icon()
+	elif not is_recording and mic_button and mic_base_icon:
+		if mic_button.icon != mic_base_icon:
+			mic_button.icon = mic_base_icon
 
+# 替换这部分代码
 func _start_recording():
+	if OS.get_name() == "Windows":
+		return
 	# 初始化录音总线与采集器
 	if recording_bus_index == -1:
 		var count = AudioServer.get_bus_count()
 		AudioServer.add_bus(count)
 		recording_bus_index = count
 		AudioServer.set_bus_name(recording_bus_index, "Record")
-		capture_effect = AudioEffectCapture.new()
-		AudioServer.add_bus_effect(recording_bus_index, capture_effect, 0)
+		
+		
+		var record_effect = AudioEffectRecord.new()
+		AudioServer.add_bus_effect(recording_bus_index, record_effect, 0)
+		record_effect.set_recording_active(true)
+		
+		
+		AudioServer.set_bus_mute(recording_bus_index, true)
 
-	# 创建麦克风播放器并开始播放（路由到录音总线）
+	# 创建麦克风播放器并开始播放
 	if not mic_player:
 		mic_player = AudioStreamPlayer.new()
 		add_child(mic_player)
@@ -493,6 +522,8 @@ func _start_recording():
 
 	mic_stream = AudioStreamMicrophone.new()
 	mic_player.stream = mic_stream
+	
+	# 重要：先设置 stream，再播放
 	mic_player.play()
 
 	recording_buffer.clear()
@@ -517,13 +548,70 @@ func _stop_and_send_recording():
 	# 清空缓冲以释放内存
 	recording_buffer = PackedVector2Array()
 
+	# 保存到本地文件，方便调试与回溯
+	DirAccess.make_dir_recursive_absolute("user://speech")
+	var wav_path = "user://speech/last_recording.wav"
+	var f = FileAccess.open(wav_path, FileAccess.WRITE)
+	if f:
+		f.store_buffer(wav_bytes)
+		f.close()
+		print("录音已保存: ", wav_path, " (", wav_bytes.size(), " 字节)")
+
 	# 发送到STT
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		ai_service.transcribe_audio(wav_bytes, "recording.wav")
 
 	# 恢复按钮外观
+	if mic_button:
+		mic_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
 	_update_action_button_state()
+
+func _compute_rms(buf: PackedVector2Array) -> float:
+	if buf.size() == 0:
+		return 0.0
+	var acc := 0.0
+	for v in buf:
+		var m = (v.x + v.y) * 0.5
+		acc += m * m
+	var rms = sqrt(acc / float(buf.size()))
+	return clamp(rms, 0.0, 1.0)
+
+func _ensure_mic_wave_resources():
+	if mic_wave_image == null:
+		mic_wave_image = Image.create(mic_wave_size.x, mic_wave_size.y, false, Image.FORMAT_RGBA8)
+	if mic_wave_texture == null:
+		mic_wave_texture = ImageTexture.create_from_image(mic_wave_image)
+
+func _update_mic_wave_icon():
+	if not mic_button:
+		return
+	if not is_recording:
+		return
+	_ensure_mic_wave_resources()
+	mic_wave_image.fill(Color(0, 0, 0, 0))
+	var w = mic_wave_size.x
+	var h = mic_wave_size.y
+	var bars = mic_wave_bars
+	var bar_w = max(1, int(floor(float(w) / (bars * 1.5))))
+	var gap = max(1, int(bar_w / 2))
+	var x = 0
+	var hist_size = mic_wave_history.size()
+	for i in range(bars):
+		var idx = max(0, hist_size - bars + i)
+		var lvl = 0.0
+		if idx < hist_size:
+			lvl = mic_wave_history[idx]
+		var bar_h = int(clamp(lvl, 0.0, 1.0) * float(h))
+		var y0 = h - bar_h
+		for xx in range(x, min(x + bar_w, w)):
+			for yy in range(y0, h):
+				mic_wave_image.set_pixel(xx, yy, Color(0.2, 0.7, 1.0, 1.0))
+		x += bar_w + gap
+		if x >= w:
+			break
+	mic_wave_texture.update(mic_wave_image)
+	mic_button.icon = mic_wave_texture
 
 func _send_button_reset():
 	send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
