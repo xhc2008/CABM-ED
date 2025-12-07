@@ -40,7 +40,7 @@ const CONFIG_TEMPLATES = {
         "name": "标准",
         "description": "支持语音，以高性价比获得更佳的体验",
         "chat_model": {
-            "model": "deepseek-ai/DeepSeek-V3.2-Exp",
+            "model": "deepseek-ai/DeepSeek-V3.2",
             "base_url": "https://api.siliconflow.cn/v1"
         },
         "summary_model": {

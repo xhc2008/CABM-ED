@@ -65,7 +65,7 @@ func _save_api_key(api_key: String):
 		"template": "standard",
 		"api_key": api_key,
 		"chat_model": {
-			"model": "deepseek-ai/DeepSeek-V3.2-Exp",
+			"model": "deepseek-ai/DeepSeek-V3.2",
 			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
 		},
