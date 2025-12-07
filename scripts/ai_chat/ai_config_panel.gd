@@ -222,7 +222,6 @@ func _on_quick_apply_pressed():
 	"""应用快速配置模板"""
 	var api_key = quick_key_input.text.strip_edges()
 	var result = template_handler.apply_quick_config(api_key)
-	print(result)
 	if result.success:
 		_update_quick_status(true, result.message)
 		# 同步更新详细配置页面
