@@ -25,7 +25,6 @@ config/icon="res://icon.png"
 [audio]
 
 driver/enable_input=true
-driver/mix_rate=44100
 
 [autoload]
 

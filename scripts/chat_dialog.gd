@@ -23,26 +23,12 @@ var input_handler: Node
 var ui_manager: Node
 var history_manager: Node
 var typing_manager: Node
+var voice_input: Node
 
 # goto相关
 const GOTO_COOLDOWN_DURATION = 60.0
 var goto_cooldown_end_time: float = 0.0
 var goto_notification_label: Label = null
-
-# 语音录制
-var is_recording: bool = false
-var recording_bus_index: int = -1
-var capture_effect: AudioEffectCapture
-var mic_player: AudioStreamPlayer
-var mic_stream: AudioStreamMicrophone
-var recording_buffer: PackedVector2Array = PackedVector2Array()
-var mic_icon: Texture2D
-var mic_base_icon: Texture2D
-var mic_wave_image: Image
-var mic_wave_texture: ImageTexture
-var mic_wave_bars: int = 32
-var mic_wave_size: Vector2i = Vector2i(40, 40)
-var mic_wave_history: Array = []
 
 func _ensure_ui_structure():
 	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
@@ -165,9 +151,6 @@ func _ready():
 		send_button.pressed.connect(_on_send_button_pressed)
 	if mic_button:
 		mic_button.pressed.connect(_on_mic_button_pressed)
-		mic_base_icon = load("res://assets/images/chat/microphone.svg")
-		if mic_base_icon:
-			mic_button.icon = mic_base_icon
 	if input_field:
 		input_field.text_submitted.connect(_on_input_submitted)
 		input_field.text_changed.connect(_on_input_text_changed)
@@ -181,8 +164,6 @@ func _ready():
 		ai_service.chat_response_received.connect(_on_ai_response)
 		ai_service.chat_response_completed.connect(_on_ai_response_completed)
 		ai_service.chat_error.connect(_on_ai_error)
-		ai_service.stt_result.connect(_on_stt_result)
-		ai_service.stt_error.connect(_on_stt_error)
 	
 	# 连接事件管理器信号
 	if has_node("/root/EventManager"):
@@ -234,10 +215,23 @@ func _init_modules():
 	add_child(history_manager)
 	# 延迟初始化，等待所有UI元素准备好
 	call_deferred("_init_history_manager")
+	
+	# 语音输入模块
+	voice_input = null
+	if FileAccess.file_exists("res://scripts/chat_dialog_voice_input.gd"):
+		voice_input = preload("res://scripts/chat_dialog_voice_input.gd").new()
+	voice_input.name = "VoiceInput"
+	add_child(voice_input)
+	# 延迟初始化，等待mic_button创建
+	call_deferred("_init_voice_input")
 
 func _init_history_manager():
 	history_manager.setup(self, vbox, input_container, input_field,
 					  send_button, end_button)
+
+func _init_voice_input():
+	if mic_button and input_field:
+		voice_input.setup(self, mic_button, input_field)
 
 func _load_config():
 	# app_config.json已废弃，不再需要加载配置
@@ -403,9 +397,6 @@ func _update_action_button_state():
 	else:
 		send_button.text = "结束"
 		send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
-	# 更新麦克风按钮外观
-	if mic_button:
-		mic_button.modulate = Color(1.0, 0.2, 0.2, 1.0) if is_recording else Color(1.0, 1.0, 1.0, 1.0)
 
 func _on_event_completed(event_name: String, result):
 	"""处理事件完成信号"""
@@ -441,13 +432,15 @@ func _on_send_button_pressed():
 		_on_input_submitted(text)
 
 func _on_mic_button_pressed():
-	if OS.get_name() == "Windows":
-		print("语音输入暂不可用：请在 Windows 录音设备的高级选项将默认格式设置为单声道后再试，或暂时关闭语音输入")
+	if not voice_input:
 		return
-	if not is_recording:
-		_start_recording()
+	
+	if not voice_input.is_recording:
+		voice_input.start_recording()
+		_update_action_button_state()
 	else:
-		_stop_and_send_recording()
+		voice_input.stop_recording()
+		_update_action_button_state()
 
 func _on_input_submitted(text: String):
 	if text.strip_edges().is_empty():
@@ -479,226 +472,7 @@ func _on_input_submitted(text: String):
 		var ai_service = get_node("/root/AIService")
 		ai_service.start_chat(text, "user_initiated")
 
-func _process(_delta: float):
-	if is_recording and capture_effect:
-		var chunk = 1024
-		while capture_effect.can_get_buffer(chunk):
-			var buf = capture_effect.get_buffer(chunk)
-			if buf.size() > 0:
-				recording_buffer.append_array(buf)
-				var lvl = _compute_rms(buf)
-				mic_wave_history.append(lvl)
-				if mic_wave_history.size() > mic_wave_bars:
-					mic_wave_history.pop_front()
-				_update_mic_wave_icon()
-	elif not is_recording and mic_button and mic_base_icon:
-		if mic_button.icon != mic_base_icon:
-			mic_button.icon = mic_base_icon
 
-# 替换这部分代码
-func _start_recording():
-	if OS.get_name() == "Windows":
-		return
-	# 初始化录音总线与采集器
-	if recording_bus_index == -1:
-		var count = AudioServer.get_bus_count()
-		AudioServer.add_bus(count)
-		recording_bus_index = count
-		AudioServer.set_bus_name(recording_bus_index, "Record")
-		
-		
-		var record_effect = AudioEffectRecord.new()
-		AudioServer.add_bus_effect(recording_bus_index, record_effect, 0)
-		record_effect.set_recording_active(true)
-		
-		
-		AudioServer.set_bus_mute(recording_bus_index, true)
-
-	# 创建麦克风播放器并开始播放
-	if not mic_player:
-		mic_player = AudioStreamPlayer.new()
-		add_child(mic_player)
-		mic_player.bus = AudioServer.get_bus_name(recording_bus_index)
-
-	mic_stream = AudioStreamMicrophone.new()
-	mic_player.stream = mic_stream
-	
-	# 重要：先设置 stream，再播放
-	mic_player.play()
-
-	recording_buffer.clear()
-	is_recording = true
-	if mic_button:
-		mic_button.modulate = Color(1.0, 0.2, 0.2, 1.0)
-	_update_action_button_state()
-
-func _stop_and_send_recording():
-	# 停止录音
-	is_recording = false
-	if mic_player and mic_player.playing:
-		mic_player.stop()
-	# 将采集到的帧转换为wav字节
-	if recording_buffer.size() == 0:
-		print("录音缓冲为空，可能未启用音频输入或设备没有数据")
-		if mic_button:
-			mic_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
-		_update_action_button_state()
-		return
-	var wav_bytes = _frames_to_wav_bytes(recording_buffer, AudioServer.get_mix_rate())
-	# 清空缓冲以释放内存
-	recording_buffer = PackedVector2Array()
-
-	# 保存到本地文件，方便调试与回溯
-	DirAccess.make_dir_recursive_absolute("user://speech")
-	var wav_path = "user://speech/last_recording.wav"
-	var f = FileAccess.open(wav_path, FileAccess.WRITE)
-	if f:
-		f.store_buffer(wav_bytes)
-		f.close()
-		print("录音已保存: ", wav_path, " (", wav_bytes.size(), " 字节)")
-
-	# 发送到STT
-	if has_node("/root/AIService"):
-		var ai_service = get_node("/root/AIService")
-		ai_service.transcribe_audio(wav_bytes, "recording.wav")
-
-	# 恢复按钮外观
-	if mic_button:
-		mic_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
-	_update_action_button_state()
-
-func _compute_rms(buf: PackedVector2Array) -> float:
-	if buf.size() == 0:
-		return 0.0
-	var acc := 0.0
-	for v in buf:
-		var m = (v.x + v.y) * 0.5
-		acc += m * m
-	var rms = sqrt(acc / float(buf.size()))
-	return clamp(rms, 0.0, 1.0)
-
-func _ensure_mic_wave_resources():
-	if mic_wave_image == null:
-		mic_wave_image = Image.create(mic_wave_size.x, mic_wave_size.y, false, Image.FORMAT_RGBA8)
-	if mic_wave_texture == null:
-		mic_wave_texture = ImageTexture.create_from_image(mic_wave_image)
-
-func _update_mic_wave_icon():
-	if not mic_button:
-		return
-	if not is_recording:
-		return
-	_ensure_mic_wave_resources()
-	mic_wave_image.fill(Color(0, 0, 0, 0))
-	var w = mic_wave_size.x
-	var h = mic_wave_size.y
-	var bars = mic_wave_bars
-	var bar_w = max(1, int(floor(float(w) / (bars * 1.5))))
-	var gap = max(1, int(bar_w / 2))
-	var x = 0
-	var hist_size = mic_wave_history.size()
-	for i in range(bars):
-		var idx = max(0, hist_size - bars + i)
-		var lvl = 0.0
-		if idx < hist_size:
-			lvl = mic_wave_history[idx]
-		var bar_h = int(clamp(lvl, 0.0, 1.0) * float(h))
-		var y0 = h - bar_h
-		for xx in range(x, min(x + bar_w, w)):
-			for yy in range(y0, h):
-				mic_wave_image.set_pixel(xx, yy, Color(0.2, 0.7, 1.0, 1.0))
-		x += bar_w + gap
-		if x >= w:
-			break
-	mic_wave_texture.update(mic_wave_image)
-	mic_button.icon = mic_wave_texture
-
-func _send_button_reset():
-	send_button.modulate = Color(1.0, 0.2, 0.2, 0.8)
-	send_button.text = "结束" if is_recording else "发送"
-
-func _frames_to_wav_bytes(frames: PackedVector2Array, sample_rate: int) -> PackedByteArray:
-	var target_rate = 16000
-	var mono_samples: Array = []
-	mono_samples.resize(frames.size())
-	for i in range(frames.size()):
-		var f = frames[i]
-		mono_samples[i] = clamp((f.x + f.y) * 0.5, -1.0, 1.0)
-
-	var target_len = int(ceil(float(mono_samples.size()) * float(target_rate) / float(sample_rate)))
-	var resampled: Array = []
-	resampled.resize(target_len)
-	if mono_samples.size() <= 1:
-		resampled.fill(0.0)
-	else:
-		for t in range(target_len):
-			var src_pos = float(t) * float(sample_rate) / float(target_rate)
-			var i0 = int(floor(src_pos))
-			var i1 = min(i0 + 1, mono_samples.size() - 1)
-			var alpha = src_pos - float(i0)
-			var v = mono_samples[i0] * (1.0 - alpha) + mono_samples[i1] * alpha
-			resampled[t] = v
-
-	var channels = 1
-	var bits_per_sample = 16
-	var byte_rate = target_rate * channels * (bits_per_sample / 8)
-	var block_align = channels * (bits_per_sample / 8)
-	var data_bytes = PackedByteArray()
-	data_bytes.resize(resampled.size() * 2)
-	var idx = 0
-	for v in resampled:
-		var s = int(clamp(v, -1.0, 1.0) * 32767.0)
-		data_bytes[idx] = s & 0xFF
-		data_bytes[idx+1] = (s >> 8) & 0xFF
-		idx += 2
-
-	var header = PackedByteArray()
-	header.append_array("RIFF".to_utf8_buffer())
-	var total_size = 36 + data_bytes.size()
-	header.append_array(_u32le(total_size))
-	header.append_array("WAVE".to_utf8_buffer())
-	header.append_array("fmt ".to_utf8_buffer())
-	header.append_array(_u32le(16))
-	header.append_array(_u16le(1))
-	header.append_array(_u16le(channels))
-	header.append_array(_u32le(target_rate))
-	header.append_array(_u32le(byte_rate))
-	header.append_array(_u16le(block_align))
-	header.append_array(_u16le(bits_per_sample))
-	header.append_array("data".to_utf8_buffer())
-	header.append_array(_u32le(data_bytes.size()))
-
-	var wav = PackedByteArray()
-	wav.append_array(header)
-	wav.append_array(data_bytes)
-	return wav
-
-func _u16le(n: int) -> PackedByteArray:
-	var a = PackedByteArray()
-	a.resize(2)
-	a[0] = n & 0xFF
-	a[1] = (n >> 8) & 0xFF
-	return a
-
-func _u32le(n: int) -> PackedByteArray:
-	var a = PackedByteArray()
-	a.resize(4)
-	a[0] = n & 0xFF
-	a[1] = (n >> 8) & 0xFF
-	a[2] = (n >> 16) & 0xFF
-	a[3] = (n >> 24) & 0xFF
-	return a
-
-func _on_stt_result(text: String):
-	if input_field:
-		var prefix = " " if not input_field.text.is_empty() else ""
-		input_field.text += prefix + text
-		_update_action_button_state()
-		input_field.grab_focus()
-
-func _on_stt_error(err: String):
-	print("STT 错误: ", err)
-	_send_button_reset()
 
 func _on_sentence_ready_for_tts(text: String):
 	"""句子准备好进行TTS处理 - 立即发送到TTS服务
