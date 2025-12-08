@@ -15,6 +15,8 @@ var auto_save_interval: float = 300.0 # 默认5分钟
 var enable_instant_save: bool = true # 启用即时保存
 var is_initial_setup_completed: bool = false # 初始设置是否完成
 var capture_checkpoint_on_save: bool = false
+const REQUIRED_RES_VERSION: String = "CABM-ED_RES_v1-20251208-1"
+var initialized: bool = false
 
 signal save_completed(slot: int)
 signal load_completed(slot: int)
@@ -27,7 +29,16 @@ signal energy_changed(new_value: int)
 signal character_scene_changed(new_scene: String)
 
 func _ready():
-	# 确保保存目录存在
+	if not is_resources_ready():
+		print("资源未准备，跳过所有初始化")
+		is_initial_setup_completed = false
+		initialized = false
+		return
+	_initialize_after_resources_ready()
+
+func _initialize_after_resources_ready():
+	if initialized:
+		return
 	_ensure_save_directory()
 	
 	# 加载保存模板
@@ -47,6 +58,26 @@ func _ready():
 		# 首次启动，不加载存档，等待初始设置完成
 		print("首次启动，等待初始设置完成")
 		is_initial_setup_completed = false
+	initialized = true
+
+func is_resources_ready() -> bool:
+	var dir = DirAccess.open("user://")
+	if dir == null:
+		return false
+	if not dir.dir_exists("resources"):
+		return false
+	var version_path = "user://resources/version.txt"
+	if not FileAccess.file_exists(version_path):
+		return false
+	var f = FileAccess.open(version_path, FileAccess.READ)
+	if f == null:
+		return false
+	var content = f.get_as_text().strip_edges()
+	f.close()
+	return content == REQUIRED_RES_VERSION
+
+func get_required_resource_version() -> String:
+	return REQUIRED_RES_VERSION
 
 func _has_save_file() -> bool:
 	"""检查存档文件是否存在"""
@@ -56,6 +87,8 @@ func _has_save_file() -> bool:
 func _notification(what):
 	"""捕获窗口关闭事件"""
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if not is_resources_ready() or not initialized:
+			return
 		print("检测到窗口关闭，正在保存游戏...")
 		capture_checkpoint_on_save = true
 		save_game(current_slot)

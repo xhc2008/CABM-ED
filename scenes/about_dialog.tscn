@@ -49,7 +49,7 @@ theme_override_font_sizes/font_size = 20
 
 [node name="VersionLabel" type="Label" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "版本: v1-1208-2"
+text = "版本: v1-1208-3"
 horizontal_alignment = 1
 
 [node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer"]
@@ -73,8 +73,8 @@ text = "QQ群:"
 
 [node name="QQLink1" type="LinkButton" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "一群：548468910"
-uri = "https://qm.qq.com/q/n5NATeHmKs"
+text = "一群：1050166630"
+uri = "https://qm.qq.com/q/b9L7jIgk5q"
 
 [node name="QQLink2" type="LinkButton" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2

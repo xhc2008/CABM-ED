@@ -12,6 +12,9 @@ var is_initialized: bool = false
 var auto_save_timer: Timer = null
 
 func _ready():
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and not sm.is_resources_ready():
+		return
 	# 加载配置
 	_load_config()
 	

@@ -39,6 +39,9 @@ var is_playing: bool = false
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；"]
 
 func _ready():
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and not sm.is_resources_ready():
+		return
 	_load_config()
 	_load_tts_settings()
 	_load_voice_cache()

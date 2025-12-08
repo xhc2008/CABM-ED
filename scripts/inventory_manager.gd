@@ -15,6 +15,9 @@ var items_config: Dictionary = {}  # 物品配置
 var unique_items: Array = []  # 唯一物品列表
 
 func _ready():
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and not sm.is_resources_ready():
+		return
 	_load_items_config()
 	_load_unique_items()
 	_initialize_storage()

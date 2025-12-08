@@ -23,7 +23,7 @@ func _ready():
 		print("警告: 未找到 ShopManager 单例")
 
 	# 商店背景
-	var bg_path = "res://assets/images/shop/internal.png"
+	var bg_path = "res://assets/images/shop_internal.png"
 	if ResourceLoader.exists(bg_path):
 		var tex = load(bg_path)
 		var bg = TextureRect.new()

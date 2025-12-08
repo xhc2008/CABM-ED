@@ -30,6 +30,10 @@ signal event_completed(event_name: String, result: EventResult)
 var helpers
 
 func _ready():
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and not sm.is_resources_ready():
+		return
+	print("EventManager _ready")
 	# 获取辅助函数节点
 	if has_node("/root/EventHelpers"):
 		helpers = get_node("/root/EventHelpers")

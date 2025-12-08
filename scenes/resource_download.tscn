@@ -1,0 +1,87 @@
+[gd_scene load_steps=3 format=3 uid="uid://br27mpbkeig66"]
+
+[ext_resource type="Script" uid="uid://d1cidjywdmgjm" path="res://scripts/resource_download.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://ggcwannq4ov6" path="res://logo.png" id="2_g4iyo"]
+
+[node name="ResourceDownload" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Backdrop" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 9.241455
+offset_bottom = -1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_g4iyo")
+expand_mode = 1
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -180.0
+offset_right = 300.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "资源下载与导入"
+horizontal_alignment = 1
+
+[node name="HintLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "缺少资源包或需要更新资源包。可选择在线下载或手动导入压缩包。"
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DownloadButton" type="Button" parent="Panel/VBox/Buttons"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+text = "下载资源"
+
+[node name="ImportButton" type="Button" parent="Panel/VBox/Buttons"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+text = "手动导入"
+
+[node name="ProgressBar" type="ProgressBar" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 1, 0, 1)
+show_percentage = false
+
+[node name="StatusLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "等待操作"
+clip_text = true
+max_lines_visible = 3
