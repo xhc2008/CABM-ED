@@ -6,7 +6,8 @@
   },
   "weathers": {
     "sunny": "晴天",
-    "rainy": "雨天"
+    "rainy": "雨天",
+    "snowy": "雪天"
   },
   "scenes": {
     "livingroom": {
