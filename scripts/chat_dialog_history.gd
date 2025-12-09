@@ -94,9 +94,9 @@ func show_history():
 	input_field.visible = false
 	send_button.visible = false
 	
-	# 隐藏语音输入按钮
-	if parent_dialog.voice_input:
-		parent_dialog.voice_input.set_visible(false)
+	# 隐藏语音输入按钮 - 通过控制按钮本身而不是 voice_input 对象
+	if parent_dialog.voice_input and parent_dialog.voice_input.mic_button:
+		parent_dialog.voice_input.mic_button.visible = false  # 修改这里
 	
 	end_button.text = "返回"
 	end_button.modulate.a = 0.0
@@ -155,9 +155,9 @@ func hide_history():
 	send_button.modulate.a = 0.0
 	end_button.modulate.a = 0.0
 	
-	# 显示语音输入按钮
-	if parent_dialog.voice_input:
-		parent_dialog.voice_input.set_visible(true)
+	# 显示语音输入按钮 - 通过控制按钮本身而不是 voice_input 对象
+	if parent_dialog.voice_input and parent_dialog.voice_input.mic_button:
+		parent_dialog.voice_input.mic_button.visible = true  # 修改这里
 	
 	var fade_in_tween = parent_dialog.create_tween()
 	fade_in_tween.set_parallel(true)

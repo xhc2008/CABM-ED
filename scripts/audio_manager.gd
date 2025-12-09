@@ -564,11 +564,8 @@ func _apply_scene_bgm_config(scene_config: Dictionary):
 
 func _play_ambient_for_scene(scene_id: String, time_id: String, weather_id: String):
 	"""根据场景、时间和天气播放氛围音"""
-	# 获取氛围音配置
-	if not audio_config.has("ambient_sounds"):
-		return
 	
-	var ambient_config = audio_config["ambient_sounds"]
+	# var ambient_config = audio_config["ambient_sounds"]
 	
 	# 优先级：天气 > 时间 > 场景
 	var ambient_path = ""
@@ -576,14 +573,16 @@ func _play_ambient_for_scene(scene_id: String, time_id: String, weather_id: Stri
 	# 1. 检查天气氛围音（如雨声）
 	if weather_id in ["rainy", "storm"]:
 		ambient_path = "res://assets/audio/rain.mp3"
+	elif weather_id in["snowy"]:
+		ambient_path="res://assets/audio/snow.mp3"
 	
-	# 2. 如果没有天气氛围音，检查场景特定氛围音
-	if ambient_path.is_empty() and ambient_config.has(scene_id):
-		var scene_ambient = ambient_config[scene_id]
-		if scene_ambient.has(time_id):
-			var filename = scene_ambient[time_id]
-			if not filename.is_empty():
-				ambient_path = "res://assets/audio/" + filename
+	# # 2. 如果没有天气氛围音，检查场景特定氛围音
+	# if ambient_path.is_empty() and ambient_config.has(scene_id):
+	# 	var scene_ambient = ambient_config[scene_id]
+	# 	if scene_ambient.has(time_id):
+	# 		var filename = scene_ambient[time_id]
+	# 		if not filename.is_empty():
+	# 			ambient_path = "res://assets/audio/" + filename
 	
 	# 播放或停止氛围音
 	if ambient_path.is_empty():
