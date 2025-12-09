@@ -37,6 +37,7 @@ func _set_ui_enabled(enabled: bool):
 
 func _on_download_pressed():
 	_set_ui_enabled(false)
+	# 修复：将进度条初始值设为0
 	progress_bar.value = 0
 	status_label.text = "开始下载资源..."
 	current_url_index = 0
@@ -91,18 +92,23 @@ func _update_progress():
 	var time_diff = max(current_time - last_update_time, 1) / 1000.0  # 转换为秒
 	var bytes_diff = downloaded - last_downloaded_bytes
 	var speed_kbps = 0.0
+	var eta_seconds = -1  # ETA初始值
 	
 	if time_diff > 0 and bytes_diff > 0:
 		speed_kbps = (bytes_diff / time_diff) / 1024.0
+		# 计算ETA（预估剩余时间）
+		if total > 0 and speed_kbps > 0:
+			var remaining_bytes = total - downloaded
+			var remaining_kb = remaining_bytes / 1024.0
+			eta_seconds = int(remaining_kb / speed_kbps)
 	
 	# 更新下载统计
 	last_downloaded_bytes = downloaded
 	last_update_time = current_time
 	
 	# 更新进度条
-	var pct: float = 0.0
 	if total > 0:
-		pct = float(downloaded) / float(total) * 100.0
+		var pct = float(downloaded) / float(total) * 100.0
 		progress_bar.value = clamp(pct, 0.0, 100.0)
 		
 		# 格式化显示大小和速度
@@ -111,15 +117,42 @@ func _update_progress():
 		var speed_str = "%.1f KB/s" % speed_kbps
 		var size_str = "%.1f/%.1f MB" % [downloaded_mb, total_mb]
 		
-		# 更新状态标签，显示下载进度、大小和速度
-		var progress_text = "%.1f%%" % pct
-		status_label.text = "下载中: %s - %s (%s)" % [progress_text, size_str, speed_str]
+		# 更新状态标签，显示下载大小、速度和ETA
+		if eta_seconds >= 0:
+			var eta_str = _format_eta(eta_seconds)
+			status_label.text = "下载中: %s - %s (ETA: %s)" % [size_str, speed_str, eta_str]
+		else:
+			status_label.text = "下载中: %s - %s" % [size_str, speed_str]
 	else:
 		# 如果服务器没有提供总大小，只显示已下载大小和速度
 		var downloaded_mb = downloaded / (1024.0 * 1024.0)
 		var speed_str = "%.1f KB/s" % speed_kbps
-		status_label.text = "下载中: %.1f MB (%s)" % [downloaded_mb, speed_str]
-		progress_bar.value = 50  # 设置为中间值表示进行中
+		status_label.text = "下载中: %.1f MB - %s" % [downloaded_mb, speed_str]
+		# 修复：不使用固定值，而是根据下载情况动态显示
+		if downloaded > 0:
+			# 如果已经开始下载但没有总大小，显示一个缓慢增长的进度
+			progress_bar.value = min(float(downloaded) / (10 * 1024 * 1024) * 100.0, 90.0)  # 假设最大10MB
+		else:
+			progress_bar.value = 0
+
+# 格式化ETA为易读格式
+func _format_eta(seconds: int) -> String:
+	if seconds < 60:
+		return "%d秒" % seconds
+	elif seconds < 3600:
+		var minutes = seconds / 60
+		var remaining_seconds = seconds % 60
+		if remaining_seconds > 0:
+			return "%d分%d秒" % [minutes, remaining_seconds]
+		else:
+			return "%d分钟" % minutes
+	else:
+		var hours = seconds / 3600
+		var minutes = (seconds % 3600) / 60
+		if minutes > 0:
+			return "%d小时%d分" % [hours, minutes]
+		else:
+			return "%d小时" % hours
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray):
 	if result != OK or response_code < 200 or response_code >= 300:
@@ -142,23 +175,12 @@ func _on_import_pressed():
 	get_tree().root.add_child(fd)
 	fd.popup_centered(Vector2i(800, 600))
 
+# 添加取消导入的回调函数
 func _on_import_canceled():
-	# 获取并隐藏文件对话框
-	var fd = get_node("/root").get_child(get_node("/root").get_child_count() - 1)
-	if fd is FileDialog:
-		fd.hide()
-		fd.queue_free()
-	
 	_set_ui_enabled(true)
 	status_label.text = "取消导入，等待操作"
 
 func _on_import_file_selected(path: String):
-	# 获取并隐藏文件对话框
-	var fd = get_node("/root").get_child(get_node("/root").get_child_count() - 1)
-	if fd is FileDialog:
-		fd.hide()
-		fd.queue_free()  # 或者只调用 hide() 如果你还要重用
-	
 	status_label.text = "选择文件: " + path.get_file() + "，开始解压"
 	_extract_zip_and_finalize(path)
 
