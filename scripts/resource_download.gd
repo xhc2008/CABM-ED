@@ -9,14 +9,15 @@ extends Control
 var http_request: HTTPRequest
 var current_url_index: int = 0
 var download_urls: Array = [
-	"https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
-	"https://ghproxy.com/https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
 	"https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip?mirror=tuna",
-	"https://mirrors.ustc.edu.cn/github-release/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
-	"https://mirrors.aliyun.com/github-release/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
-	"https://mirrors.huaweicloud.com/github-release/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip"
+	"https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
 ]
 var required_version: String = ""
+
+# 添加下载统计变量
+var download_start_time: int = 0
+var last_downloaded_bytes: int = 0
+var last_update_time: int = 0
 
 func _ready():
 	if has_node("/root/SaveManager"):
@@ -28,7 +29,7 @@ func _ready():
 	import_button.pressed.connect(_on_import_pressed)
 
 func _show_hint():
-	hint_label.text = "需要安装资源包才能开始游戏。可选择在线下载或手动导入压缩包。完成后会自动重启进入游戏。"
+	hint_label.text = "需要安装资源包才能开始游戏。可选择在线下载或手动导入压缩包。完成后需要重启游戏。"
 
 func _set_ui_enabled(enabled: bool):
 	download_button.disabled = not enabled
@@ -48,13 +49,18 @@ func _start_next_download():
 		return
 	
 	var url = download_urls[current_url_index]
-	status_label.text = "尝试下载: " + url
+	status_label.text = "尝试下载: " + url.get_file()
 	if http_request:
 		http_request.queue_free()
 	
+	# 重置下载统计
+	download_start_time = Time.get_ticks_msec()
+	last_downloaded_bytes = 0
+	last_update_time = download_start_time
+	
 	http_request = HTTPRequest.new()
 	add_child(http_request)
-	# 只保留完成信号的连接
+	# 连接进度信号
 	http_request.request_completed.connect(_on_request_completed)
 	http_request.download_file = "user://resources/_download.zip"
 	
@@ -65,8 +71,11 @@ func _start_next_download():
 		_start_next_download()
 		return
 	
-	# 下载开始后，设置一个每0.1秒调用一次的循环来检查进度
-	while http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+	# 开始进度更新循环
+	_update_progress_loop()
+
+func _update_progress_loop():
+	while http_request and http_request.is_inside_tree() and http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
 		_update_progress()
 		await get_tree().create_timer(0.1).timeout
 
@@ -74,25 +83,43 @@ func _update_progress():
 	if not http_request or not http_request.is_inside_tree():
 		return
 	
-	# 获取已下载字节数
 	var downloaded = http_request.get_downloaded_bytes()
-	# 获取响应体总大小（可能为-1，如果服务器未提供）
 	var total = http_request.get_body_size()
 	
+	# 计算下载速度
+	var current_time = Time.get_ticks_msec()
+	var time_diff = max(current_time - last_update_time, 1) / 1000.0  # 转换为秒
+	var bytes_diff = downloaded - last_downloaded_bytes
+	var speed_kbps = 0.0
+	
+	if time_diff > 0 and bytes_diff > 0:
+		speed_kbps = (bytes_diff / time_diff) / 1024.0
+	
+	# 更新下载统计
+	last_downloaded_bytes = downloaded
+	last_update_time = current_time
+	
+	# 更新进度条
 	var pct: float = 0.0
-	# 只有当总大小有效且大于0时才计算百分比
 	if total > 0:
 		pct = float(downloaded) / float(total) * 100.0
 		progress_bar.value = clamp(pct, 0.0, 100.0)
-	# 如果服务器没有返回总大小，可以显示一个不确定的进度或提示
-	# 例如：progress_bar.value = 50  # 或设置为某个中间值表示“进行中”
-
-func _on_request_progress(current: int, total: int):
-	# 在 Godot 4 中，download_progress 信号传递的参数就是已下载和总字节数
-	var pct: float = 0.0
-	if total > 0:
-		pct = float(current) / float(total) * 100.0
-	progress_bar.value = clamp(pct, 0.0, 100.0)
+		
+		# 格式化显示大小和速度
+		var downloaded_mb = downloaded / (1024.0 * 1024.0)
+		var total_mb = total / (1024.0 * 1024.0)
+		var speed_str = "%.1f KB/s" % speed_kbps
+		var size_str = "%.1f/%.1f MB" % [downloaded_mb, total_mb]
+		
+		# 更新状态标签，显示下载进度、大小和速度
+		var progress_text = "%.1f%%" % pct
+		status_label.text = "下载中: %s - %s (%s)" % [progress_text, size_str, speed_str]
+	else:
+		# 如果服务器没有提供总大小，只显示已下载大小和速度
+		var downloaded_mb = downloaded / (1024.0 * 1024.0)
+		var speed_str = "%.1f KB/s" % speed_kbps
+		status_label.text = "下载中: %.1f MB (%s)" % [downloaded_mb, speed_str]
+		progress_bar.value = 50  # 设置为中间值表示进行中
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray):
 	if result != OK or response_code < 200 or response_code >= 300:
@@ -110,11 +137,29 @@ func _on_import_pressed():
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.add_filter("*.zip", "资源包")
 	fd.file_selected.connect(_on_import_file_selected)
+	# 连接取消信号
+	fd.canceled.connect(_on_import_canceled)
 	get_tree().root.add_child(fd)
 	fd.popup_centered(Vector2i(800, 600))
 
+func _on_import_canceled():
+	# 获取并隐藏文件对话框
+	var fd = get_node("/root").get_child(get_node("/root").get_child_count() - 1)
+	if fd is FileDialog:
+		fd.hide()
+		fd.queue_free()
+	
+	_set_ui_enabled(true)
+	status_label.text = "取消导入，等待操作"
+
 func _on_import_file_selected(path: String):
-	status_label.text = "选择文件: " + path + "，开始解压"
+	# 获取并隐藏文件对话框
+	var fd = get_node("/root").get_child(get_node("/root").get_child_count() - 1)
+	if fd is FileDialog:
+		fd.hide()
+		fd.queue_free()  # 或者只调用 hide() 如果你还要重用
+	
+	status_label.text = "选择文件: " + path.get_file() + "，开始解压"
 	_extract_zip_and_finalize(path)
 
 func _extract_zip_and_finalize(zip_path: String):
@@ -125,23 +170,25 @@ func _extract_zip_and_finalize(zip_path: String):
 		_set_ui_enabled(true)
 		return
 	_write_version_file(required_version)
-	if has_node("/root/SaveManager"):
-		get_node("/root/SaveManager")._initialize_after_resources_ready()
-	status_label.text = "资源安装完成，正在重启..."
+	# 显示完成提示，不再自动重启
+	status_label.text = "资源安装完成！请重启游戏以生效。"
+	progress_bar.value = 100
 	
-	# 等待确保所有操作完成
-	await get_tree().create_timer(2).timeout
-	
-	# 执行重启
-	restart_application()
+	# 创建重启提示对话框
+	_show_restart_dialog()
 
-func restart_application():
-	var executable_path = OS.get_executable_path()
-	var arguments = OS.get_cmdline_args()
-	# 启动新的程序实例
-	var _pid = OS.create_process(executable_path, arguments, true)
-	get_tree().quit()
-	return
+func _show_restart_dialog():
+	var dialog = AcceptDialog.new()
+	dialog.title = "安装完成"
+	dialog.dialog_text = "资源包已成功安装！\n需要重启游戏才能生效。"
+	dialog.confirmed.connect(func(): get_tree().quit())
+	dialog.canceled.connect(func(): get_tree().quit())
+	
+	# 修改确定按钮文本
+	dialog.ok_button_text = "确定并退出"
+	
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered(Vector2i(400, 200))
 
 func _ensure_resources_dir():
 	var dir = DirAccess.open("user://")
@@ -149,10 +196,15 @@ func _ensure_resources_dir():
 		dir.make_dir("resources")
 
 func _extract_resources_zip(import_path: String) -> bool:
+	status_label.text = "正在解压文件..."
+	progress_bar.value = 50
+	
 	var zip = ZIPReader.new()
 	var err = zip.open(import_path)
 	if err != OK:
+		status_label.text = "无法打开ZIP文件"
 		return false
+	
 	var files = zip.get_files()
 	var strip_prefix := ""
 	# 检测是否有顶层 resources/ 目录
@@ -160,27 +212,43 @@ func _extract_resources_zip(import_path: String) -> bool:
 		if fp.begins_with("resources/"):
 			strip_prefix = "resources/"
 			break
+	
+	var total_files = files.size()
+	var processed_files = 0
+	
 	for file_path in files:
 		var content = zip.read_file(file_path)
 		if content.size() == 0 and not file_path.ends_with("/"):
 			continue
 		if file_path.ends_with("/"):
 			continue
+		
 		var rel_path = file_path
 		if not strip_prefix.is_empty() and rel_path.begins_with(strip_prefix):
 			rel_path = rel_path.substr(strip_prefix.length())
+		
 		var base_path = ProjectSettings.globalize_path("user://resources")
 		var full_path = base_path + "/" + rel_path
 		var dir_path = full_path.get_base_dir()
+		
 		if not DirAccess.dir_exists_absolute(dir_path):
 			DirAccess.make_dir_recursive_absolute(dir_path)
+		
 		var f = FileAccess.open(full_path, FileAccess.WRITE)
 		if f:
 			f.store_buffer(content)
 			f.close()
 		else:
+			status_label.text = "写入文件失败: " + full_path.get_file()
 			zip.close()
 			return false
+		
+		processed_files += 1
+		# 更新解压进度
+		if total_files > 0:
+			var progress = float(processed_files) / float(total_files) * 50 + 50
+			progress_bar.value = progress
+	
 	zip.close()
 	return true
 

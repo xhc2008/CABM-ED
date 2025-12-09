@@ -31,10 +31,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -180.0
-offset_right = 300.0
-offset_bottom = 180.0
+offset_left = -350.0
+offset_top = -200.0
+offset_right = 350.0
+offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -56,8 +56,9 @@ horizontal_alignment = 1
 
 [node name="HintLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
-text = "缺少资源包或需要更新资源包。可选择在线下载或手动导入压缩包。"
+size_flags_horizontal = 3
 autowrap_mode = 3
+text = "缺少资源包或需要更新资源包。可选择在线下载或手动导入压缩包。"
 
 [node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
@@ -76,12 +77,13 @@ text = "手动导入"
 [node name="ProgressBar" type="ProgressBar" parent="Panel/VBox"]
 custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
-theme_override_colors/font_outline_color = Color(0, 1, 0, 1)
-show_percentage = false
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+show_percentage = true
 
 [node name="StatusLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-text = "等待操作"
+autowrap_mode = 3
 clip_text = true
 max_lines_visible = 3
+text = "等待操作"
