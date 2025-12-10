@@ -4,6 +4,7 @@ extends Node
 
 func _ready():
 	var res_ready := false
+	res_ready = true #跳过检查
 	if has_node("/root/SaveManager"):
 		res_ready = get_node("/root/SaveManager").is_resources_ready()
 	if not res_ready:
