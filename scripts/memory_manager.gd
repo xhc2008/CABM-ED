@@ -14,6 +14,7 @@ var auto_save_timer: Timer = null
 func _ready():
 	var sm = get_node_or_null("/root/SaveManager")
 	if sm and not sm.is_resources_ready():
+		print("记忆管理器等待资源加载")
 		return
 	# 加载配置
 	_load_config()

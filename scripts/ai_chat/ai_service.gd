@@ -51,6 +51,10 @@ var config: Dictionary:
 		return config_loader.config if config_loader else {}
 
 func _ready():
+	var sm = get_node_or_null("/root/SaveManager")
+	if sm and not sm.is_resources_ready():
+		print("AI模块等待资源加载")
+		return
 	# 初始化子模块
 	config_loader = preload("res://scripts/ai_chat/ai_config_loader.gd").new()
 	add_child(config_loader)

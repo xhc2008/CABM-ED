@@ -164,6 +164,15 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	_extract_zip_and_finalize("user://resources/_download.zip")
 
 func _on_import_pressed():
+	if OS.get_name() == "Android":
+		var perm_helper = load("res://scripts/android_permissions.gd").new()
+		add_child(perm_helper)
+		
+		var has_permission = await perm_helper.request_storage_permission()
+		perm_helper.queue_free()
+		
+		if not has_permission:
+			return
 	_set_ui_enabled(false)
 	var fd = FileDialog.new()
 	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
