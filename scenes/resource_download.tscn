@@ -57,8 +57,8 @@ horizontal_alignment = 1
 [node name="HintLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-autowrap_mode = 3
 text = "缺少资源包或需要更新资源包。可选择在线下载或手动导入压缩包。"
+autowrap_mode = 3
 
 [node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
@@ -78,12 +78,11 @@ text = "手动导入"
 custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-show_percentage = true
 
 [node name="StatusLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
+text = "等待操作"
 autowrap_mode = 3
 clip_text = true
 max_lines_visible = 3
-text = "等待操作"
