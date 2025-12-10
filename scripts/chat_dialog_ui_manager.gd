@@ -45,6 +45,9 @@ func transition_to_reply_mode(character_name: String):
 	# 第三步：隐藏输入容器和结束按钮
 	input_container.visible = false
 	end_button.visible = false
+	# 确保mic_button也被隐藏
+	if parent_dialog.mic_button:
+		parent_dialog.mic_button.visible = false
 	
 	# 第四步：准备回复UI元素（但保持透明）
 	character_name_label.visible = true
@@ -88,6 +91,10 @@ func transition_to_input_mode():
 	end_button.text = "查看历史"
 	input_field.text = ""
 	input_field.placeholder_text = "输入消息..."
+	# 确保mic_button也被正确显示
+	if parent_dialog.mic_button:
+		parent_dialog.mic_button.visible = true
+		parent_dialog.mic_button.modulate.a = 1.0
 	if parent_dialog != null and parent_dialog.has_method("_update_action_button_state"):
 		parent_dialog._update_action_button_state()
 	input_container.modulate.a = 0.0

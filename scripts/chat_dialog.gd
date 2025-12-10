@@ -245,6 +245,10 @@ func _setup_input_mode():
 	input_container.visible = true
 	input_field.visible = true
 	send_button.visible = true
+	# 确保mic_button也被正确设置
+	if mic_button:
+		mic_button.visible = true
+		mic_button.modulate.a = 1.0
 	continue_indicator.visible = false
 	end_button.visible = true
 	input_field.text = ""
@@ -293,6 +297,9 @@ func _setup_reply_mode():
 	character_name_label.visible = true
 	message_label.visible = true
 	input_container.visible = false
+	# 确保mic_button也被隐藏
+	if mic_button:
+		mic_button.visible = false
 	end_button.visible = false
 	character_name_label.modulate.a = 1.0
 	message_label.modulate.a = 1.0

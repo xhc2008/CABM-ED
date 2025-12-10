@@ -3,7 +3,7 @@ extends Node
 # 历史记录模块
 # 负责对话历史的显示和管理
 
-const HISTORY_HEIGHT = 400.0
+const HISTORY_HEIGHT = 650.0
 const ANIMATION_DURATION = 0.3
 
 var parent_dialog: Panel
@@ -65,7 +65,7 @@ func _create_history_panel():
 	
 	history_scroll = ScrollContainer.new()
 	history_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	history_scroll.custom_minimum_size.y = 250
+	history_scroll.custom_minimum_size.y = 500
 	history_main_vbox.add_child(history_scroll)
 	
 	history_vbox = VBoxContainer.new()
@@ -94,9 +94,20 @@ func show_history():
 	input_field.visible = false
 	send_button.visible = false
 	
-	# 隐藏语音输入按钮 - 通过控制按钮本身而不是 voice_input 对象
-	if parent_dialog.voice_input and parent_dialog.voice_input.mic_button:
-		parent_dialog.voice_input.mic_button.visible = false  # 修改这里
+	# 隐藏语音输入按钮
+	if parent_dialog.has_node("VoiceInput"):
+		var voice_input_node = parent_dialog.get_node("VoiceInput")
+		if voice_input_node and voice_input_node.mic_button:
+			voice_input_node.mic_button.visible = false
+			voice_input_node.mic_button.modulate.a = 0.0
+			print("历史面板：隐藏语音按钮")
+		else:
+			print("历史面板：voice_input或mic_button为null")
+	elif parent_dialog.mic_button:
+		# 备用方案：直接通过parent_dialog的mic_button引用
+		parent_dialog.mic_button.visible = false
+		parent_dialog.mic_button.modulate.a = 0.0
+		print("历史面板：通过parent_dialog隐藏语音按钮")
 	
 	end_button.text = "返回"
 	end_button.modulate.a = 0.0
@@ -155,9 +166,20 @@ func hide_history():
 	send_button.modulate.a = 0.0
 	end_button.modulate.a = 0.0
 	
-	# 显示语音输入按钮 - 通过控制按钮本身而不是 voice_input 对象
-	if parent_dialog.voice_input and parent_dialog.voice_input.mic_button:
-		parent_dialog.voice_input.mic_button.visible = true  # 修改这里
+	# 显示语音输入按钮
+	if parent_dialog.has_node("VoiceInput"):
+		var voice_input_node = parent_dialog.get_node("VoiceInput")
+		if voice_input_node and voice_input_node.mic_button:
+			voice_input_node.mic_button.visible = true
+			voice_input_node.mic_button.modulate.a = 1.0
+			print("历史面板：显示语音按钮")
+		else:
+			print("历史面板：voice_input或mic_button为null")
+	elif parent_dialog.mic_button:
+		# 备用方案：直接通过parent_dialog的mic_button引用
+		parent_dialog.mic_button.visible = true
+		parent_dialog.mic_button.modulate.a = 1.0
+		print("历史面板：通过parent_dialog显示语音按钮")
 	
 	var fade_in_tween = parent_dialog.create_tween()
 	fade_in_tween.set_parallel(true)
