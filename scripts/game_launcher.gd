@@ -8,9 +8,9 @@ func _ready():
 	if has_node("/root/SaveManager"):
 		res_ready = get_node("/root/SaveManager").is_resources_ready()
 	if not res_ready:
-		print("资源未准备，进入资源下载页面")
-		_load_resource_download.call_deferred()
-		return
+		print("资源未准备，进入资源下载页面（已忽略）")
+		# _load_resource_download.call_deferred()
+		# return
 
 	# 检查存档是否存在
 	if _has_save_file():
