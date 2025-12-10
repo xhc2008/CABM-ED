@@ -12,7 +12,7 @@ var download_urls: Array = [
 	"https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip?mirror=tuna",
 	"https://github.com/xhc2008/CABM-ED/releases/download/resources/resouces-v1-20251208-1.zip",
 ]
-var required_version: String = ""
+var required_version: String = "CABM-ED_RES_v1-20251208-1"
 
 # 添加下载统计变量
 var download_start_time: int = 0

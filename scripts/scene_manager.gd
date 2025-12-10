@@ -110,13 +110,11 @@ func load_scene(scene_id: String, weather_id: String, time_id: String):
 		save_manager.set_current_weather(weather_id)
 		save_manager.set_current_time(time_id)
 	
-	var image_path = "user://resources/scenes/%s/%s/%s.png" % [scene_id, weather_id, time_id]
+	var image_path = "res://assets/images/scenes/%s/%s/%s.png" % [scene_id, weather_id, time_id]
 	
-	var img = Image.new()
-	var err = img.load(image_path)
-	if err == OK:
-		var tex = ImageTexture.create_from_image(img)
-		background.texture = tex
+	if ResourceLoader.exists(image_path):
+		var texture = load(image_path)
+		background.texture = texture
 		print("已加载: ", image_path)
 	else:
 		print("图片不存在: ", image_path)

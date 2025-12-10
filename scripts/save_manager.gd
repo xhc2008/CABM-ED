@@ -61,6 +61,7 @@ func _initialize_after_resources_ready():
 	initialized = true
 
 func is_resources_ready() -> bool:
+	return true #已经弃用资源分离，不检查资源
 	var dir = DirAccess.open("user://")
 	if dir == null:
 		return false
