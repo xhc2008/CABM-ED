@@ -26,7 +26,7 @@ func _load_config():
 	else:
 		push_error("PromptBuilder: AI 配置解析失败")
 
-func build_system_prompt(trigger_mode: String = "user_initiated", keep_long_term_memory_placeholder: bool = false) -> String:
+func build_system_prompt(trigger_mode: String = "passive", keep_long_term_memory_placeholder: bool = false) -> String:
 	"""构建系统提示词
 	
 	Args:
@@ -348,7 +348,7 @@ func _get_trigger_context(trigger_mode: String) -> String:
 	"""获取触发上下文文本"""
 	
 	var trigger_contexts = config.chat_model.trigger_contexts
-	var context = trigger_contexts.get(trigger_mode, "你在和用户聊天。")
+	var context = trigger_contexts.get(trigger_mode, "你在和{user_name}聊天。")
 	
 	var save_mgr = get_node("/root/SaveManager")
 	

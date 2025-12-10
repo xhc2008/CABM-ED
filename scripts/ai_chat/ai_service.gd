@@ -216,7 +216,7 @@ func add_to_history(role: String, content: String):
 	_save_temp_conversation()
 	print("手动添加到历史: ", role, " - ", content)
 
-func start_chat(user_message: String = "", trigger_mode: String = "user_initiated"):
+func start_chat(user_message: String = "", trigger_mode: String = "passive"):
 	"""开始对话"""
 	if is_chatting:
 		push_warning("正在对话中，请等待...")
@@ -241,7 +241,7 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 
 	# 使用包含长期记忆的系统提示词
 	var system_prompt: String
-	if trigger_mode == "user_initiated" and not user_message.is_empty():
+	if trigger_mode == "passive" and not user_message.is_empty():
 		# 用户主动对话，使用用户消息检索记忆
 		print("检索长期记忆，查询: %s" % user_message.substr(0, 50))
 		system_prompt = await prompt_builder.build_system_prompt_with_long_term_memory(actual_trigger_mode, user_message)
@@ -261,7 +261,7 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 		var msg = {"role": history_to_send[i].role, "content": history_to_send[i].content}
 		messages.append(msg)
 
-	if trigger_mode == "user_initiated" and not user_message.is_empty():
+	if trigger_mode == "passive" and not user_message.is_empty():
 		var timestamp = Time.get_unix_time_from_system()
 		messages.append({"role": "user", "content": user_message})
 		current_conversation.append({"role": "user", "content": user_message, "timestamp": timestamp})
@@ -272,12 +272,12 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	# 注意：这个占位符只用于API调用，不记录到历史中
 	var last_role = messages[-1].role if messages.size() > 0 else ""
 	if last_role == "assistant":
-		messages.append({"role": "system", "content": "继续"})
+		messages.append({"role": "user", "content": ""})
 		print("检测到最后一条消息为assistant，添加user占位符以避免前缀读写")
 	elif last_role == "system":
 		# 主动对话时，如果没有历史记录，添加一个空的user消息作为触发
 		# 避免messages数组只有system消息导致API错误
-		messages.append({"role": "user", "content": " "})
+		messages.append({"role": "user", "content": ""})
 		print("主动对话且无历史记录，添加空user消息作为触发")
 
 	if is_first_message:
@@ -299,8 +299,8 @@ func _call_chat_api(messages: Array, _user_message: String):
 	if last_msg.role == "assistant":
 		push_error("错误: messages数组最后一条消息是assistant，这会导致400错误")
 		# 添加一个占位符user消息
-		messages.append({"role": "system", "content": "继续"})
-		print("紧急修复: 添加system占位符以避免API错误")
+		messages.append({"role": "user", "content": ""})
+		print("紧急修复: 添加user占位符以避免API错误")
 
 	# 验证消息内容不为null
 	for i in range(messages.size()):

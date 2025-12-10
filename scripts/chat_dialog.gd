@@ -477,7 +477,7 @@ func _on_input_submitted(text: String):
 	
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
-		ai_service.start_chat(text, "user_initiated")
+		ai_service.start_chat(text, "passive")
 
 
 

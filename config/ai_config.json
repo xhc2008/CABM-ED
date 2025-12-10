@@ -75,8 +75,8 @@
             ]
         },
         "trigger_contexts": {
-            "user_initiated": "现在，{user_name}找你聊天。",
-            "character_initiated": "现在，你想主动找{user_name}聊天，说点什么吧。",
+            "passive": "现在，{user_name}找你聊天。",
+            "active": "现在，你想主动找{user_name}聊天，说点什么吧。",
             "ongoing": "你在和{user_name}聊天。",
             "called": "现在，{user_name}在{current_scene}呼唤了你，你从{character_scene}来到了他面前，主动说点什么吧。",
             "called_here": "现在，{user_name}呼唤了你，主动说点什么吧。"
@@ -100,9 +100,9 @@
         },
         "relationship": {
             "max_tokens": 256,
-            "temperature": 0.5,
+            "temperature": 0.6,
             "top_p": 0.7,
-            "system_prompt": "你是一个总结专家。请根据对话内容总结两人之间的关系、人物特点等，不超过100字。例如：{relationship}"
+            "system_prompt": "你是一个总结专家。请根据对话内容总结两人之间的关系、人物特点等，不超过100字。需要被更新的关系：{relationship}"
         },
         "translation": {
             "max_tokens": 256,
