@@ -272,8 +272,8 @@ func start_chat(user_message: String = "", trigger_mode: String = "user_initiate
 	# 注意：这个占位符只用于API调用，不记录到历史中
 	var last_role = messages[-1].role if messages.size() > 0 else ""
 	if last_role == "assistant":
-		messages.append({"role": "user", "content": "继续"})
-		print("检测到最后一条消息为assistant，添加user占位符以避免前缀独写")
+		messages.append({"role": "system", "content": "继续"})
+		print("检测到最后一条消息为assistant，添加user占位符以避免前缀读写")
 	elif last_role == "system":
 		# 主动对话时，如果没有历史记录，添加一个空的user消息作为触发
 		# 避免messages数组只有system消息导致API错误
@@ -299,8 +299,8 @@ func _call_chat_api(messages: Array, _user_message: String):
 	if last_msg.role == "assistant":
 		push_error("错误: messages数组最后一条消息是assistant，这会导致400错误")
 		# 添加一个占位符user消息
-		messages.append({"role": "user", "content": "继续"})
-		print("紧急修复: 添加user占位符以避免API错误")
+		messages.append({"role": "system", "content": "继续"})
+		print("紧急修复: 添加system占位符以避免API错误")
 
 	# 验证消息内容不为null
 	for i in range(messages.size()):
@@ -926,7 +926,7 @@ func _flatten_conversation_from_data(conversation_data: Array) -> String:
 		if msg.role == "user":
 			# 过滤掉空消息或占位符
 			var user_content = msg.content.strip_edges()
-			if user_content.is_empty() or user_content == "继续":
+			if user_content.is_empty(): #or user_content == "继续":
 				continue
 			lines.append("%s：%s" % [user_name, user_content])
 		elif msg.role == "assistant":
