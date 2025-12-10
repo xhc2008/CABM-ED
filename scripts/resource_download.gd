@@ -190,18 +190,71 @@ func _on_import_canceled():
 	status_label.text = "取消导入，等待操作"
 
 func _on_import_file_selected(path: String):
-	status_label.text = "选择文件: " + path.get_file() + "，开始解压"
-	_extract_zip_and_finalize(path)
+	status_label.text = "选择文件: " + path.get_file() + "，检查版本..."
+	# 先检查压缩包版本
+	var version_check_result = await _check_zip_version(path)
+	if version_check_result:
+		status_label.text = "版本检查通过，开始解压..."
+		_extract_zip_and_finalize(path)
+	else:
+		_set_ui_enabled(true)
+		status_label.text = "版本不匹配或缺少版本信息，请下载正确版本"
+
+# 检查压缩包版本
+func _check_zip_version(zip_path: String) -> bool:
+	progress_bar.value = 10
+	status_label.text = "正在检查资源包版本..."
+	
+	var zip = ZIPReader.new()
+	var err = zip.open(zip_path)
+	if err != OK:
+		status_label.text = "无法打开ZIP文件"
+		return false
+	
+	var files = zip.get_files()
+	var found_version = false
+	var zip_version = ""
+	
+	# 查找压缩包中的version.txt文件
+	for file_path in files:
+		if file_path.ends_with("version.txt"):
+			# 读取版本文件内容
+			var content = zip.read_file(file_path)
+			if content.size() > 0:
+				zip_version = content.get_string_from_utf8().strip_edges()
+				found_version = true
+				break
+	
+	zip.close()
+	
+	progress_bar.value = 20
+	
+	if not found_version:
+		status_label.text = "资源包缺少版本信息"
+		return false
+	
+	if required_version.is_empty():
+		# 如果没有指定必需版本，接受任何版本
+		status_label.text = "资源包版本: " + zip_version
+		return true
+	
+	# 检查版本是否匹配
+	if zip_version == required_version:
+		status_label.text = "资源包版本匹配: " + zip_version
+		return true
+	else:
+		status_label.text = "版本不匹配，需要: " + required_version + "，当前: " + zip_version
+		return false
 
 func _extract_zip_and_finalize(zip_path: String):
-	progress_bar.value = 0
+	progress_bar.value = 30
 	var ok = _extract_resources_zip(zip_path)
 	if not ok:
 		status_label.text = "解压失败，请重试或更换文件"
 		_set_ui_enabled(true)
 		return
-	_write_version_file(required_version)
-	# 显示完成提示，不再自动重启
+	
+	# 不再创建version文件，因为资源包已经包含
 	status_label.text = "资源安装完成！请重启游戏以生效。"
 	progress_bar.value = 100
 	
@@ -258,6 +311,11 @@ func _extract_resources_zip(import_path: String) -> bool:
 		if not strip_prefix.is_empty() and rel_path.begins_with(strip_prefix):
 			rel_path = rel_path.substr(strip_prefix.length())
 		
+		# 跳过version.txt文件，不再覆盖它
+		if rel_path == "version.txt":
+			processed_files += 1
+			continue
+		
 		var base_path = ProjectSettings.globalize_path("user://resources")
 		var full_path = base_path + "/" + rel_path
 		var dir_path = full_path.get_base_dir()
@@ -282,10 +340,3 @@ func _extract_resources_zip(import_path: String) -> bool:
 	
 	zip.close()
 	return true
-
-func _write_version_file(version: String):
-	var path = "user://resources/version.txt"
-	var f = FileAccess.open(path, FileAccess.WRITE)
-	if f:
-		f.store_string(version)
-		f.close()
