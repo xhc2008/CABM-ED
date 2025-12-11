@@ -1,4 +1,4 @@
-# VoiceInput.gd - 简化版
+
 extends Node
 
 signal recording_started()
@@ -23,6 +23,8 @@ var is_shutting_down: bool = false
 
 # 可视化
 var mic_base_icon: Texture2D
+var stop_icon: Texture2D
+var load_icon: Texture2D
 var is_voice_available: bool = false
 
 func setup(dialog: Panel, mic_btn: Button, input_fld: LineEdit):
@@ -30,12 +32,8 @@ func setup(dialog: Panel, mic_btn: Button, input_fld: LineEdit):
 	mic_button = mic_btn
 	input_field = input_fld
 	
-	# 加载图标
-	mic_base_icon = load("res://assets/images/chat/microphone.svg")
-	if mic_base_icon and mic_button:
-		mic_button.icon = mic_base_icon
-		mic_button.tooltip_text = "点击开始录音"
-
+	# 预加载所有图标
+	_load_icons()
 	
 	# 检查音频系统
 	check_audio_system()
@@ -47,6 +45,24 @@ func setup(dialog: Panel, mic_btn: Button, input_fld: LineEdit):
 			ai.stt_result.connect(_on_stt_result)
 		if ai.has_signal("stt_error"):
 			ai.stt_error.connect(_on_stt_error)
+
+func _load_icons():
+	# 预加载所有图标以确保导出后可用
+	mic_base_icon = preload("res://assets/images/chat/microphone.png")
+	stop_icon = preload("res://assets/images/chat/stop.png")
+	load_icon = preload("res://assets/images/chat/load.png")
+	# 设置默认图标
+	if mic_base_icon and mic_button:
+		mic_button.icon = mic_base_icon
+		mic_button.tooltip_text = "点击开始录音"
+	
+	# 检查图标是否成功加载
+	if not mic_base_icon:
+		print("❌ 微信图标未找到，请检查路径: res://assets/images/chat/microphone.png")
+	if not stop_icon:
+		print("⚠️ 停止图标未找到: res://assets/images/chat/stop.png")
+	if not load_icon:
+		print("⚠️ 加载图标未找到: res://assets/images/chat/load.png")
 
 func check_audio_system():
 	print("🎧 音频系统检查...")
@@ -72,8 +88,6 @@ func _on_mic_button_pressed():
 		stop_recording()
 	else:
 		start_recording()
-
-# 修改 chat_dialog_voice_input.gd 中的以下部分：
 
 func start_recording():
 	if is_recording:
@@ -127,8 +141,7 @@ func start_recording():
 	
 	# 更新按钮状态
 	if mic_button:
-		# 先检查是否有stop.svg，如果没有则使用默认图标
-		var stop_icon = load("res://assets/images/chat/stop.svg")
+		# 使用预加载的图标
 		if stop_icon:
 			mic_button.icon = stop_icon
 			print("✅ 使用停止图标")
@@ -186,6 +199,7 @@ func stop_recording():
 		_update_mic_button_state(false)
 		recording_stopped.emit()
 		return
+		
 	var wav_bytes = _recording_to_wav_bytes(recording)
 	print("💾 生成的WAV文件大小: ", wav_bytes.size(), " 字节")
 	
@@ -276,7 +290,10 @@ func _stop_mic_animation():
 func _update_mic_button_state(recording: bool):
 	if mic_button:
 		if recording:
-			mic_button.icon = load("res://assets/images/chat/stop.svg") if FileAccess.file_exists("res://assets/images/chat/stop.svg") else mic_base_icon
+			if stop_icon:
+				mic_button.icon = stop_icon
+			else:
+				mic_button.icon = mic_base_icon
 			mic_button.modulate = Color(1.0, 0.3, 0.3, 1.0)
 			mic_button.tooltip_text = "点击停止录音"
 		else:
@@ -291,7 +308,6 @@ func _set_mic_loading_state(loading: bool):
 	if loading:
 		mic_button.disabled = true
 		mic_button.tooltip_text = "正在转写..."
-		var load_icon: Texture2D = load("res://assets/images/chat/load.svg")
 		if load_icon:
 			mic_button.icon = load_icon
 		else:

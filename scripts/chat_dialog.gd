@@ -131,7 +131,7 @@ func _init_modules():
 	
 	# 语音输入模块
 	voice_input = null
-	if FileAccess.file_exists("res://scripts/chat_dialog_voice_input.gd"):
+	if ResourceLoader.exists("res://scripts/chat_dialog_voice_input.gd"):
 		voice_input = preload("res://scripts/chat_dialog_voice_input.gd").new()
 	voice_input.name = "VoiceInput"
 	add_child(voice_input)
