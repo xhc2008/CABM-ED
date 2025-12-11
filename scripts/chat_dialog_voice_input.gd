@@ -17,6 +17,9 @@ var mic_player: AudioStreamPlayer = null
 var mic_stream: AudioStreamMicrophone = null
 var record_effect: AudioEffectRecord = null
 var recording: AudioStreamWAV = null
+var record_start_ms: int = 0
+var is_transcribing: bool = false
+var is_shutting_down: bool = false
 
 # 可视化
 var mic_base_icon: Texture2D
@@ -80,6 +83,8 @@ func start_recording():
 		return
 	
 	print("🎤 开始录音...")
+
+	record_start_ms = Time.get_ticks_msec()
 	
 	if recording_bus_index == -1:
 		var idx = AudioServer.get_bus_index("Record")
@@ -167,21 +172,42 @@ func stop_recording():
 	
 	# 规范化录音流为16位
 	recording.set_format(AudioStreamWAV.FORMAT_16_BITS)
+
+	# 计算时长并检测几乎无声音
+	var duration_sec = _calculate_duration_seconds(recording)
+	if duration_sec < 0.5:
+		print("⚠️ 录音过短(%.2fs)，忽略" % duration_sec)
+		_update_mic_button_state(false)
+		recording_stopped.emit()
+		return
+
+	if _is_audio_silent(recording, 0.02):
+		print("⚠️ 录音几乎无声音，忽略")
+		_update_mic_button_state(false)
+		recording_stopped.emit()
+		return
 	var wav_bytes = _recording_to_wav_bytes(recording)
 	print("💾 生成的WAV文件大小: ", wav_bytes.size(), " 字节")
 	
-	# 恢复按钮状态
-	_update_mic_button_state(false)
-		
+	# 进入转写等待状态：禁用按钮并显示加载图标
+	is_transcribing = true
+	_set_mic_loading_state(true)
+	
 	# 保存录音到文件
-	_save_recording_to_file(wav_bytes)
+	if not is_shutting_down:
+		_save_recording_to_file(wav_bytes)
 	# 发送到STT
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
 		print("🤖 发送录音给语音识别...")
-		ai_service.transcribe_audio(wav_bytes, "recording.wav")
+		if not is_shutting_down:
+			ai_service.transcribe_audio(wav_bytes, "recording.wav")
 	else:
 		print("⚠️ 未找到 AIService")
+		# 无法转写，恢复按钮
+		is_transcribing = false
+		_set_mic_loading_state(false)
+		_update_mic_button_state(false)
 	
 	recording_stopped.emit()
 
@@ -230,18 +256,22 @@ func _u32le(n: int) -> PackedByteArray:
 
 func _start_mic_animation():
 	if mic_button:
-		# 创建脉动动画
 		var tween = create_tween()
 		tween.set_loops()
-		tween.tween_property(mic_button, "scale", Vector2(1.1, 1.1), 0.5)
-		tween.tween_property(mic_button, "scale", Vector2(1.0, 1.0), 0.5)
+		# 颜色脉动 + 轻微透明度变化
+		tween.tween_property(mic_button, "self_modulate", 
+			Color(1.0, 0.6, 0.6, 1.0), 0.5)
+		tween.set_trans(Tween.TRANS_SINE)
+		tween.tween_property(mic_button, "self_modulate", 
+			Color.WHITE, 0.5)
+		tween.set_trans(Tween.TRANS_SINE)
 		mic_button.set_meta("mic_tween", tween)
 
 func _stop_mic_animation():
 	if mic_button and mic_button.has_meta("mic_tween"):
 		var tween = mic_button.get_meta("mic_tween")
-		tween.stop()
-		mic_button.scale = Vector2(1.0, 1.0)
+		tween.kill()
+		mic_button.self_modulate = Color.WHITE
 
 func _update_mic_button_state(recording: bool):
 	if mic_button:
@@ -255,41 +285,87 @@ func _update_mic_button_state(recording: bool):
 			mic_button.tooltip_text = "点击开始录音"
 			_stop_mic_animation()
 
+func _set_mic_loading_state(loading: bool):
+	if not mic_button:
+		return
+	if loading:
+		mic_button.disabled = true
+		mic_button.tooltip_text = "正在转写..."
+		var load_icon: Texture2D = load("res://assets/images/chat/load.svg")
+		if load_icon:
+			mic_button.icon = load_icon
+		else:
+			mic_button.icon = mic_base_icon
+		_stop_mic_animation()
+	else:
+		mic_button.disabled = false
+		mic_button.tooltip_text = "点击开始录音"
+		mic_button.icon = mic_base_icon
+
 func _on_stt_result(text: String):
 	print("🗣️ 语音识别结果: ", text)
+	# 结束加载状态
+	is_transcribing = false
+	_set_mic_loading_state(false)
+	_update_mic_button_state(false)
+	
+	if is_shutting_down:
+		print("⏹️ 正在退出，忽略STT结果")
+		return
+	
+	# 解析可能的JSON字符串
+	var content: String = text
+	var parsed = JSON.parse_string(text)
+	if parsed is Dictionary:
+		if parsed.has("text"):
+			content = str(parsed["text"])
+		elif parsed.has("message"):
+			content = str(parsed["message"])
+	
+	content = content.strip_edges()
+	if content.is_empty():
+		print("⚠️ STT返回空文本，忽略")
+		transcription_received.emit("")
+		return
 	
 	if input_field:
 		var current_text = input_field.text
-		if current_text.is_empty():
-			input_field.text = text
+		if current_text.strip_edges().is_empty():
+			input_field.text = content
 		else:
-			input_field.text = current_text + " " + text
-		
+			input_field.text = current_text + " " + content
 		input_field.grab_focus()
 		input_field.caret_column = input_field.text.length()
+		# 刷新发送/结束按钮状态
+		if parent_dialog and parent_dialog.has_method("_update_action_button_state"):
+			parent_dialog._update_action_button_state()
 	
-	transcription_received.emit(text)
+	transcription_received.emit(content)
 
 func _on_stt_error(err: String):
 	print("❌ 语音识别错误: ", err)
+	is_transcribing = false
+	_set_mic_loading_state(false)
 	transcription_error.emit(err)
 	
 	# 恢复按钮状态
 	_update_mic_button_state(false)
 
 func _exit_tree():
+	is_shutting_down = true
 	if is_recording:
 		stop_recording()
-	
 	# 清理资源
 	if recording_bus_index != -1:
 		if record_effect:
 			AudioServer.remove_bus_effect(recording_bus_index, 0)
 		AudioServer.remove_bus(recording_bus_index)
 		print("✅ 清理录音总线")
-	
 	if mic_player:
 		mic_player.queue_free()
+	# 恢复按钮UI
+	_set_mic_loading_state(false)
+	_update_mic_button_state(false)
 		
 func _save_recording_to_file(wav_data: PackedByteArray) -> void:
 	var file_path = "user://recordings/"
@@ -315,3 +391,33 @@ func _save_recording_to_file(wav_data: PackedByteArray) -> void:
 		print("💾 录音已保存到: ", full_path)
 	else:
 		print("❌ 无法保存录音文件")
+
+func _calculate_duration_seconds(rec: AudioStreamWAV) -> float:
+	var channels = 2 if rec.stereo else 1
+	var sample_rate = rec.mix_rate
+	var bytes_per_sample = 2
+	var data_bytes = rec.get_data()
+	if sample_rate <= 0 or channels <= 0 or data_bytes.size() == 0:
+		return 0.0
+	return float(data_bytes.size()) / float(channels * bytes_per_sample * sample_rate)
+
+func _is_audio_silent(rec: AudioStreamWAV, threshold_rms: float = 0.02) -> bool:
+	var data = rec.get_data()
+	var n = data.size()
+	if n < 2:
+		return true
+	var sum_sq: float = 0.0
+	var count: int = 0
+	for i in range(0, n - 1, 2):
+		var lo: int = data[i]
+		var hi: int = data[i + 1]
+		var sample: int = (hi << 8) | lo
+		if sample > 32767:
+			sample -= 65536
+		var norm: float = abs(sample) / 32768.0
+		sum_sq += norm * norm
+		count += 1
+	if count == 0:
+		return true
+	var rms: float = sqrt(sum_sq / count)
+	return rms < threshold_rms
