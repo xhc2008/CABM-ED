@@ -31,112 +31,14 @@ var goto_cooldown_end_time: float = 0.0
 var goto_notification_label: Label = null
 
 func _ensure_ui_structure():
-	"""确保UI结构正确，如果场景文件中没有InputContainer则动态创建"""
-	input_container = vbox.get_node_or_null("InputContainer")
-	
-	if input_container != null:
-		input_field = input_container.get_node_or_null("InputField")
-		send_button = input_container.get_node_or_null("SendButton")
-		mic_button = input_container.get_node_or_null("MicButton")
-		var old_history_btn = input_container.get_node_or_null("HistoryButton")
-		if old_history_btn != null:
-			old_history_btn.queue_free()
-		
-		# 如果不存在麦克风按钮，则创建并插入到发送按钮左侧
-		if mic_button == null:
-			mic_button = Button.new()
-			mic_button.name = "MicButton"
-			mic_button.custom_minimum_size = Vector2(40, 0)
-			mic_button.focus_mode = Control.FOCUS_NONE
-			input_container.add_child(mic_button)
-			if send_button:
-				var send_index = send_button.get_index()
-				input_container.move_child(mic_button, max(0, send_index))
-				# 设置图标
-				var icon_res: Texture2D = load("res://assets/images/chat/microphone.svg")
-				if icon_res:
-					mic_button.icon = icon_res
-				mic_button.tooltip_text = "语音输入（不可用）"
-			
-			print("使用现有的 InputContainer 结构")
-			return
-	
-	var old_input_field = vbox.get_node_or_null("InputField")
-	if old_input_field != null:
-		print("检测到旧的UI结构，正在重构...")
-		
-		input_container = HBoxContainer.new()
-		input_container.name = "InputContainer"
-		input_container.add_theme_constant_override("separation", 8)
-		
-		vbox.remove_child(old_input_field)
-		
-		input_container.add_child(old_input_field)
-		old_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		
-		# 麦克风按钮（在发送按钮左侧）
-		mic_button = Button.new()
-		mic_button.name = "MicButton"
-		mic_button.custom_minimum_size = Vector2(40, 0)
-		mic_button.focus_mode = Control.FOCUS_NONE
-		var mic_icon_tex: Texture2D = load("res://assets/images/chat/microphone.svg")
-		if mic_icon_tex:
-			mic_button.icon = mic_icon_tex
-			mic_button.tooltip_text = "语音输入（不可用）"
-		
-		send_button = Button.new()
-		send_button.name = "SendButton"
-		send_button.text = "发送"
-		send_button.custom_minimum_size = Vector2(40, 0)
-		input_container.add_child(mic_button)
-		input_container.add_child(send_button)
-		
-		if end_button:
-			var end_btn_index = end_button.get_index()
-			vbox.add_child(input_container)
-			vbox.move_child(input_container, end_btn_index)
-		else:
-			vbox.add_child(input_container)
-		
-		input_field = old_input_field
-		print("UI重构完成")
-	else:
-		print("创建全新的输入UI结构...")
-		
-		input_container = HBoxContainer.new()
-		input_container.name = "InputContainer"
-		input_container.add_theme_constant_override("separation", 8)
-		
-		input_field = LineEdit.new()
-		input_field.name = "InputField"
-		input_field.placeholder_text = "输入消息..."
-		input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		input_container.add_child(input_field)
-		
-		mic_button = Button.new()
-		mic_button.name = "MicButton"
-		mic_button.custom_minimum_size = Vector2(40, 0)
-		mic_button.focus_mode = Control.FOCUS_NONE
-		var mic_icon_tex2: Texture2D = load("res://assets/images/chat/microphone.svg")
-		if mic_icon_tex2:
-			mic_button.icon = mic_icon_tex2
-		mic_button.tooltip_text = "语音输入（不可用）"
-		
-		send_button = Button.new()
-		send_button.name = "SendButton"
-		send_button.text = "发送"
-		send_button.custom_minimum_size = Vector2(80, 0)
-		input_container.add_child(mic_button)
-		input_container.add_child(send_button)
-		
-		if end_button:
-			var end_btn_index = end_button.get_index()
-			vbox.add_child(input_container)
-			vbox.move_child(input_container, end_btn_index)
-		else:
-			vbox.add_child(input_container)
-		
-		print("输入UI创建完成")
+	"""简化的UI结构检查"""
+	input_container = vbox.get_node("InputContainer")
+	input_field = input_container.get_node("InputField")
+	send_button = input_container.get_node("SendButton")
+	mic_button = input_container.get_node("MicButton") 
+	# 确保有结束按钮（历史按钮已重命名为结束按钮）
+	if not vbox.has_node("EndButton"):
+		print("警告: 场景中缺少 EndButton 节点")
 
 func _ready():
 	_ensure_ui_structure()
