@@ -35,7 +35,19 @@ func _ensure_ui_structure():
 	input_container = vbox.get_node("InputContainer")
 	input_field = input_container.get_node("InputField")
 	send_button = input_container.get_node("SendButton")
-	mic_button = input_container.get_node("MicButton") 
+	# 检查平台，如果是移动平台，彻底删除麦克风按钮
+	var is_mobile = false
+	if has_node("/root/PlatformManager"):
+		var pm = get_node("/root/PlatformManager")
+		is_mobile = pm.is_mobile_platform()
+	if is_mobile and mic_button:
+		# 彻底删除麦克风按钮节点
+		mic_button.queue_free()
+		mic_button = null
+		print("📱 移动平台，已彻底删除麦克风按钮")
+	else:
+		# 非移动平台，保持麦克风按钮
+		mic_button = input_container.get_node("MicButton")
 	# 确保有结束按钮（历史按钮已重命名为结束按钮）
 	if not vbox.has_node("EndButton"):
 		print("警告: 场景中缺少 EndButton 节点")
