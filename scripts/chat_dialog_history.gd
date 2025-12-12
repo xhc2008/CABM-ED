@@ -108,6 +108,16 @@ func show_history():
 		parent_dialog.mic_button.visible = false
 		parent_dialog.mic_button.modulate.a = 0.0
 		print("历史面板：通过parent_dialog隐藏语音按钮")
+
+	# 隐藏图片按钮与气泡
+	if parent_dialog.has_node("ImageInput"):
+		var image_input_node = parent_dialog.get_node("ImageInput")
+		if image_input_node and image_input_node.has_method("hide_for_history"):
+			image_input_node.hide_for_history()
+			print("历史面板：隐藏图片按钮与气泡")
+	elif parent_dialog.has_method("get") and parent_dialog.pic_button:
+		parent_dialog.pic_button.visible = false
+		parent_dialog.pic_button.modulate.a = 0.0
 	
 	end_button.text = "返回"
 	end_button.modulate.a = 0.0
@@ -180,6 +190,16 @@ func hide_history():
 		parent_dialog.mic_button.visible = true
 		parent_dialog.mic_button.modulate.a = 1.0
 		print("历史面板：通过parent_dialog显示语音按钮")
+
+	# 显示图片按钮与气泡（若仍有选择）
+	if parent_dialog.has_node("ImageInput"):
+		var image_input_node = parent_dialog.get_node("ImageInput")
+		if image_input_node and image_input_node.has_method("show_after_history"):
+			image_input_node.show_after_history()
+			print("历史面板：显示图片按钮与气泡")
+	elif parent_dialog.has_method("get") and parent_dialog.pic_button:
+		parent_dialog.pic_button.visible = true
+		parent_dialog.pic_button.modulate.a = 1.0
 	
 	var fade_in_tween = parent_dialog.create_tween()
 	fade_in_tween.set_parallel(true)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://c8yqvxm7qwxqj"]
+[gd_scene load_steps=16 format=3 uid="uid://c8yqvxm7qwxqj"]
 
 [ext_resource type="Script" uid="uid://b84t0i8227422" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Theme" uid="uid://contcf3ey12vl" path="res://default_theme.tres" id="1_ragmj"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://bvxm7qwxqj001" path="res://scripts/character.gd" id="3_character"]
 [ext_resource type="Script" uid="uid://cvxm7qwxqj002" path="res://scripts/chat_dialog.gd" id="4_chat_dialog"]
 [ext_resource type="Script" uid="uid://dvxm7qwxqj003" path="res://scripts/character_debug.gd" id="5_debug"]
+[ext_resource type="Texture2D" uid="uid://b43olrtg1sory" path="res://assets/images/chat/image.png" id="6_0im0j"]
 [ext_resource type="Script" uid="uid://bovp4hs3xx2vc" path="res://scripts/action_menu.gd" id="6_action_menu"]
 [ext_resource type="Script" uid="uid://c2uwvdnjbt6um" path="res://scripts/scene_menu.gd" id="7_scene_menu"]
 [ext_resource type="Script" uid="uid://dhaaxgkx54mkg" path="res://scripts/audio_manager.gd" id="8_audio_manager"]
@@ -150,6 +151,13 @@ placeholder_text = "输入消息..."
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 focus_mode = 0
+
+[node name="PicButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+icon = ExtResource("6_0im0j")
+icon_alignment = 1
+expand_icon = true
 
 [node name="SendButton" type="Button" parent="ChatDialog/MarginContainer/VBoxContainer/InputContainer"]
 custom_minimum_size = Vector2(80, 0)

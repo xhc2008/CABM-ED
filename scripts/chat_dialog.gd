@@ -14,6 +14,7 @@ var input_container: HBoxContainer
 var input_field: LineEdit
 var send_button: Button
 var mic_button: Button
+var pic_button: Button
 
 var is_input_mode: bool = true
 var waiting_for_continue: bool = false
@@ -36,6 +37,7 @@ func _ensure_ui_structure():
 	input_field = input_container.get_node("InputField")
 	send_button = input_container.get_node("SendButton")
 	mic_button = input_container.get_node("MicButton")
+	pic_button = input_container.get_node("PicButton")
 	# 确保有结束按钮（历史按钮已重命名为结束按钮）
 	if not vbox.has_node("EndButton"):
 		print("警告: 场景中缺少 EndButton 节点")
@@ -127,6 +129,13 @@ func _init_modules():
 	# 延迟初始化，等待mic_button创建
 	call_deferred("_init_voice_input")
 
+	# 图片输入模块
+	if ResourceLoader.exists("res://scripts/chat_dialog_image_input.gd"):
+		var image_input = preload("res://scripts/chat_dialog_image_input.gd").new()
+		image_input.name = "ImageInput"
+		add_child(image_input)
+		call_deferred("_init_image_input")
+
 func _init_history_manager():
 	history_manager.setup(self, vbox, input_container, input_field,
 					  send_button, end_button)
@@ -134,6 +143,11 @@ func _init_history_manager():
 func _init_voice_input():
 	if mic_button and input_field:
 		voice_input.setup(self, mic_button, input_field)
+
+func _init_image_input():
+	var node = get_node_or_null("ImageInput")
+	if node and pic_button and input_field:
+		node.setup(self, pic_button, input_field)
 
 func _load_config():
 	# app_config.json已废弃，不再需要加载配置
@@ -151,6 +165,10 @@ func _setup_input_mode():
 	if mic_button:
 		mic_button.visible = true
 		mic_button.modulate.a = 1.0
+	# 确保pic_button也被正确设置
+	if pic_button:
+		pic_button.visible = true
+		pic_button.modulate.a = 1.0
 	continue_indicator.visible = false
 	end_button.visible = true
 	input_field.text = ""
@@ -377,9 +395,16 @@ func _on_input_submitted(text: String):
 	else:
 		print("警告: EventManager未找到，默认允许回复")
 	
+	var final_text = text
+	var img_node = get_node_or_null("ImageInput")
+	if img_node and img_node.has_selected_image():
+		var desc = await img_node.describe_selected_image()
+		if not String(desc).strip_edges().is_empty():
+			final_text = "【图片：" + String(desc).strip_edges() + "】" + final_text
+		img_node.clear_selected_image()
 	if has_node("/root/AIService"):
 		var ai_service = get_node("/root/AIService")
-		ai_service.start_chat(text, "passive")
+		ai_service.start_chat(final_text, "passive")
 
 
 
