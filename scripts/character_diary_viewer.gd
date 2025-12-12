@@ -31,7 +31,7 @@ var current_playing_sentences: Array[String] = [] # 当前正在播放的句子�
 var current_sentence_index: int = 0 # 当前播放的句子索引
 var audio_player: AudioStreamPlayer = null # 音频播放器
 var is_playing_audio: bool = false # 是否正在播放音频
-
+const SENTENCE_PAUSE_DURATION = 0.4  # 句子间的停顿时间（秒）
 # 触摸手势检测
 var touch_start_pos: Vector2 = Vector2.ZERO
 var touch_start_time: float = 0.0
@@ -140,7 +140,7 @@ func play_character_speech(content: String):
 	is_playing_audio = true
 	_play_next_sentence()
 
-# 新增函数：播放下一句
+# 播放下一句
 func _play_next_sentence():
 	"""播放下一句语音"""
 	if current_sentence_index >= current_playing_sentences.size() or not is_playing_audio:
@@ -181,6 +181,8 @@ func _on_audio_finished():
 		# 播放完成，重置所有按钮
 		stop_audio_playback()
 	else:
+		# 停顿后播放下一句
+		await get_tree().create_timer(SENTENCE_PAUSE_DURATION).timeout
 		# 播放下一句
 		_play_next_sentence()
 

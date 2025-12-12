@@ -75,7 +75,7 @@ func _save_api_key(api_key: String):
 			"api_key": api_key
 		},
 		"tts_model": {
-			"model": "FunAudioLLM/CosyVoice2-0.5B",
+			"model": "IndexTeam/IndexTTS-2",
 			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
 		},

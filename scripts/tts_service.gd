@@ -160,8 +160,6 @@ func save_tts_settings():
 		file.close()
 		print("TTS设置已保存（不包含API密钥）")
 
-
-
 func _load_voice_cache():
 	"""加载缓存的声音URI和音频哈希值"""
 	var cache_path = "user://voice_cache.json"
@@ -438,40 +436,28 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 		tts_error.emit(error_msg)
 
 func _remove_parentheses(text: String) -> String:
-	"""移除文本中的括号及其内容（包括各种括号）"""
+	"""移除括号"""
 	var result = text
 	
-	# 移除英文括号及其内容
-	var regex_en = RegEx.new()
-	regex_en.compile("\\([^)]*\\)")
-	result = regex_en.sub(result, "", true)
-
-	# 移除中文括号及其内容
-	var regex_cn = RegEx.new()
-	regex_cn.compile("（[^）]*）")
-	result = regex_cn.sub(result, "", true)
-
-	# 移除方括号 [] 及其内容
-	var regex_bracket = RegEx.new()
-	regex_bracket.compile("\\[[^]]*\\]")
-	result = regex_bracket.sub(result, "", true)
-
-	# 移除【】括号及其内容
-	var regex_cn_bracket = RegEx.new()
-	regex_cn_bracket.compile("【[^】]*】")
-	result = regex_cn_bracket.sub(result, "", true)
-
-	# 移除花括号 {} 及其内容
-	var regex_brace = RegEx.new()
-	regex_brace.compile("\\{[^}]*\\}")
-	result = regex_brace.sub(result, "", true)
-
-	# 移除尖括号 <> 及其内容
-	var regex_angle = RegEx.new()
-	regex_angle.compile("<[^>]*>")
-	result = regex_angle.sub(result, "", true)
+	# 移除所有成对括号及内容
+	var paired_regex = RegEx.new()
+	paired_regex.compile("(\\([^)]*\\)|（[^）]*）|\\[[^]]*\\]|【[^】]*】|\\{[^}]*\\}|<[^>]*>)")
+	result = paired_regex.sub(result, "", true)
 	
-	return result.strip_edges()
+	# 移除所有单边括号情况
+	# 匹配 "(xxx" 或 "xxx)" 的模式
+	var single_regex = RegEx.new()
+	# 这个正则匹配：左括号开头的内容 或 右括号结尾的内容
+	single_regex.compile("(^\\([^)]*|^（[^）]*|^\\[[^]]*|^【[^】]*|^\\{[^}]*|^<[^>]*|[^)]*\\)$|[^）]*）$|[^]]*\\]$|[^】]*】$|[^}]*\\}$|[^>]*>$)")
+	result = single_regex.sub(result, "", true)
+	
+	# 清理空格
+	result = result.strip_edges()
+	var spaces = RegEx.new()
+	spaces.compile("\\s+")
+	result = spaces.sub(result, " ")
+	
+	return result
 
 func _compute_sentence_hash(original_text: String) -> String:
 	"""对句子原始内容（未翻译、未去除括号）计算SHA256哈希，返回十六进制字符串"""
