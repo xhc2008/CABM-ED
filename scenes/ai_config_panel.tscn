@@ -393,7 +393,7 @@ theme_override_constants/separation = 10
 
 [node name="DescLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/语音输入/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "用于语音转文本（未实装）"
+text = "用于语音转文本"
 horizontal_alignment = 1
 autowrap_mode = 3
 
