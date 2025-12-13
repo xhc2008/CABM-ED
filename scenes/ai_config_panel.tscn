@@ -345,7 +345,7 @@ theme_override_constants/separation = 10
 
 [node name="DescLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/视觉模型/ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "用于图像的解析（未实装）"
+text = "用于图像的解析"
 horizontal_alignment = 1
 autowrap_mode = 3
 
