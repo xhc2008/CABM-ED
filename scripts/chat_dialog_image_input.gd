@@ -6,6 +6,7 @@ signal image_cleared()
 var parent_dialog: Panel
 var pic_button: Button
 var input_field: LineEdit
+var android_permissions # 动态权限管理器
 
 var selected_image_path: String = ""
 
@@ -16,6 +17,11 @@ func setup(dialog: Panel, pic_btn: Button, input_fld: LineEdit):
 	parent_dialog = dialog
 	pic_button = pic_btn
 	input_field = input_fld
+	
+	# 初始化Android权限管理器（如果在Android上）
+	if OS.has_feature("android"):
+		android_permissions = preload("res://scripts/android_permissions.gd").new()
+
 	if pic_button:
 		pic_button.pressed.connect(_on_pic_button_pressed)
 		_update_button_icon()
@@ -27,15 +33,39 @@ func _on_pic_button_pressed():
 		_show_file_dialog()
 
 func _show_file_dialog():
+	# 在安卓上先请求存储权限
+	if OS.has_feature("android") and android_permissions:
+		await _request_android_storage_permission()
+	
 	var file_dialog = FileDialog.new()
 	file_dialog.name = "ImagePickerDialog"
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	file_dialog.add_filter("*.png, *.jpg, *.jpeg, *.webp; *.PNG, *.JPG, *.JPEG, *.WEBP", "Images (*.png, *.jpg, *.jpeg, *.webp)")
+	file_dialog.add_filter("*.png, *.jpg, *.jpeg, *.webp *.PNG, *.JPG, *.JPEG, *.WEBP", "图片")
 	file_dialog.use_native_dialog = true  # 关键：启用系统原生选择器
-
-	# Desktop only
-	if not OS.has_feature("android"):
+	
+	# Android: 设置常见图片目录
+	if OS.has_feature("android"):
+		var pics_paths = [
+			"/storage/emulated/0/Pictures",
+			"/storage/emulated/0/DCIM/Camera",
+			"/storage/emulated/0/Download",
+			"/sdcard/Pictures",
+			"/sdcard/DCIM/Camera",
+			OS.get_system_dir(OS.SYSTEM_DIR_PICTURES),
+			OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
+		]
+		
+		for path in pics_paths:
+			if path and not path.is_empty() and DirAccess.dir_exists_absolute(path):
+				file_dialog.current_dir = path
+				print("📸 设置图片选择器路径: ", path)
+				break
+		
+		print("📸 打开图片文件选择器（安卓模式）")
+		print("📸 如果看不到图片，请尝试点击左上角菜单切换到其他文件夹")
+	else:
+		# Desktop only
 		var pics_dir = OS.get_system_dir(OS.SYSTEM_DIR_PICTURES)
 		if not pics_dir.is_empty():
 			file_dialog.current_dir = pics_dir
@@ -44,6 +74,18 @@ func _show_file_dialog():
 	file_dialog.canceled.connect(file_dialog.queue_free)
 	get_tree().root.add_child(file_dialog)
 	file_dialog.popup_centered()
+
+# Android权限请求
+func _request_android_storage_permission() -> bool:
+	if not android_permissions:
+		print("⚠️ Android权限管理器未初始化")
+		return true # 继续执行，但可能失败
+	
+	var has_permission = await android_permissions.request_storage_permission()
+	if not has_permission:
+		print("⚠️ 未获得存储权限，可能无法访问图片文件")
+	
+	return has_permission
 
 func _on_file_selected(path: String):
 	print("📂 Selected: " + path)
@@ -157,7 +199,7 @@ func show_after_history():
 
 func describe_selected_image() -> String:
 	if selected_image_path.is_empty(): return ""
-	var svc = load("res://scripts/ai_chat/ai_view_service.gd").instantiate()
+	var svc = preload("res://scripts/ai_chat/ai_view_service.gd").new()
 	add_child(svc)
 	var desc = await svc.describe_image(selected_image_path)
 	svc.queue_free()
