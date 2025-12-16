@@ -12,20 +12,12 @@ var is_first_load: bool = true # 标记是否是首次加载
 const CHAT_POSITION_RATIO = Vector2(0.5, 0.55) # 向下调整到0.5
 const CHAT_SCALE = 0.7
 
-# 表情叠加层（用于聊天状态）
-var expression_layer: TextureRect = null
+# 预合成的聊天纹理缓存
+var chat_texture_cache: Dictionary = {} # {mood_name: composed_texture}
 
 func _ready():
 	pressed.connect(_on_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	
-	# 创建表情叠加层
-	expression_layer = TextureRect.new()
-	expression_layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	expression_layer.stretch_mode = TextureRect.STRETCH_SCALE
-	expression_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
-	expression_layer.visible = false
-	add_child(expression_layer)
 
 func set_background_reference(bg: TextureRect):
 	background_node = bg
@@ -275,11 +267,6 @@ func start_chat():
 	is_chatting = true
 	print("开始聊天，锁定角色状态")
 	
-	# 先清空表情层，避免之前的纹理残留
-	if expression_layer:
-		expression_layer.texture = null
-		expression_layer.visible = false
-	
 	# 消失动画
 	var fade_tween = create_tween()
 	fade_tween.tween_property(self, "modulate:a", 0.0, 0.3)
@@ -294,7 +281,7 @@ func start_chat():
 		return
 	
 	# 加载聊天图片（根据当前心情）
-	_load_chat_image_for_mood()
+	_load_composed_chat_image_for_mood()
 	
 	# 连接AI服务的字段提取信号以更新心情图片
 	if has_node("/root/AIService"):
@@ -374,10 +361,6 @@ func end_chat():
 	
 	print("结束聊天，解锁角色状态")
 	is_chatting = false
-	
-	# 隐藏表情层
-	if expression_layer:
-		expression_layer.visible = false
 	
 	# 断开AI服务信号
 	if has_node("/root/AIService"):
@@ -766,89 +749,208 @@ func _on_pressed():
 		var char_size = size * scale
 		character_clicked.emit(global_pos, char_size)
 
-func _load_chat_image_for_mood():
-	"""根据当前心情和服装加载聊天图片（base.png + 表情层）"""
+# 预合成聊天图片（base + 表情层）
+func _compose_chat_texture(base_texture: Texture2D, expression_texture: Texture2D) -> Texture2D:
+	"""合成base和表情纹理为一张图片"""
+	if not base_texture:
+		return null
+	
+	var base_image = base_texture.get_image()
+	if not base_image:
+		return null
+	
+	# 如果没有表情纹理，直接返回base
+	if not expression_texture:
+		# 确保图像格式正确
+		if base_image.is_compressed():
+			base_image.decompress()
+		if base_image.get_format() != Image.FORMAT_RGBA8:
+			base_image.convert(Image.FORMAT_RGBA8)
+		
+		var result_image = base_image.duplicate()
+		var composed_texture = ImageTexture.create_from_image(result_image)
+		return composed_texture
+	
+	var expression_image = expression_texture.get_image()
+	if not expression_image:
+		# 确保图像格式正确
+		if base_image.is_compressed():
+			base_image.decompress()
+		if base_image.get_format() != Image.FORMAT_RGBA8:
+			base_image.convert(Image.FORMAT_RGBA8)
+		
+		var result_image = base_image.duplicate()
+		var composed_texture = ImageTexture.create_from_image(result_image)
+		return composed_texture
+	
+	# 确保两个图片格式正确且不压缩
+	if base_image.is_compressed():
+		base_image.decompress()
+	if expression_image.is_compressed():
+		expression_image.decompress()
+	
+	# 转换为RGBA8格式以确保正确混合
+	if base_image.get_format() != Image.FORMAT_RGBA8:
+		base_image.convert(Image.FORMAT_RGBA8)
+	if expression_image.get_format() != Image.FORMAT_RGBA8:
+		expression_image.convert(Image.FORMAT_RGBA8)
+	
+	# 确保两个图片大小一致
+	var base_size = base_image.get_size()
+	var expr_size = expression_image.get_size()
+	
+	# 如果大小不一致，调整表达图片大小
+	if base_size != expr_size:
+		# 使用更高质量的重采样方法
+		var resized_expr = expression_image.duplicate()
+		resized_expr.resize(base_size.x, base_size.y, Image.INTERPOLATE_LANCZOS)
+		# 调整大小后可能需要重新转换格式
+		if resized_expr.get_format() != Image.FORMAT_RGBA8:
+			resized_expr.convert(Image.FORMAT_RGBA8)
+		expression_image = resized_expr
+	
+	# 创建结果图像
+	var result_image = Image.create(base_size.x, base_size.y, false, Image.FORMAT_RGBA8)
+	
+	# 合成算法 - 使用简单的覆盖混合
+	for x in range(base_size.x):
+		for y in range(base_size.y):
+			var base_pixel = base_image.get_pixel(x, y)
+			var expr_pixel = expression_image.get_pixel(x, y)
+			
+			# 表情层覆盖在基础层上
+			if expr_pixel.a < 0.01:  # 基本完全透明
+				result_image.set_pixel(x, y, base_pixel)
+			elif expr_pixel.a > 0.99:  # 基本完全不透明
+				result_image.set_pixel(x, y, expr_pixel)
+			else:
+				# Alpha混合
+				var alpha = expr_pixel.a
+				var blended_color = Color()
+				blended_color.r = base_pixel.r * (1.0 - alpha) + expr_pixel.r * alpha
+				blended_color.g = base_pixel.g * (1.0 - alpha) + expr_pixel.g * alpha
+				blended_color.b = base_pixel.b * (1.0 - alpha) + expr_pixel.b * alpha
+				blended_color.a = base_pixel.a * (1.0 - alpha) + expr_pixel.a  # 累积alpha
+				result_image.set_pixel(x, y, blended_color)
+	
+	# 创建纹理
+	var composed_texture = ImageTexture.create_from_image(result_image)
+	
+	return composed_texture
+
+func _load_composed_chat_image_for_mood():
+	"""根据当前心情和服装加载预合成的聊天图片"""
 	if not has_node("/root/SaveManager"):
-		_load_default_chat_image()
+		_load_default_composed_chat_image()
 		return
 	
 	var save_mgr = get_node("/root/SaveManager")
 	var mood_name_en = save_mgr.get_mood()
 	var costume_id = save_mgr.get_costume_id()
 	
-	# 加载base.png作为底模
+	# 检查缓存
+	var cache_key = "%s_%s" % [costume_id, mood_name_en]
+	if chat_texture_cache.has(cache_key):
+		texture_normal = chat_texture_cache[cache_key]
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+		print("使用缓存的合成聊天图片: ", cache_key)
+		return
+	
+	# 加载base.png
 	var base_image_path = "res://assets/images/character/%s/chat/base.png" % costume_id
 	if not ResourceLoader.exists(base_image_path):
 		print("base.png不存在: ", base_image_path, " 使用旧方式")
-		_load_default_chat_image()
+		_load_default_composed_chat_image()
 		return
 	
-	# 确保纹理加载成功
-	var base_texture = load(base_image_path)
-	if base_texture == null:
+	var base_texture = load(base_image_path) as Texture2D
+	if not base_texture:
 		print("base.png加载失败: ", base_image_path)
-		_load_default_chat_image()
+		_load_default_composed_chat_image()
 		return
 	
-	texture_normal = base_texture
-	custom_minimum_size = texture_normal.get_size()
-	size = texture_normal.get_size()
-	
-	# 从mood_config.json获取表情图片文件名
+	# 获取表情图片
 	var image_filename = _get_mood_image_filename(mood_name_en)
-	if image_filename.is_empty():
-		# 没有表情，只显示base
-		if expression_layer:
-			expression_layer.visible = false
-		print("加载base图片: ", base_image_path)
-		return
+	var expression_texture = null
 	
-	# 加载表情图片到叠加层
-	var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
-	if ResourceLoader.exists(expression_image_path) and expression_layer:
-		var expression_texture = load(expression_image_path)
-		if expression_texture:
-			expression_layer.texture = expression_texture
-			expression_layer.size = texture_normal.get_size()
-			expression_layer.position = Vector2.ZERO
-			expression_layer.visible = true
-			print("加载base图片: ", base_image_path, " + 表情图片: ", expression_image_path)
-		else:
-			print("表情图片加载失败: ", expression_image_path)
-			expression_layer.visible = false
-	else:
-		print("表情图片不存在: ", expression_image_path, " 只显示base")
-		if expression_layer:
-			expression_layer.visible = false
-
-func _load_default_chat_image():
-	"""加载默认聊天图片（base.png + normal.png）"""
-	var costume_id = _get_costume_id()
+	if not image_filename.is_empty():
+		var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
+		if ResourceLoader.exists(expression_image_path):
+			expression_texture = load(expression_image_path) as Texture2D
 	
-	# 加载base.png作为底模
-	var base_image_path = "res://assets/images/character/%s/chat/base.png" % costume_id
-	if ResourceLoader.exists(base_image_path):
-		texture_normal = load(base_image_path)
+	# 预合成纹理
+	var composed_texture = _compose_chat_texture(base_texture, expression_texture)
+	
+	if composed_texture:
+		chat_texture_cache[cache_key] = composed_texture
+		texture_normal = composed_texture
 		custom_minimum_size = texture_normal.get_size()
 		size = texture_normal.get_size()
-		
-		# 加载normal.png作为表情层
-		var normal_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
-		if ResourceLoader.exists(normal_image_path):
-			expression_layer.texture = load(normal_image_path)
-			expression_layer.size = texture_normal.get_size()
-			expression_layer.position = Vector2.ZERO
-			expression_layer.visible = true
-		else:
-			expression_layer.visible = false
+		print("预合成聊天图片: ", cache_key)
 	else:
-		# 如果没有base.png，回退到旧方式
-		var chat_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
-		if ResourceLoader.exists(chat_image_path):
-			texture_normal = load(chat_image_path)
+		# 合成失败，使用默认方式
+		_load_default_composed_chat_image()
+
+func _load_default_composed_chat_image():
+	"""加载默认合成聊天图片"""
+	var costume_id = _get_costume_id()
+	
+	# 加载base.png
+	var base_image_path = "res://assets/images/character/%s/chat/base.png" % costume_id
+	var base_texture = null
+	var normal_texture = null
+	
+	if ResourceLoader.exists(base_image_path):
+		base_texture = load(base_image_path) as Texture2D
+	
+	# 加载normal.png
+	var normal_image_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
+	if ResourceLoader.exists(normal_image_path):
+		normal_texture = load(normal_image_path) as Texture2D
+	
+	# 如果base存在，尝试合成
+	if base_texture:
+		var composed_texture = _compose_chat_texture(base_texture, normal_texture)
+		if composed_texture:
+			texture_normal = composed_texture
 			custom_minimum_size = texture_normal.get_size()
 			size = texture_normal.get_size()
-			expression_layer.visible = false
+			return
+	
+	# 如果没有base，使用normal作为单独纹理
+	var fallback_path = "res://assets/images/character/%s/chat/normal.png" % costume_id
+	if ResourceLoader.exists(fallback_path):
+		texture_normal = load(fallback_path)
+		custom_minimum_size = texture_normal.get_size()
+		size = texture_normal.get_size()
+
+func _on_mood_changed(fields: Dictionary):
+	"""心情变化时切换预合成的表情图片"""
+	if not is_chatting:
+		return
+	
+	if not fields.has("mood"):
+		return
+	
+	# 获取新心情的英文名
+	var mood_id = int(fields.mood)
+	var mood_name_en = _get_mood_name_en_by_id(mood_id)
+	if mood_name_en.is_empty():
+		return
+	
+	# 获取当前服装ID
+	var costume_id = _get_costume_id()
+	var cache_key = "%s_%s" % [costume_id, mood_name_en]
+	
+	# 检查缓存
+	if chat_texture_cache.has(cache_key):
+		texture_normal = chat_texture_cache[cache_key]
+		print("切换到缓存的表情图片: ", cache_key)
+		return
+	
+	# 如果不在缓存中，重新合成
+	_load_composed_chat_image_for_mood()
 
 func _get_mood_image_filename(mood_name_en: String) -> String:
 	"""根据心情英文名获取图片文件名"""
@@ -873,40 +975,6 @@ func _get_mood_image_filename(mood_name_en: String) -> String:
 			return mood.image
 	
 	return ""
-
-func _on_mood_changed(fields: Dictionary):
-	"""心情变化时切换表情图片（只更新表情层）"""
-	if not is_chatting:
-		return
-	
-	if not fields.has("mood"):
-		return
-	
-	# 获取新心情的英文名（确保是整数类型）
-	var mood_id = int(fields.mood)
-	var mood_name_en = _get_mood_name_en_by_id(mood_id)
-	if mood_name_en.is_empty():
-		return
-	
-	# 获取图片文件名
-	var image_filename = _get_mood_image_filename(mood_name_en)
-	if image_filename.is_empty():
-		# 没有表情，隐藏表情层
-		expression_layer.visible = false
-		return
-	
-	# 获取当前服装ID
-	var costume_id = _get_costume_id()
-	
-	# 只更新表情层
-	var expression_image_path = "res://assets/images/character/%s/chat/%s" % [costume_id, image_filename]
-	if ResourceLoader.exists(expression_image_path):
-		expression_layer.texture = load(expression_image_path)
-		expression_layer.visible = true
-		print("切换表情图片: ", expression_image_path)
-	else:
-		print("表情图片不存在: ", expression_image_path)
-		expression_layer.visible = false
 
 func _get_mood_name_en_by_id(mood_id: int) -> String:
 	"""根据mood ID获取英文名称"""
@@ -946,9 +1014,12 @@ func _ensure_hidden():
 
 func reload_with_new_costume():
 	"""换装后重新加载角色"""
+	# 清空聊天纹理缓存
+	chat_texture_cache.clear()
+	
 	# 如果正在聊天，重新加载聊天图片（包括base和表情层）
 	if is_chatting:
-		_load_chat_image_for_mood()
+		_load_composed_chat_image_for_mood()
 		return
 	
 	# 检查角色是否在当前场景
