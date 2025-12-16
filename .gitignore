@@ -1,5 +1,6 @@
 assets/images/character
 config/character_presets
+novel/config
 *.jks
 CABM-ED/
 # ================================
