@@ -2,11 +2,11 @@
 
 [ext_resource type="Script" uid="uid://b8cknwvcbauvs" path="res://scripts/explore/explore_scene.gd" id="1"]
 [ext_resource type="Script" uid="uid://5f1breooo4f6" path="res://scripts/explore/explore_player.gd" id="2"]
-[ext_resource type="Texture2D" uid="uid://dlmnndke1yt2k" path="res://assets/images/explore/player.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://nka4rn0qb6lg" path="res://assets/images/explore/player.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://c27anlstvtwhu" path="res://assets/images/explore/Tilemap/minecraft.png" id="3_hol5y"]
 [ext_resource type="Script" uid="uid://q8xudc1aegwy" path="res://scripts/explore/snow_fox_companion.gd" id="4"]
-[ext_resource type="Texture2D" uid="uid://chxtsdyvcu3ox" path="res://assets/images/explore/SnowFox.png" id="5"]
-[ext_resource type="Texture2D" uid="uid://but00hra5v33o" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="6_ntjpi"]
+[ext_resource type="Texture2D" uid="uid://dslywdi4cf4ig" path="res://assets/images/explore/SnowFox.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://bhks7rmlhgeen" path="res://assets/images/explore/Tilemap/tilesheet_complete.png" id="6_ntjpi"]
 [ext_resource type="Script" uid="uid://dg0p3r1i6n12i" path="res://scripts/explore/interaction_prompt.gd" id="9_ntjpi"]
 [ext_resource type="Script" uid="uid://dmpq583kw3ava" path="res://scripts/explore/explore_inventory_ui.gd" id="10_wc8on"]
 
@@ -2192,9 +2192,7 @@ offset_left = 20.0
 offset_top = 70.0
 offset_right = 300.0
 offset_bottom = 150.0
-text = "WASD/摇杆 - 移动
-鼠标 - 朝向
-交战，搜索，搞定就撤"
+text = "交战，搜索，搞定就撤"
 
 [node name="InteractionPrompt" type="Control" parent="UI"]
 layout_mode = 3

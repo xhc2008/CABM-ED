@@ -7,6 +7,7 @@ class_name MobileUI
 @onready var shoot_area: Control = $ShootArea
 @onready var shoot_area2: Control = $ShootArea2
 @onready var reload_area: Control = $ReloadArea
+@onready var chat_button: Button = $ChatButton
 
 # 按钮背景面板引用
 @onready var shoot_bg: Panel = $ShootArea/Background
@@ -20,6 +21,7 @@ var reload_touch_index: int = -1
 signal shoot_started()
 signal shoot_stopped()
 signal reload_pressed()
+signal chat_button_pressed()
 
 var is_shooting: bool = false
 
@@ -29,6 +31,10 @@ func _ready():
 	
 	# 存储原始样式
 	_store_original_styles()
+	
+	# 连接聊天按钮
+	if chat_button:
+		chat_button.pressed.connect(_on_chat_button_pressed)
 
 func get_joystick() -> VirtualJoystick:
 	"""获取摇杆引用"""
@@ -93,6 +99,10 @@ func _is_point_in_control(point: Vector2, control: Control) -> bool:
 func is_shooting_active() -> bool:
 	"""是否正在射击"""
 	return is_shooting
+
+func _on_chat_button_pressed():
+	"""聊天按钮点击（移动端）"""
+	chat_button_pressed.emit()
 
 # 点击反馈相关
 var original_styles: Dictionary = {}

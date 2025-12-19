@@ -8,6 +8,7 @@ extends Node2D
 @onready var ui_root = $UI
 
 var mobile_ui: Control  # 移动端UI (MobileUI)
+var chat_ui: ChatUI     # 聊天UI
 var inventory_ui: ExploreInventoryUI
 var player_inventory: PlayerInventory
 var chest_system: Node # ChestSystem
@@ -34,6 +35,13 @@ var frontground_layer
 # 加载界面
 var loading_view: Control
 var death_view: Control
+
+# 聊天与信息播报
+var chat_messages: Array[String] = []
+var info_feed: VBoxContainer
+var info_messages: Array = [] # 每条: { "text": String, "panel": Panel, "time_left": float, "fading": bool }
+const INFO_MESSAGE_DURATION := 4.0
+var is_in_chat_mode: bool = false
 
 func _ready():
 	# 初始化场景状态管理器
@@ -95,6 +103,8 @@ func _ready():
 	_create_mobile_ui()
 	_create_health_ui()
 	_create_hit_flash()
+	_create_chat_ui()
+	_create_info_feed()
 
 	_load_tilemap_for_explore_id()
 	
@@ -240,7 +250,7 @@ func _load_tilemap_for_explore_id():
 	# 恢复检查点
 	scene_state.restore_checkpoint(player, snow_fox)
 
-func _process(_delta):
+func _process(delta):
 	# 如果正在退出，不处理任何逻辑
 	if scene_state and scene_state.is_exiting():
 		return
@@ -253,8 +263,9 @@ func _process(_delta):
 		if chunk_manager:
 			chunk_manager.update_loaded_chunks()
 	
-	# 自动射击检查（仅在活跃状态）
-	if scene_state and scene_state.is_active() and (not inventory_ui or not inventory_ui.visible):
+	# 自动射击检查（仅在活跃状态，且未打开背包/聊天）
+	var is_inventory_open := inventory_ui and inventory_ui.visible
+	if scene_state and scene_state.is_active() and (not is_inventory_open) and (not is_in_chat_mode):
 		# PC端：鼠标左键
 		if player and not player.is_mobile:
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -264,6 +275,9 @@ func _process(_delta):
 		# 移动端：触摸射击区域
 		elif mobile_ui and mobile_ui.is_shooting_active():
 			_handle_shoot()
+	
+	# 更新信息播报计时
+	_update_info_messages(delta)
 
 func _check_nearby_chests():
 	if not player.interaction_detector:
@@ -500,6 +514,14 @@ func _input(event: InputEvent):
 	if scene_state and scene_state.is_exiting():
 		return
 	
+	# 聊天模式下：只处理ESC键退出聊天，不拦截T键
+	if is_in_chat_mode:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_exit_chat_mode()
+			get_viewport().set_input_as_handled()
+		# 不处理其他按键，让聊天框的输入框能正常接收输入
+		return
+	
 	# 如果背包打开，不处理其他输入
 	if inventory_ui and inventory_ui.visible:
 		return
@@ -521,6 +543,12 @@ func _input(event: InputEvent):
 			if weapon_system and player:
 				weapon_system.start_reload(player.global_position)
 			get_viewport().set_input_as_handled()
+		
+		# T键只在聊天框未打开时打开聊天框
+		if event.pressed and event.keycode == KEY_T:
+			if not is_in_chat_mode:
+				_enter_chat_mode()
+				get_viewport().set_input_as_handled()
 	
 	# 鼠标左键射击（仅PC端）
 	if event is InputEventMouseButton:
@@ -562,6 +590,55 @@ func _create_hit_flash():
 	hit_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.add_child(hit_flash)
 
+func _create_chat_ui():
+	"""创建聊天UI"""
+	if not ui_root:
+		return
+	var chat_scene := load("res://scenes/chat_ui.tscn")
+	if chat_scene and ResourceLoader.exists("res://scenes/chat_ui.tscn"):
+		chat_ui = chat_scene.instantiate()
+		if chat_ui:
+			ui_root.add_child(chat_ui)
+			chat_ui.visible = false
+			chat_ui.message_submitted.connect(_on_chat_message_submitted)
+			if chat_ui.has_signal("close_requested"):
+				chat_ui.close_requested.connect(_on_chat_close_requested)
+
+func _create_info_feed():
+	"""创建左下角信息播报区域"""
+	if not ui_root:
+		return
+	info_feed = VBoxContainer.new()
+	info_feed.name = "InfoFeed"
+	info_feed.anchor_left = 0.0
+	info_feed.anchor_top = 1.0
+	info_feed.anchor_right = 0.4
+	info_feed.anchor_bottom = 1.0
+	info_feed.offset_left = 20.0
+	info_feed.offset_right = 20.0
+	info_feed.offset_top = -160.0
+	info_feed.offset_bottom = -20.0
+	info_feed.alignment = BoxContainer.ALIGNMENT_END
+	info_feed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_root.add_child(info_feed)
+	
+	# 创建容器用于控制最小宽度
+	var feed_container = HBoxContainer.new()
+	feed_container.name = "InfoFeedContainer"
+	feed_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	feed_container.custom_minimum_size.x = 300  # 设置最小宽度
+	info_feed.add_child(feed_container)
+	
+	# 创建内部容器用于消息布局
+	var inner_container = VBoxContainer.new()
+	inner_container.name = "InnerContainer"
+	inner_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner_container.alignment = BoxContainer.ALIGNMENT_END
+	feed_container.add_child(inner_container)
+	
+	# 重定向info_feed到内部容器以便后续使用
+	info_feed = inner_container
+
 func _flash_screen():
 	if not hit_flash:
 		return
@@ -570,6 +647,157 @@ func _flash_screen():
 	tween.tween_property(hit_flash, "color:a", 0.35, 0.08)
 	tween.tween_property(hit_flash, "color:a", 0.0, 0.25)
 
+func _update_info_messages(delta: float):
+	"""更新信息播报计时与淡出逻辑"""
+	if info_messages.is_empty():
+		return
+	
+	# 使用临时数组收集需要移除的索引
+	var indices_to_remove := []
+	
+	for i in range(info_messages.size() - 1, -1, -1):
+		var msg = info_messages[i]
+		msg.time_left -= delta
+		
+		# 检查面板是否有效
+		var panel: Panel = msg.panel
+		if not is_instance_valid(panel):
+			indices_to_remove.append(i)
+			continue
+		
+		if msg.time_left <= 0.0:
+			if is_in_chat_mode:
+				# 聊天框打开时超时：直接移除，无淡出
+				panel.queue_free()
+				indices_to_remove.append(i)
+			else:
+				if not msg.fading:
+					msg.fading = true
+					var tween := create_tween()
+					
+					# 确保在tween回调中安全处理
+					panel.modulate = Color(panel.modulate.r, panel.modulate.g, panel.modulate.b, 1.0)
+					
+					tween.tween_property(panel, "modulate:a", 0.0, 0.5)
+					tween.finished.connect(
+						func():
+							# 再次检查有效性
+							if is_instance_valid(panel):
+								panel.queue_free()
+							# 从数组中移除
+							_remove_message_by_panel(panel)
+					)
+					
+					# 更新数组
+					info_messages[i] = msg
+	
+	# 从后向前移除已标记的元素
+	indices_to_remove.sort()
+	for j in range(indices_to_remove.size() - 1, -1, -1):
+		var idx = indices_to_remove[j]
+		info_messages.remove_at(idx)
+
+func _remove_message_by_panel(panel_to_remove: Panel):
+	"""根据面板移除消息"""
+	for i in range(info_messages.size() - 1, -1, -1):
+		if info_messages[i].get("panel") == panel_to_remove:
+			info_messages.remove_at(i)
+			break
+
+func _on_chat_message_submitted(text: String):
+	"""处理聊天输入（暂时直接用固定AI回复）"""
+	# 玩家消息
+	var player_line := "<我> " + text
+	_add_chat_message(player_line)
+	
+	# 角色（AI）固定回复
+	var char_name := _get_character_name()
+	var reply := "<%s> 这是一个测试回复，用于验证聊天功能。"%char_name
+	_add_chat_message(reply)
+	
+	# 同时做一次信息播报
+	_broadcast_info(reply)
+
+func _on_chat_close_requested():
+	"""聊天UI请求关闭（点击退出按钮）"""
+	_exit_chat_mode()
+
+func _add_chat_message(line: String):
+	chat_messages.append(line)
+	if chat_ui:
+		chat_ui.add_message(line)
+
+func _broadcast_info(text: String):
+	"""左下角信息播报 + 写入聊天历史"""
+	var line := "<系统> " + text
+	_add_chat_message(line)
+	_show_info_toast(line)
+
+func _enter_chat_mode():
+	"""进入聊天模式：禁用移动和交互，隐藏战斗与移动端UI"""
+	if is_in_chat_mode:
+		return
+	is_in_chat_mode = true
+	if chat_ui:
+		chat_ui.open()
+	set_player_controls_enabled(false)
+	_hide_combat_ui()
+	# 隐藏信息播报的可见部分（计时继续在 _update_info_messages 中进行）
+	if info_feed:
+		info_feed.visible = false
+
+func _exit_chat_mode():
+	"""退出聊天模式：恢复控制和UI"""
+	if not is_in_chat_mode:
+		return
+	is_in_chat_mode = false
+	if chat_ui:
+		chat_ui.close()
+	set_player_controls_enabled(true)
+	_show_combat_ui()
+	if info_feed:
+		info_feed.visible = true
+
+func _show_info_toast(text: String):
+	"""在左下角短暂显示一条信息"""
+	if not info_feed:
+		return
+	var panel := Panel.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.custom_minimum_size.x = 0  # 允许面板根据内容扩展
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.6)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_right = 4
+	style.corner_radius_bottom_left = 4
+	panel.add_theme_stylebox_override("panel", style)
+	panel.modulate = Color(1, 1, 1, 0.0)
+	
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(label)
+	
+	info_feed.add_child(panel)
+	
+	var msg := {
+		"text": text,
+		"panel": panel,
+		"time_left": INFO_MESSAGE_DURATION,
+		"fading": false
+	}
+	info_messages.append(msg)
+	
+	# 仅在非聊天模式下使用淡入
+	if not is_in_chat_mode:
+		var tween := create_tween()
+		tween.tween_property(panel, "modulate:a", 1.0, 0.15)
+	else:
+		panel.modulate = Color(1, 1, 1, 1.0)
+	
 func _on_player_hit(_damage: int):
 	_flash_screen()
 	show_damage_number(_damage, player.global_position)
@@ -827,10 +1055,13 @@ func _create_mobile_ui():
 					elif joystick.has_signal("value_changed"):
 						joystick.value_changed.connect(_on_joystick_updated)
 			
-			# 连接射击和换弹信号
+			# 连接射击、换弹和聊天信号
 			mobile_ui.shoot_started.connect(_on_mobile_shoot_started)
 			mobile_ui.shoot_stopped.connect(_on_mobile_shoot_stopped)
 			mobile_ui.reload_pressed.connect(_on_mobile_reload_pressed)
+			
+			if mobile_ui.has_signal("chat_button_pressed"):
+				mobile_ui.chat_button_pressed.connect(_on_mobile_chat_button_pressed)
 
 func _on_mobile_shoot_started():
 	"""移动端开始射击"""
@@ -844,6 +1075,13 @@ func _on_mobile_reload_pressed():
 	"""移动端换弹"""
 	if weapon_system and player:
 		weapon_system.start_reload(player.global_position)
+
+func _on_mobile_chat_button_pressed():
+	"""移动端聊天按钮点击"""
+	if is_in_chat_mode:
+		_exit_chat_mode()
+	else:
+		_enter_chat_mode()
 		
 func set_player_controls_enabled(enabled: bool):
 	"""启用/禁用玩家控制"""
