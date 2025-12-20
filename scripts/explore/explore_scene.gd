@@ -101,7 +101,7 @@ func _ready():
 	var manager_script = load("res://scripts/explore/chat_and_info_manager.gd")
 	chat_and_info_manager = manager_script.new()
 	add_child(chat_and_info_manager)
-	chat_and_info_manager.setup(ui_root, _get_character_name)
+	chat_and_info_manager.setup(ui_root, _get_character_name, _get_explore_scene_name)
 	chat_and_info_manager.chat_mode_changed.connect(_on_chat_mode_changed)
 
 	_load_tilemap_for_explore_id()
@@ -994,6 +994,12 @@ func _get_character_name() -> String:
 	
 	var save_mgr = get_node("/root/SaveManager")
 	return save_mgr.get_character_name()
+
+func _get_explore_scene_name() -> String:
+	"""获取当前探索场景的显示名称"""
+	if scene_state and not scene_state.current_explore_id.is_empty():
+		return scene_state.get_explore_display_name(scene_state.current_explore_id)
+	return ""
 
 func get_player_inventory() -> PlayerInventory:
 	return player_inventory

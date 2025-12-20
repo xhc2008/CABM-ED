@@ -17,13 +17,21 @@ signal message_added(line: String)
 
 var ui_root: Node  # 可以是 CanvasLayer 或 Control
 var get_character_name_callback: Callable
+var get_explore_scene_name_callback: Callable  # 获取探索场景名称的回调
 var message_item_scene: PackedScene = load("res://scenes/message_item.tscn")
 var adventure_ai: AdventureAI
 
-func setup(root: Node, character_name_callback: Callable):
-	"""初始化管理器"""
+func setup(root: Node, character_name_callback: Callable, explore_scene_name_callback: Callable = Callable()):
+	"""初始化管理器
+	
+	Args:
+		root: UI根节点
+		character_name_callback: 获取角色名称的回调
+		explore_scene_name_callback: 获取探索场景名称的回调（可选，仅在探索场景中使用）
+	"""
 	ui_root = root
 	get_character_name_callback = character_name_callback
+	get_explore_scene_name_callback = explore_scene_name_callback
 	_create_chat_ui()
 	_create_info_feed()
 	adventure_ai = AdventureAI.new()
@@ -56,7 +64,7 @@ func _create_info_feed():
 	outer_container.custom_minimum_size = Vector2(900, 0)
 	outer_container.offset_left = 0.0
 	outer_container.offset_top = -500.0  # 从底部向上500像素，给更多空间
-	outer_container.offset_bottom = -62.0
+	outer_container.offset_bottom = -98.0
 	outer_container.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 不拦截鼠标事件
 	ui_root.add_child(outer_container)
 	
@@ -126,11 +134,16 @@ func _remove_message_by_panel(panel_to_remove: Panel):
 
 func _on_chat_message_submitted(text: String):
 	"""处理聊天输入（暂时直接用固定AI回复）"""
-	var player_line := "<我> " + text
+	var user_name := _get_user_name()
+	var player_line := "<%s> %s" % [user_name, text]
 	add_chat_message(player_line)
 	show_info_toast(player_line)
 	if adventure_ai:
-		adventure_ai.request_reply(text)
+		# 获取探索场景名称（如果在探索场景中）
+		var explore_scene_name := ""
+		if get_explore_scene_name_callback.is_valid():
+			explore_scene_name = get_explore_scene_name_callback.call()
+		adventure_ai.request_reply(text, explore_scene_name)
 	exit_chat_mode()
 
 func _on_chat_close_requested():
@@ -205,6 +218,13 @@ func _get_character_name() -> String:
 	if get_character_name_callback.is_valid():
 		return get_character_name_callback.call()
 	return "角色"
+
+func _get_user_name() -> String:
+	"""获取用户名"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_user_name()
+	return "我"
 
 func get_chat_messages() -> Array[String]:
 	"""获取聊天消息历史"""
