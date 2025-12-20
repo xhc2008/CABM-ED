@@ -9,6 +9,7 @@ signal close_requested()
 @onready var history_container: VBoxContainer = $Panel/Margin/VBox/Scroll/History
 @onready var input: LineEdit = $Panel/Margin/VBox/Input
 @onready var close_button: Button = $Panel/Margin/VBox/Header/CloseButton
+@onready var message_item_scene: PackedScene = load("res://scenes/message_item.tscn")
 
 var messages: Array[String] = []
 var max_messages: int = 200
@@ -72,32 +73,12 @@ func _refresh_history():
 	_scroll_to_bottom()
 
 func _append_label(text: String):
-	var msg_panel := Panel.new()
-	msg_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	msg_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg_panel.custom_minimum_size = Vector2(0, 0)  # 允许根据内容调整大小
-	
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0.6)
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_right = 4
-	style.corner_radius_bottom_left = 4
-	style.content_margin_left = 8.0
-	style.content_margin_right = 8.0
-	style.content_margin_top = 6.0
-	style.content_margin_bottom = 6.0
-	msg_panel.add_theme_stylebox_override("panel", style)
-	
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	msg_panel.add_child(label)
-	
+	if not message_item_scene:
+		return
+	var msg_panel := message_item_scene.instantiate()
+	var label := msg_panel.get_node("Label") as Label
+	if label:
+		label.text = text
 	history_container.add_child(msg_panel)
 
 func _scroll_to_bottom():

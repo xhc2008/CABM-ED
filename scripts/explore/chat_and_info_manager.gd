@@ -17,6 +17,8 @@ signal message_added(line: String)
 
 var ui_root: Node  # 可以是 CanvasLayer 或 Control
 var get_character_name_callback: Callable
+var message_item_scene: PackedScene = load("res://scenes/message_item.tscn")
+var adventure_ai: AdventureAI
 
 func setup(root: Node, character_name_callback: Callable):
 	"""初始化管理器"""
@@ -24,6 +26,9 @@ func setup(root: Node, character_name_callback: Callable):
 	get_character_name_callback = character_name_callback
 	_create_chat_ui()
 	_create_info_feed()
+	adventure_ai = AdventureAI.new()
+	add_child(adventure_ai)
+	adventure_ai.reply_ready.connect(_on_ai_reply_ready)
 
 func _create_chat_ui():
 	"""创建聊天UI"""
@@ -47,11 +52,9 @@ func _create_info_feed():
 	# 创建外层容器（锚定到左下角）
 	var outer_container := Control.new()
 	outer_container.name = "InfoFeed"
-	outer_container.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	outer_container.anchor_top = 1.0
-	outer_container.anchor_bottom = 1.0
+	outer_container.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	outer_container.custom_minimum_size = Vector2(900, 0)
 	outer_container.offset_left = 20.0
-	outer_container.offset_right = 20.0
 	outer_container.offset_top = -500.0  # 从底部向上500像素，给更多空间
 	outer_container.offset_bottom = -20.0
 	ui_root.add_child(outer_container)
@@ -60,7 +63,7 @@ func _create_info_feed():
 	info_feed = VBoxContainer.new()
 	info_feed.name = "InfoFeedInner"
 	info_feed.set_anchors_preset(Control.PRESET_FULL_RECT)
-	info_feed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_feed.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	info_feed.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	info_feed.alignment = BoxContainer.ALIGNMENT_END  # 底部对齐，新消息在底部
 	info_feed.add_theme_constant_override("separation", 4)  # 消息之间的间距
@@ -129,17 +132,12 @@ func _remove_message_by_panel(panel_to_remove: Panel):
 
 func _on_chat_message_submitted(text: String):
 	"""处理聊天输入（暂时直接用固定AI回复）"""
-	# 玩家消息
 	var player_line := "<我> " + text
 	add_chat_message(player_line)
-	
-	# 角色（AI）固定回复
-	var char_name := _get_character_name()
-	var reply := "<%s> 这是一个测试回复，用于验证聊天功能。" % char_name
-	add_chat_message(reply)
-	
-	# 同时做一次信息播报
-	broadcast_info(reply)
+	show_info_toast(player_line)
+	if adventure_ai:
+		adventure_ai.request_reply(text)
+	exit_chat_mode()
 
 func _on_chat_close_requested():
 	"""聊天UI请求关闭（点击退出按钮）"""
@@ -187,55 +185,25 @@ func show_info_toast(text: String):
 	"""在左下角短暂显示一条信息"""
 	if not info_feed:
 		return
-	
-	var panel := Panel.new()
-	# 使用容器布局模式，让VBoxContainer自动排列
-	# panel.layout_mode = 2  # LAYOUT_MODE_CONTAINER
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER  # 不扩展，居中
-	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER  # 根据内容调整高度
-	panel.custom_minimum_size = Vector2(900, 0)  # 固定宽度900px，高度由内容决定
-	
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0.6)
-	# style.corner_radius_top_left = 4
-	# style.corner_radius_top_right = 4
-	# style.corner_radius_bottom_right = 4
-	# style.corner_radius_bottom_left = 4
-	style.content_margin_left = 8.0
-	style.content_margin_right = 8.0
-	style.content_margin_top = 6.0
-	style.content_margin_bottom = 6.0
-	panel.add_theme_stylebox_override("panel", style)
+	var panel := message_item_scene.instantiate() as Panel
+	var label := panel.get_node("Label") as Label
+	if label:
+		label.text = text
 	panel.modulate = Color(1, 1, 1, 0.0)
-	
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# label.layout_mode = 2  # LAYOUT_MODE_CONTAINER
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER  # 根据内容调整高度
-	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP  # 顶部对齐，支持多行
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	# 设置标签的宽度，让它知道在哪里换行（900 - 16边距）
-	label.custom_minimum_size = Vector2(884, 0)
-	panel.add_child(label)
-	
 	info_feed.add_child(panel)
-	
-	var msg := {
-		"text": text,
-		"panel": panel,
-		"time_left": INFO_MESSAGE_DURATION,
-		"fading": false
-	}
+	var msg := {"text": text, "panel": panel, "time_left": INFO_MESSAGE_DURATION, "fading": false}
 	info_messages.append(msg)
-	
-	# 仅在非聊天模式下使用淡入
 	if not is_in_chat_mode:
 		var tween := get_tree().create_tween()
 		tween.tween_property(panel, "modulate:a", 1.0, 0.15)
 	else:
 		panel.modulate = Color(1, 1, 1, 1.0)
+
+func _on_ai_reply_ready(text: String) -> void:
+	var char_name := _get_character_name()
+	var reply := "<%s> %s" % [char_name, text]
+	add_chat_message(reply)
+	show_info_toast(reply)
 
 func _get_character_name() -> String:
 	"""获取角色名称"""
