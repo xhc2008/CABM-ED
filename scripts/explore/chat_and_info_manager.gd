@@ -6,6 +6,13 @@ var chat_ui: ChatUI
 var chat_messages: Array[String] = []
 var is_in_chat_mode: bool = false
 
+# 分句显示相关
+var current_reply_char_name: String = ""
+
+# 消息暂存相关（等待AI响应期间用户发送的新消息）
+var pending_messages: Array[String] = []
+var is_ai_processing: bool = false
+
 # 信息播报相关
 var info_feed: VBoxContainer
 var info_messages: Array = [] # 每条: { "text": String, "panel": Panel, "time_left": float, "fading": bool }
@@ -37,6 +44,9 @@ func setup(root: Node, character_name_callback: Callable, explore_scene_name_cal
 	adventure_ai = AdventureAI.new()
 	add_child(adventure_ai)
 	adventure_ai.reply_ready.connect(_on_ai_reply_ready)
+	adventure_ai.sentence_ready.connect(_on_ai_sentence_ready)
+	adventure_ai.all_sentences_completed.connect(_on_all_sentences_completed)
+	adventure_ai.error_occurred.connect(_on_ai_error_occurred)
 
 func _create_chat_ui():
 	"""创建聊天UI"""
@@ -133,18 +143,45 @@ func _remove_message_by_panel(panel_to_remove: Panel):
 			break
 
 func _on_chat_message_submitted(text: String):
-	"""处理聊天输入（暂时直接用固定AI回复）"""
+	"""处理聊天输入"""
 	var user_name := _get_user_name()
 	var player_line := "<%s> %s" % [user_name, text]
 	add_chat_message(player_line)
 	show_info_toast(player_line)
+
 	if adventure_ai:
-		# 获取探索场景名称（如果在探索场景中）
-		var explore_scene_name := ""
-		if get_explore_scene_name_callback.is_valid():
-			explore_scene_name = get_explore_scene_name_callback.call()
-		adventure_ai.request_reply(text, explore_scene_name)
+		if is_ai_processing:
+			# AI正在处理中，暂存消息
+			print("AI正在处理中，暂存消息: ", text)
+			pending_messages.append(text)
+		else:
+			# 直接处理消息
+			_process_user_message(text)
+
 	exit_chat_mode()
+
+func _process_user_message(text: String):
+	"""处理用户消息（发送给AI）"""
+	if not adventure_ai:
+		print("警告: adventure_ai未初始化")
+		return
+
+	is_ai_processing = true
+	print("开始处理用户消息: ", text)
+	print("当前AI处理状态: ", is_ai_processing)
+
+	# 添加到显示历史
+	var user_name := _get_user_name()
+	var user_message_line := "<%s> %s" % [user_name, text]
+	adventure_ai.add_to_display_history("user", user_message_line)
+	print("添加到显示历史: ", user_message_line)
+
+	# 获取探索场景名称（如果在探索场景中）
+	var explore_scene_name := ""
+	if get_explore_scene_name_callback.is_valid():
+		explore_scene_name = get_explore_scene_name_callback.call()
+
+	adventure_ai.request_reply(text, explore_scene_name)
 
 func _on_chat_close_requested():
 	"""聊天UI请求关闭（点击退出按钮）"""
@@ -207,11 +244,74 @@ func show_info_toast(text: String):
 	else:
 		panel.modulate = Color(1, 1, 1, 1.0)
 
-func _on_ai_reply_ready(text: String) -> void:
-	var char_name := _get_character_name()
-	var reply := "<%s> %s" % [char_name, text]
-	add_chat_message(reply)
-	show_info_toast(reply)
+func _on_ai_reply_ready(_text: String) -> void:
+	"""AI回复就绪，开始逐句显示"""
+	print("AI回复就绪，开始逐句显示")
+	current_reply_char_name = _get_character_name()
+
+func _on_ai_sentence_ready(sentence: String) -> void:
+	"""处理单句就绪信号，逐句显示"""
+	print("显示句子: ", sentence)
+	var sentence_line := "<%s> %s" % [current_reply_char_name, sentence]
+	add_chat_message(sentence_line)  # 每句都立即添加到聊天历史
+	show_info_toast(sentence_line)
+
+	# 添加到显示历史
+	if adventure_ai:
+		adventure_ai.add_to_display_history("assistant", sentence_line)
+
+func _on_all_sentences_completed() -> void:
+	"""所有句子显示完成，处理暂存消息"""
+	print("AI回复完成，当前暂存消息数量: ", pending_messages.size())
+	print("处理前is_ai_processing状态: ", is_ai_processing)
+
+	# 先处理暂存的消息（如果有）
+	if not pending_messages.is_empty():
+		var combined_message = "\n".join(pending_messages)
+		print("处理暂存消息: ", combined_message)
+
+		# 清空暂存消息
+		pending_messages.clear()
+
+		# 发送合并后的消息（这会设置is_ai_processing = true）
+		_process_user_message(combined_message)
+		print("处理暂存消息后is_ai_processing状态: ", is_ai_processing)
+	else:
+		# 没有暂存消息，重置AI处理状态
+		is_ai_processing = false
+		print("无暂存消息，重置is_ai_processing为: ", is_ai_processing)
+
+	# 重置当前回复角色名称
+	current_reply_char_name = ""
+
+func _on_ai_error_occurred(error_message: String) -> void:
+	"""处理AI错误"""
+	print("AI错误发生: ", error_message)
+	print("错误处理前is_ai_processing状态: ", is_ai_processing)
+
+	# 显示错误信息
+	var error_line := "<系统> AI回复出错：" + error_message
+	add_chat_message(error_line)
+	show_info_toast(error_line)
+
+	# 添加到显示历史
+	if adventure_ai:
+		adventure_ai.add_to_display_history("system", error_line)
+
+	# 重置当前回复角色名称
+	current_reply_char_name = ""
+
+	# 即使出错也要处理暂存消息（如果有的话）
+	if not pending_messages.is_empty():
+		var combined_message = "\n".join(pending_messages)
+		print("AI错误后处理暂存消息: ", combined_message)
+		pending_messages.clear()
+		_process_user_message(combined_message)  # 这会设置is_ai_processing = true
+		print("错误处理暂存消息后is_ai_processing状态: ", is_ai_processing)
+	else:
+		# 没有暂存消息，重置AI处理状态
+		is_ai_processing = false
+		print("错误处理无暂存消息，重置is_ai_processing为: ", is_ai_processing)
 
 func _get_character_name() -> String:
 	"""获取角色名称"""
@@ -235,6 +335,18 @@ func set_chat_messages(messages: Array[String]):
 	chat_messages = messages.duplicate()
 	if chat_ui:
 		chat_ui.set_messages(chat_messages)
+
+func get_display_history() -> Array:
+	"""获取完整的显示历史（包括分句后的所有消息）"""
+	if adventure_ai:
+		return adventure_ai.get_display_history()
+	return []
+
+func get_ai_context_history() -> Array:
+	"""获取AI上下文历史（用于AI理解的完整对话）"""
+	if adventure_ai:
+		return adventure_ai.conversation_history.duplicate()
+	return []
 
 func _on_tween_finished(panel: Panel):
 	"""Tween完成回调，安全处理面板移除"""

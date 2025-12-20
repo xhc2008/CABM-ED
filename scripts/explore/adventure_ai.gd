@@ -17,9 +17,13 @@ var http_request: HTTPRequest
 # 日志记录器
 var logger: Node
 
-# 短期上下文（对话历史）
+# 短期上下文（对话历史）- 用于AI API上下文
 var conversation_history: Array = []
 var max_history_count: int = 16  # 最多携带的上下文数量
+
+# 显示历史（分句后的消息）- 保留完整记录，但限制大小防止内存泄漏
+var display_history: Array = []
+const MAX_DISPLAY_HISTORY_SIZE: int = 1000  # 最大显示历史条数
 
 # 句子分割相关
 const CHINESE_PUNCTUATION = ["。", "！", "？", "；","……"]
@@ -153,14 +157,14 @@ func _build_system_prompt(scene_name: String, user_prompt: String = "") -> Strin
 	
 	# 中期记忆
 	if not memory_context.is_empty() and memory_context != "（这是你们的第一次对话）":
-		system_prompt_parts.append("最近发生的事情：\n%s" % memory_context)
+		system_prompt_parts.append("## 之前发生的事情\n```\n%s\n```" % memory_context)
 	
 	# 关系上下文
 	if not relationship_context.is_empty() and relationship_context != "（暂无关系信息）":
-		system_prompt_parts.append("你们之间的关系：\n%s" % relationship_context)
+		system_prompt_parts.append("## 你们之间的关系\n%s" % relationship_context)
 	
 	# 输出要求
-	system_prompt_parts.append("请以自然的语言回复，可长可短，要求能反映出探索和战斗时的真实状态。只回复你要说的话，禁止包含动作描写，禁止使用括号。")
+	system_prompt_parts.append("## 回复要求\n以自然的语言回复，可长可短，要求能反映出探索和战斗时的真实状态。只回复你要说的话，禁止包含动作描写，禁止使用括号。")
 	
 	return "\n\n".join(system_prompt_parts)
 
@@ -232,7 +236,8 @@ func _call_ai_api_async(messages: Array, user_prompt: String):
 		"max_tokens": int(chat_config.max_tokens),
 		"temperature": float(chat_config.temperature),
 		"top_p": float(chat_config.top_p),
-		"stream": false  # 非流式响应
+		"stream": false,  # 非流式响应
+		"enable_thinking":false
 	}
 	
 	var json_body = JSON.stringify(body)
@@ -316,13 +321,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	var messages = http_request.get_meta("messages", [])
 	logger.log_api_call("ADVENTURE_AI_RESPONSE", messages, reply_text)
 	
-	# 添加到对话历史
+	# 添加到AI上下文历史（完整的对话）
 	var user_prompt = http_request.get_meta("user_prompt", "")
 	if not user_prompt.is_empty():
 		conversation_history.append({"role": "user", "content": user_prompt})
 	conversation_history.append({"role": "assistant", "content": reply_text})
-	
-	# 限制历史记录总数（防止无限增长，但保留所有记录用于其他用途）
+
+	# 限制AI上下文历史记录总数（超出部分直接删除）
 	if conversation_history.size() > max_history_count * 2:
 		# 只保留最近的部分
 		var keep_count = max_history_count
@@ -351,6 +356,8 @@ func _split_and_display_sentences(text: String):
 	# 逐句显示后续句子
 	while current_sentence_index < sentence_queue.size():
 		await _display_next_sentence(false)
+	is_displaying = false
+	all_sentences_completed.emit()
 
 func _split_text_to_sentences(text: String) -> Array:
 	"""将文本按标点符号分割为句子"""
@@ -363,7 +370,6 @@ func _split_text_to_sentences(text: String) -> Array:
 		
 		# 检查是否是句子结束标点
 		if achar in CHINESE_PUNCTUATION:
-			print("分句！")
 			# 检查下一个字符是否也是标点（如"！？"）
 			if i + 1 < text.length():
 				var next_char = text[i + 1]
@@ -386,8 +392,6 @@ func _split_text_to_sentences(text: String) -> Array:
 func _display_next_sentence(is_first: bool):
 	"""显示下一句句子"""
 	if current_sentence_index >= sentence_queue.size():
-		is_displaying = false
-		all_sentences_completed.emit()
 		return
 	
 	var sentence = sentence_queue[current_sentence_index]
@@ -398,14 +402,30 @@ func _display_next_sentence(is_first: bool):
 	
 	# 如果不是第一句，根据句子长度计算延迟时间
 	if not is_first:
-		# 根据句子长度计算延迟：每10个字符约0.3秒，最少0.2秒，最多1.5秒
-		var delay = clamp(sentence.length() * 0.03, 0.2, 1.5)
+		# 根据句子长度计算延迟：每10个字符约0.8秒，最少0.3秒，最多3秒
+		var delay = clamp(sentence.length() * 0.08, 0.3, 3)
 		await get_tree().create_timer(delay).timeout
 
 func get_sentences_from_text(text: String) -> Array:
 	"""获取文本的所有句子（用于历史记录显示）"""
 	return _split_text_to_sentences(text)
 
+func add_to_display_history(role: String, content: String):
+	"""添加到显示历史（分句后的消息记录）"""
+	display_history.append({"role": role, "content": content})
+
+	# 限制显示历史大小，防止内存泄漏
+	if display_history.size() > MAX_DISPLAY_HISTORY_SIZE:
+		# 保留最新的80%历史记录
+		var keep_count = int(MAX_DISPLAY_HISTORY_SIZE * 0.8)
+		display_history = display_history.slice(-keep_count)
+		print("显示历史超出限制，已清理旧记录，当前大小: ", display_history.size())
+
+func get_display_history() -> Array:
+	"""获取显示历史"""
+	return display_history.duplicate()
+
 func clear_history():
-	"""清空对话历史"""
+	"""清空所有对话历史"""
 	conversation_history.clear()
+	display_history.clear()
