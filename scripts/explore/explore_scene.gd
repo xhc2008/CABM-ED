@@ -27,6 +27,7 @@ var enemy_manager: ExploreSceneEnemyManager
 var chunk_manager: ExploreSceneChunkManager
 var scene_state: ExploreSceneState
 var chat_and_info_manager: Node  # ChatAndInfoManager
+var explore_chat_summary_manager: Node  # 探索聊天总结管理器
 
 var enemy_layer
 var background_layer
@@ -103,6 +104,12 @@ func _ready():
 	add_child(chat_and_info_manager)
 	chat_and_info_manager.setup(ui_root, _get_character_name, _get_explore_scene_name)
 	chat_and_info_manager.chat_mode_changed.connect(_on_chat_mode_changed)
+
+	# 初始化探索聊天总结管理器
+	var summary_manager_script = load("res://scripts/explore/explore_chat_summary_manager.gd")
+	explore_chat_summary_manager = summary_manager_script.new()
+	add_child(explore_chat_summary_manager)
+	explore_chat_summary_manager.setup()
 
 	_load_tilemap_for_explore_id()
 	
@@ -247,6 +254,9 @@ func _load_tilemap_for_explore_id():
 	
 	# 恢复检查点
 	scene_state.restore_checkpoint(player, snow_fox)
+
+	# 加载聊天历史
+	_load_chat_history()
 
 func _process(delta):
 	# 如果正在退出，不处理任何逻辑
@@ -424,7 +434,7 @@ func _open_map_from_explore():
 	
 	# 保存状态
 	_save_explore_inventory_state()
-	
+
 	# 保存记忆
 	var memory_saver = get_node_or_null("/root/UnifiedMemorySaver")
 	if memory_saver:
@@ -433,20 +443,40 @@ func _open_map_from_explore():
 		if has_node("/root/SaveManager"):
 			var smem = get_node("/root/SaveManager")
 			user_name = smem.get_user_name()
+
+		# 构建基础记忆文本
 		var base_text := "我和%s在%s进行了探索，" % [user_name, scene_name]
-		var tail_text := "我们顺利撤离"
+		var tail_text := "我们顺利撤离。"
 		if scene_state.last_exit_was_death:
-			tail_text = "我们在战斗中倒下了"
-		var memory_content := base_text + tail_text
+			tail_text = "我们在战斗中倒下了。"
+
+		# 进行聊天归档总结（如果有聊天历史）
+		var conversation_history = chat_and_info_manager.get_ai_context_history() if chat_and_info_manager else []
+		var summary_content := ""
+		if not conversation_history.is_empty() and explore_chat_summary_manager:
+			if loading_view:
+				loading_view.set_status("正在清点物资...")
+
+			# 调用总结模型生成归档内容（只获取总结部分）
+			var archived_summary = await explore_chat_summary_manager.call_explore_summary_api(
+				conversation_history, user_name, scene_name)
+
+			if not archived_summary.is_empty():
+				# AI总结内容直接使用，确保以逗号结尾以便连接
+				summary_content = archived_summary.strip_edges()
+
+		# 组合最终记忆内容
+		var memory_content = base_text  + tail_text + summary_content
+
 		var meta := {
 			"type": "explore",
 			"explore_id": scene_state.current_explore_id,
 			"result": "death" if scene_state.last_exit_was_death else "evacuated"
 		}
-		
+
 		if loading_view:
-			loading_view.set_status("正在清点物资...")
-		
+			loading_view.set_status("总结探索经历...")
+
 		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
 	
 	scene_state.last_exit_was_death = false
@@ -458,6 +488,9 @@ func _open_map_from_explore():
 		if sm.save_data.has("explore_checkpoint"):
 			sm.save_data.erase("explore_checkpoint")
 		sm.save_game(sm.current_slot)
+
+	# 清理聊天历史文件
+	_clear_chat_history()
 	
 	if loading_view:
 		# loading_view.set_status("完成！")
@@ -715,6 +748,9 @@ func _handle_death_complete_save():
 		if sm2.save_data.has("explore_checkpoint"):
 			sm2.save_data.erase("explore_checkpoint")
 		sm2.save_game(sm2.current_slot)
+
+	# 清理聊天历史文件
+	_clear_chat_history()
 	
 	# 保存记忆（异步）
 	var memory_saver = get_node_or_null("/root/UnifiedMemorySaver")
@@ -724,15 +760,35 @@ func _handle_death_complete_save():
 		if has_node("/root/SaveManager"):
 			var smem = get_node("/root/SaveManager")
 			user_name = smem.get_user_name()
+
+		# 构建基础记忆文本
 		var base_text := "我和%s在%s进行了探索，" % [user_name, scene_name]
 		var tail_text := "我们在战斗中倒下了"
-		var memory_content := base_text + tail_text
+
+		# 进行聊天归档总结（如果有聊天历史）
+		var conversation_history = chat_and_info_manager.get_ai_context_history() if chat_and_info_manager else []
+		var summary_content := ""
+		if not conversation_history.is_empty() and explore_chat_summary_manager:
+			print("正在总结死亡前的探索经历...")
+
+			# 调用总结模型生成归档内容（只获取总结部分）
+			var archived_summary = await explore_chat_summary_manager.call_explore_summary_api(
+				conversation_history, user_name, scene_name)
+
+			if not archived_summary.is_empty():
+				# AI总结内容直接使用，确保以逗号结尾以便连接
+				summary_content = archived_summary.strip_edges()
+				if not summary_content.is_empty() and not summary_content.ends_with("，"):
+					summary_content += "，"
+
+		# 组合最终记忆内容
+		var memory_content = base_text + summary_content + tail_text
 		var meta := {
 			"type": "explore",
 			"explore_id": scene_state.current_explore_id,
 			"result": "death"
 		}
-		
+
 		print("开始保存死亡记忆...")
 		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
 		print("死亡记忆保存完成")
@@ -1020,3 +1076,75 @@ func get_field_state_data() -> Dictionary:
 		drop_data = drop_system.get_save_data()
 	var enemy_data = get_enemy_save_data()
 	return {"chest_system_data": chest_data, "drop_system_data": drop_data, "enemy_system_data": enemy_data}
+
+func _save_chat_history():
+	"""保存聊天历史到磁盘"""
+	if not chat_and_info_manager:
+		return
+
+	var save_data = {
+		"conversation_history": chat_and_info_manager.get_ai_context_history(),
+		"display_history": chat_and_info_manager.get_display_history()
+	}
+
+	var save_path = "user://explore_chat_history_%s.save" % scene_state.current_explore_id
+	var file = FileAccess.open(save_path, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(save_data))
+		file.close()
+		print("已保存探索聊天历史: ", scene_state.current_explore_id)
+
+func _load_chat_history():
+	"""从磁盘加载聊天历史"""
+	if not chat_and_info_manager:
+		return
+
+	var save_path = "user://explore_chat_history_%s.save" % scene_state.current_explore_id
+	if not FileAccess.file_exists(save_path):
+		return
+
+	var file = FileAccess.open(save_path, FileAccess.READ)
+	if file:
+		var json_string = file.get_as_text()
+		file.close()
+
+		var json = JSON.new()
+		if json.parse(json_string) == OK:
+			var save_data = json.data
+			if save_data.has("conversation_history"):
+				# 恢复AI上下文历史
+				var conversation_history = save_data.conversation_history
+				if chat_and_info_manager.adventure_ai:
+					chat_and_info_manager.adventure_ai.conversation_history = conversation_history.duplicate()
+
+			if save_data.has("display_history"):
+				# 恢复显示历史
+				var display_history = save_data.display_history
+				if chat_and_info_manager.adventure_ai:
+					chat_and_info_manager.adventure_ai.display_history = display_history.duplicate()
+
+				# 恢复聊天UI显示
+				chat_and_info_manager.set_chat_messages(_extract_chat_messages_from_display_history(display_history))
+
+		print("已加载探索聊天历史: ", scene_state.current_explore_id)
+
+func _extract_chat_messages_from_display_history(display_history: Array) -> Array[String]:
+	"""从显示历史中提取聊天消息"""
+	var chat_messages: Array[String] = []
+
+	for item in display_history:
+		var content = item.get("content", "")
+		if not content.is_empty():
+			chat_messages.append(content)
+
+	return chat_messages
+
+func _clear_chat_history():
+	"""清除聊天历史文件"""
+	var save_path = "user://explore_chat_history_%s.save" % scene_state.current_explore_id
+	if FileAccess.file_exists(save_path):
+		var error = DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+		if error == OK:
+			print("已清除探索聊天历史文件: ", scene_state.current_explore_id)
+		else:
+			push_error("清除聊天历史文件失败: ", error)

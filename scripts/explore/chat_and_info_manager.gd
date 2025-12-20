@@ -16,7 +16,7 @@ var is_ai_processing: bool = false
 # 信息播报相关
 var info_feed: VBoxContainer
 var info_messages: Array = [] # 每条: { "text": String, "panel": Panel, "time_left": float, "fading": bool }
-const INFO_MESSAGE_DURATION := 10.0
+const INFO_MESSAGE_DURATION := 20.0
 
 # 信号
 signal chat_mode_changed(is_in_chat_mode: bool)
@@ -284,6 +284,17 @@ func _on_all_sentences_completed() -> void:
 
 	# 重置当前回复角色名称
 	current_reply_char_name = ""
+
+	# 保存聊天历史断点（仅在没有暂存消息时，即完整回复结束后）
+	if not is_ai_processing:
+		_save_chat_breakpoint()
+
+func _save_chat_breakpoint():
+	"""保存聊天断点（由父场景调用）"""
+	# 通知父场景保存聊天历史
+	var parent = get_parent()
+	if parent and parent.has_method("_save_chat_history"):
+		parent._save_chat_history()
 
 func _on_ai_error_occurred(error_message: String) -> void:
 	"""处理AI错误"""

@@ -89,8 +89,8 @@ func cancel_pending_chat():
 func lock_scene_switch():
 	"""锁定场景切换"""
 	if scene_switch_timer:
-		scene_switch_timer.start(1.0)
-		print("场景切换已锁定1秒")
+		scene_switch_timer.start(0.5)
+		print("场景切换已锁定0.5秒")
 
 func _on_scene_switch_timeout():
 	"""场景切换锁定超时"""
