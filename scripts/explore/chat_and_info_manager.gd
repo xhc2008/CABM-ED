@@ -85,6 +85,7 @@ func _create_info_feed():
 	info_feed.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	info_feed.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	info_feed.alignment = BoxContainer.ALIGNMENT_END  # 底部对齐，新消息在底部
+	info_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_feed.add_theme_constant_override("separation", 0)  # 消息之间的间距
 	outer_container.add_child(info_feed)
 

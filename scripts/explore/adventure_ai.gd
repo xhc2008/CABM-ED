@@ -397,14 +397,15 @@ func _display_next_sentence(is_first: bool):
 	var sentence = sentence_queue[current_sentence_index]
 	current_sentence_index += 1
 	
-	# 发送句子就绪信号
-	sentence_ready.emit(sentence)
-	
 	# 如果不是第一句，根据句子长度计算延迟时间
 	if not is_first:
-		# 根据句子长度计算延迟：每10个字符约0.8秒，最少0.3秒，最多3秒
-		var delay = clamp(sentence.length() * 0.08, 0.3, 3)
+		# 根据句子长度计算延迟：每10个字符约0.8秒，最少0.5秒，最多3秒
+		var delay = clamp(sentence.length() * 0.8, 0.5, 3)
+		print("句子延迟: ", delay, "秒 (长度: ", sentence.length(), ")")
 		await get_tree().create_timer(delay).timeout
+	
+	# 发送句子就绪信号（在延迟后）
+	sentence_ready.emit(sentence)
 
 func get_sentences_from_text(text: String) -> Array:
 	"""获取文本的所有句子（用于历史记录显示）"""
