@@ -812,6 +812,9 @@ func _is_click_on_ui(click_position: Vector2) -> bool:
 	"""检查点击位置是否在UI元素上"""
 	for child in $UI.get_children():
 		if child is Control and child.visible:
+			# 排除信息播报区域（InfoFeed），不将其视为UI
+			if child.name == "InfoFeed":
+				continue
 			if child.mouse_filter != Control.MOUSE_FILTER_STOP:
 				continue
 			var rect = child.get_global_rect()

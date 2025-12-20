@@ -54,9 +54,10 @@ func _create_info_feed():
 	outer_container.name = "InfoFeed"
 	outer_container.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	outer_container.custom_minimum_size = Vector2(900, 0)
-	outer_container.offset_left = 20.0
+	outer_container.offset_left = 0.0
 	outer_container.offset_top = -500.0  # 从底部向上500像素，给更多空间
-	outer_container.offset_bottom = -20.0
+	outer_container.offset_bottom = -62.0
+	outer_container.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 不拦截鼠标事件
 	ui_root.add_child(outer_container)
 	
 	# 创建内部VBoxContainer用于消息布局（从底部向上排列）
@@ -66,7 +67,7 @@ func _create_info_feed():
 	info_feed.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	info_feed.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	info_feed.alignment = BoxContainer.ALIGNMENT_END  # 底部对齐，新消息在底部
-	info_feed.add_theme_constant_override("separation", 4)  # 消息之间的间距
+	info_feed.add_theme_constant_override("separation", 0)  # 消息之间的间距
 	outer_container.add_child(info_feed)
 
 func update(delta: float):
@@ -105,14 +106,7 @@ func _update_info_messages(delta: float):
 					panel.modulate = Color(panel.modulate.r, panel.modulate.g, panel.modulate.b, 1.0)
 					
 					tween.tween_property(panel, "modulate:a", 0.0, 0.5)
-					tween.finished.connect(
-						func():
-							# 再次检查有效性
-							if is_instance_valid(panel):
-								panel.queue_free()
-							# 从数组中移除
-							_remove_message_by_panel(panel)
-					)
+					tween.finished.connect(_on_tween_finished.bind(panel))
 					
 					# 更新数组
 					info_messages[i] = msg
@@ -189,6 +183,7 @@ func show_info_toast(text: String):
 	var label := panel.get_node("Label") as Label
 	if label:
 		label.text = text
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 不拦截鼠标事件
 	panel.modulate = Color(1, 1, 1, 0.0)
 	info_feed.add_child(panel)
 	var msg := {"text": text, "panel": panel, "time_left": INFO_MESSAGE_DURATION, "fading": false}
@@ -220,3 +215,9 @@ func set_chat_messages(messages: Array[String]):
 	chat_messages = messages.duplicate()
 	if chat_ui:
 		chat_ui.set_messages(chat_messages)
+
+func _on_tween_finished(panel: Panel):
+	"""Tween完成回调，安全处理面板移除"""
+	if is_instance_valid(panel):
+		panel.queue_free()
+	_remove_message_by_panel(panel)
