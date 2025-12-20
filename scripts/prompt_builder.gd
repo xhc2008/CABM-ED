@@ -222,8 +222,6 @@ func get_scene_id_by_index(index: int) -> String:
 	
 	return ""
 
-
-
 func _load_character_preset() -> Dictionary:
 	"""加载当前服装的角色预设配置"""
 	var save_mgr = get_node("/root/SaveManager")
