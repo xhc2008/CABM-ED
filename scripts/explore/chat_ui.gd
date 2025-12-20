@@ -72,24 +72,33 @@ func _refresh_history():
 	_scroll_to_bottom()
 
 func _append_label(text: String):
-	var panel := Panel.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var msg_panel := Panel.new()
+	msg_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	msg_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	msg_panel.custom_minimum_size = Vector2(0, 0)  # 允许根据内容调整大小
+	
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.6)
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_right = 4
 	style.corner_radius_bottom_left = 4
-	panel.add_theme_stylebox_override("panel", style)
+	style.content_margin_left = 8.0
+	style.content_margin_right = 8.0
+	style.content_margin_top = 6.0
+	style.content_margin_bottom = 6.0
+	msg_panel.add_theme_stylebox_override("panel", style)
 	
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel.add_child(label)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	msg_panel.add_child(label)
 	
-	history_container.add_child(panel)
+	history_container.add_child(msg_panel)
 
 func _scroll_to_bottom():
 	if not scroll:
