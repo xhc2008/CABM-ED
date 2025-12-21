@@ -104,29 +104,29 @@ func _update_info_messages(delta: float):
 	for i in range(info_messages.size() - 1, -1, -1):
 		var msg = info_messages[i]
 		msg.time_left -= delta
-		
-		# 检查面板是否有效
-		var panel: Panel = msg.panel
-		if not is_instance_valid(panel):
+
+		# 检查标签是否有效
+		var label: Label = msg.panel
+		if not is_instance_valid(label):
 			indices_to_remove.append(i)
 			continue
-		
+
 		if msg.time_left <= 0.0:
 			if is_in_chat_mode:
 				# 聊天框打开时超时：直接移除，无淡出
-				panel.queue_free()
+				label.queue_free()
 				indices_to_remove.append(i)
 			else:
 				if not msg.fading:
 					msg.fading = true
 					var tween := get_tree().create_tween()
-					
+
 					# 确保在tween回调中安全处理
-					panel.modulate = Color(panel.modulate.r, panel.modulate.g, panel.modulate.b, 1.0)
-					
-					tween.tween_property(panel, "modulate:a", 0.0, 0.5)
-					tween.finished.connect(_on_tween_finished.bind(panel))
-					
+					label.modulate = Color(label.modulate.r, label.modulate.g, label.modulate.b, 1.0)
+
+					tween.tween_property(label, "modulate:a", 0.0, 0.5)
+					tween.finished.connect(_on_tween_finished.bind(label))
+
 					# 更新数组
 					info_messages[i] = msg
 	
@@ -136,10 +136,10 @@ func _update_info_messages(delta: float):
 		var idx = indices_to_remove[j]
 		info_messages.remove_at(idx)
 
-func _remove_message_by_panel(panel_to_remove: Panel):
-	"""根据面板移除消息"""
+func _remove_message_by_panel(label_to_remove: Label):
+	"""根据标签移除消息"""
 	for i in range(info_messages.size() - 1, -1, -1):
-		if info_messages[i].get("panel") == panel_to_remove:
+		if info_messages[i].get("panel") == label_to_remove:
 			info_messages.remove_at(i)
 			break
 
@@ -230,20 +230,21 @@ func show_info_toast(text: String):
 	"""在左下角短暂显示一条信息"""
 	if not info_feed:
 		return
-	var panel := message_item_scene.instantiate() as Panel
-	var label := panel.get_node("Label") as Label
-	if label:
-		label.text = text
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 不拦截鼠标事件
-	panel.modulate = Color(1, 1, 1, 0.0)
-	info_feed.add_child(panel)
-	var msg := {"text": text, "panel": panel, "time_left": INFO_MESSAGE_DURATION, "fading": false}
+	var label := message_item_scene.instantiate() as Label
+	label.text = text
+	# 等待一帧让Label重新计算大小
+	await get_tree().process_frame
+
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 不拦截鼠标事件
+	label.modulate = Color(1, 1, 1, 0.0)
+	info_feed.add_child(label)
+	var msg := {"text": text, "panel": label, "time_left": INFO_MESSAGE_DURATION, "fading": false}
 	info_messages.append(msg)
 	if not is_in_chat_mode:
 		var tween := get_tree().create_tween()
-		tween.tween_property(panel, "modulate:a", 1.0, 0.15)
+		tween.tween_property(label, "modulate:a", 1.0, 0.15)
 	else:
-		panel.modulate = Color(1, 1, 1, 1.0)
+		label.modulate = Color(1, 1, 1, 1.0)
 
 func _on_ai_reply_ready(_text: String) -> void:
 	"""AI回复就绪，开始逐句显示"""
@@ -360,8 +361,8 @@ func get_ai_context_history() -> Array:
 		return adventure_ai.conversation_history.duplicate()
 	return []
 
-func _on_tween_finished(panel: Panel):
-	"""Tween完成回调，安全处理面板移除"""
-	if is_instance_valid(panel):
-		panel.queue_free()
-	_remove_message_by_panel(panel)
+func _on_tween_finished(label: Label):
+	"""Tween完成回调，安全处理标签移除"""
+	if is_instance_valid(label):
+		label.queue_free()
+	_remove_message_by_panel(label)

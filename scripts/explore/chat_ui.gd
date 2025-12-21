@@ -75,11 +75,9 @@ func _refresh_history():
 func _append_label(text: String):
 	if not message_item_scene:
 		return
-	var msg_panel := message_item_scene.instantiate()
-	var label := msg_panel.get_node("Label") as Label
-	if label:
-		label.text = text
-	history_container.add_child(msg_panel)
+	var label := message_item_scene.instantiate() as Label
+	label.text = text
+	history_container.add_child(label)
 
 func _scroll_to_bottom():
 	if not scroll:

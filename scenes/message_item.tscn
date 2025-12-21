@@ -1,22 +1,16 @@
 [gd_scene format=3 uid="uid://btgcftb7gxg11"]
 
-[node name="MessageItem" type="Panel"]
+[sub_resource type="StyleBoxFlat" id="message_bg"]
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+bg_color = Color(0.1, 0.1, 0.1, 0.5)
+
+[node name="MessageItem" type="Label"]
 custom_minimum_size = Vector2(900, 30)
 size_flags_horizontal = 0
-size_flags_vertical = 0
+size_flags_vertical = 8
 mouse_filter = 2
-
-[node name="Label" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 4.0
-offset_right = -8.0
-offset_bottom = -4.0
-grow_horizontal = 2
-grow_vertical = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
+theme_override_styles/normal = SubResource("message_bg")
 autowrap_mode = 3
