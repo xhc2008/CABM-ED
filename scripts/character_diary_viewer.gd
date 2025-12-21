@@ -438,6 +438,58 @@ func _get_icon_and_content_for_record(record: Dictionary) -> Dictionary:
 		"content_text": content_text
 	}
 
+func _add_click_area_to_card(card_panel: PanelContainer, card_vbox: VBoxContainer, record: Dictionary):
+	"""为卡片添加点击区域和悬停效果"""
+	card_panel.add_child(card_vbox)
+
+	# 使用Control代替Button，手动处理触摸事件以改善移动端滑动体验
+	var click_area = Control.new()
+	click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+	click_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	click_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card_panel.add_child(click_area)
+
+	# 手动处理触摸/点击事件
+	click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, _create_panel_style(), click_area))
+
+	# 鼠标悬停效果（仅桌面端）
+	click_area.mouse_entered.connect(func():
+		if not is_dragging:
+			var style_hover = _create_panel_style().duplicate()
+			style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
+			style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
+			card_panel.add_theme_stylebox_override("panel", style_hover)
+	)
+	click_area.mouse_exited.connect(func():
+		card_panel.add_theme_stylebox_override("panel", _create_panel_style())
+	)
+
+func _add_click_area_to_search_card(card_panel: PanelContainer, card_vbox: VBoxContainer, record: Dictionary):
+	"""为搜索结果卡片添加点击区域和悬停效果"""
+	card_panel.add_child(card_vbox)
+
+	# 使用Control代替Button，手动处理触摸事件
+	var click_area = Control.new()
+	click_area.mouse_filter = Control.MOUSE_FILTER_STOP
+	click_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	click_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card_panel.add_child(click_area)
+
+	# 手动处理触摸/点击事件
+	click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, _create_panel_style(), click_area))
+
+	# 鼠标悬停效果
+	click_area.mouse_entered.connect(func():
+		if not is_dragging:
+			var style_hover = _create_panel_style().duplicate()
+			style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
+			style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
+			card_panel.add_theme_stylebox_override("panel", style_hover)
+	)
+	click_area.mouse_exited.connect(func():
+		card_panel.add_theme_stylebox_override("panel", _create_panel_style())
+	)
+
 func _create_panel_style() -> StyleBoxFlat:
 	"""创建一个通用的卡片面板样式"""
 	var style = StyleBoxFlat.new()
@@ -498,29 +550,36 @@ func _add_diary_card(record: Dictionary):
 		summary_label.custom_minimum_size.x = 700
 		summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_vbox.add_child(summary_label)
-		card_panel.add_child(card_vbox)
+		# 添加点击区域
+		_add_click_area_to_card(card_panel, card_vbox, record)
 
-		# 使用Control代替Button，手动处理触摸事件以改善移动端滑动体验
-		var click_area = Control.new()
-		click_area.mouse_filter = Control.MOUSE_FILTER_STOP
-		click_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		click_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card_panel.add_child(click_area)
+	elif record_type == "explore":
+		# explore类型：显示探索内容，可点击查看完整的display_history
+		var time_str = record.get("time", "")
+		var event_text = record.get("event", "")
+		# 时间标签（带🗺标记）
+		var time_label = Label.new()
+		time_label.text = "🗺 " + _format_time_display(time_str)
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		# 探索内容（截断显示）
+		var content_label = Label.new()
+		var display_content = event_text
+		if event_text.length() > 150:
+			display_content = event_text.substr(0, 150) + "..."
+		content_label.text = display_content
+		content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		content_label.custom_minimum_size.x = 700
+		content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(content_label)
+		# 添加点击区域
+		_add_click_area_to_card(card_panel, card_vbox, record)
 
-		# 手动处理触摸/点击事件
-		click_area.gui_input.connect(_on_card_gui_input.bind(record, card_panel, _create_panel_style(), click_area))
-
-		# 鼠标悬停效果（仅桌面端）
-		click_area.mouse_entered.connect(func():
-			if not is_dragging:
-				var style_hover = _create_panel_style().duplicate()
-				style_hover.bg_color = Color(0.2, 0.2, 0.25, 0.7)
-				style_hover.border_color = Color(0.4, 0.4, 0.5, 0.9)
-				card_panel.add_theme_stylebox_override("panel", style_hover)
-		)
-		click_area.mouse_exited.connect(func():
-			card_panel.add_theme_stylebox_override("panel", _create_panel_style())
-		)
 	else:
 		# cook, games, offline 类型：不可点击，使用通用函数
 		var data = _get_icon_and_content_for_record(record)
@@ -583,7 +642,7 @@ func _on_card_gui_input(event: InputEvent, record: Dictionary, card_panel: Panel
 				click_area.mouse_filter = Control.MOUSE_FILTER_PASS
 
 func _on_chat_card_clicked(record: Dictionary):
-	"""点击chat卡片，显示详细对话"""
+	"""点击chat或explore卡片，显示详细内容"""
 	# 保存当前滚动位置
 	if scroll_container:
 		saved_scroll_position = scroll_container.scroll_vertical
@@ -680,6 +739,104 @@ func _display_detail_view():
 				# 使用新的带播放按钮的布局
 				var speech_line = _create_speech_with_play_button(speaker, content)
 				content_vbox.add_child(speech_line)
+
+	elif record_type == "explore":
+		# 显示探索内容总结
+		var event_text = current_detail_record.get("event", "")
+		if not event_text.is_empty():
+			# 创建探索总结标题
+			var summary_title = Label.new()
+			summary_title.text = "🗺 探索经历"
+			summary_title.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+			content_vbox.add_child(summary_title)
+
+			# 创建总结容器
+			var summary_margin = MarginContainer.new()
+			summary_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			summary_margin.add_theme_constant_override("margin_left", 15)
+			summary_margin.add_theme_constant_override("margin_top", 10)
+			summary_margin.add_theme_constant_override("margin_right", 15)
+			summary_margin.add_theme_constant_override("margin_bottom", 10)
+			# 创建总结面板
+			var summary_panel = PanelContainer.new()
+			summary_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var summary_style = StyleBoxFlat.new()
+			summary_style.bg_color = Color(0.2, 0.25, 0.3, 0.5)
+			summary_style.border_width_left = 3
+			summary_style.border_width_top = 3
+			summary_style.border_width_right = 3
+			summary_style.border_width_bottom = 3
+			summary_style.border_color = Color(0.4, 0.5, 0.6, 0.7)
+			summary_style.corner_radius_top_left = 5
+			summary_style.corner_radius_top_right = 5
+			summary_style.corner_radius_bottom_left = 5
+			summary_style.corner_radius_bottom_right = 5
+			summary_style.content_margin_left = 15
+			summary_style.content_margin_top = 15
+			summary_style.content_margin_right = 15
+			summary_style.content_margin_bottom = 15
+			summary_panel.add_theme_stylebox_override("panel", summary_style)
+			# 创建总结标签
+			var summary_label = Label.new()
+			summary_label.text = event_text
+			summary_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			summary_label.custom_minimum_size.x = 500
+			summary_panel.add_child(summary_label)
+			summary_margin.add_child(summary_panel)
+			content_vbox.add_child(summary_margin)
+
+			# 添加分隔线
+			var separator = HSeparator.new()
+			content_vbox.add_child(separator)
+
+		# 显示完整的display_history
+		var display_history = current_detail_record.get("display_history", [])
+		if not display_history.is_empty():
+			var detail_title = Label.new()
+			detail_title.text = "📜 对话记录"
+			detail_title.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+			content_vbox.add_child(detail_title)
+			# 为每个历史记录创建条目
+			for history_item in display_history:
+				var content = history_item.get("content", "")
+				if not content.is_empty():
+					# 创建历史记录容器
+					var history_margin = MarginContainer.new()
+					history_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					history_margin.add_theme_constant_override("margin_left", 15)
+					history_margin.add_theme_constant_override("margin_top", 1)
+					history_margin.add_theme_constant_override("margin_right", 15)
+					history_margin.add_theme_constant_override("margin_bottom", 1)
+					
+					# 创建历史记录面板
+					var history_panel = PanelContainer.new()
+					history_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					var history_style = StyleBoxFlat.new()
+					history_style.bg_color = Color(0.15, 0.15, 0.15, 0.7)
+					history_style.border_width_left = 2
+					history_style.border_width_top = 2
+					history_style.border_width_right = 2
+					history_style.border_width_bottom = 2
+					history_style.border_color = Color(0.3, 0.3, 0.3, 0.8)
+					history_style.corner_radius_top_left = 3
+					history_style.corner_radius_top_right = 3
+					history_style.corner_radius_bottom_left = 3
+					history_style.corner_radius_bottom_right = 3
+					history_style.content_margin_left = 10
+					history_style.content_margin_top = 4
+					history_style.content_margin_right = 10
+					history_style.content_margin_bottom = 4
+					history_panel.add_theme_stylebox_override("panel", history_style)
+					# 创建历史记录标签
+					var history_label = Label.new()
+					history_label.text = content
+					history_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					history_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+					history_label.custom_minimum_size.x = 500
+					history_panel.add_child(history_label)
+					history_margin.add_child(history_panel)
+					content_vbox.add_child(history_margin)
 
 	# 滚动到顶部
 	await get_tree().process_frame
@@ -890,6 +1047,10 @@ func _record_contains_keyword(record: Dictionary, keyword: String) -> bool:
 		var summary = record.get("summary", "").to_lower()
 		var conversation = record.get("conversation", "").to_lower()
 		return keyword_lower in summary or keyword_lower in conversation
+	elif record_type == "explore":
+		# 搜索探索事件内容
+		var event = record.get("event", "").to_lower()
+		return keyword_lower in event
 	elif record_type == "cook":
 		# 搜索事件内容和详情
 		var event = record.get("event", "").to_lower()
@@ -1009,6 +1170,35 @@ func _add_search_result_card(record: Dictionary):
 		click_area.mouse_exited.connect(func():
 			card_panel.add_theme_stylebox_override("panel", _create_panel_style())
 		)
+
+	elif record_type == "explore":
+		# explore类型：显示探索内容，可点击查看详情
+		var time_str = record.get("time", "")
+		var event_text = record.get("event", "")
+		# 时间标签（带🗺标记）
+		var time_label = Label.new()
+		time_label.text = "🗺 " + _format_time_display(time_str)
+		time_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		time_label.custom_minimum_size.x = 700
+		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(time_label)
+		# 探索内容（截断显示，并高亮关键词）
+		var content_label = RichTextLabel.new()
+		content_label.bbcode_enabled = true
+		var display_content = event_text
+		if event_text.length() > 150:
+			display_content = event_text.substr(0, 150) + "..."
+		content_label.text = _highlight_keyword(display_content, current_search_keyword)
+		content_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_label.fit_content = true
+		content_label.scroll_active = false
+		content_label.custom_minimum_size.x = 700
+		content_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_child(content_label)
+		# 添加点击区域
+		_add_click_area_to_search_card(card_panel, card_vbox, record)
+
 	else:
 		# cook, games, offline 类型：不可点击，使用通用函数处理内容和高亮
 		var data = _get_icon_and_content_for_record(record)

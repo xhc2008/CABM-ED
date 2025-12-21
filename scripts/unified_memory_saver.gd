@@ -53,7 +53,7 @@ func save_memory(
 	_save_to_archive(cleaned_content, timestamp_str)
 	
 	# 2. 保存到日记（diary/）
-	_save_to_diary(cleaned_content, conversation_text, timestamp_str, memory_type)
+	_save_to_diary(cleaned_content, conversation_text, timestamp_str, memory_type, metadata)
 	
 	# 3. 保存到向量数据库（长期记忆）
 	await _save_to_vector_db(cleaned_content, timestamp_str, memory_type, metadata)
@@ -101,7 +101,8 @@ func _save_to_diary(
 	content: String,
 	conversation_text: String,
 	timestamp: String,
-	memory_type: MemoryType
+	memory_type: MemoryType,
+	metadata: Dictionary = {}
 ) -> void:
 	var diary_dir = "user://diary"
 	
@@ -140,8 +141,17 @@ func _save_to_diary(
 	if memory_type == MemoryType.CHAT:
 		diary_record["summary"] = content
 		diary_record["conversation"] = conversation_text
+	elif memory_type == MemoryType.EXPLORE:
+		# EXPLORE 类型使用 event 字段，并保存 display_history
+		diary_record["time"] = time_str.substr(0, 5)
+		diary_record["event"] = content
+		diary_record.erase("timestamp")  # 移除timestamp字段
+		# 保存 metadata 中的额外信息（如 display_history）
+		if not metadata.is_empty():
+			for key in metadata:
+				diary_record[key] = metadata[key]
 	else:
-		# OFFLINE 和 GAMES 类型使用 event 字段
+		# OFFLINE, GAMES, COOK 类型使用 event 字段
 		# 时间格式简化为 HH:MM（前5个字符）
 		diary_record["time"] = time_str.substr(0, 5)
 		diary_record["event"] = content

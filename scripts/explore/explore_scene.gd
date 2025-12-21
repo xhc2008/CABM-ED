@@ -468,10 +468,14 @@ func _open_map_from_explore():
 		# 组合最终记忆内容
 		var memory_content = base_text  + tail_text + summary_content
 
+		# 获取完整的display_history
+		var display_history = chat_and_info_manager.get_display_history() if chat_and_info_manager else []
+
 		var meta := {
 			"type": "explore",
 			"explore_id": scene_state.current_explore_id,
-			"result": "death" if scene_state.last_exit_was_death else "evacuated"
+			"result": "death" if scene_state.last_exit_was_death else "evacuated",
+			"display_history": display_history
 		}
 
 		if loading_view:
@@ -781,12 +785,16 @@ func _handle_death_complete_save():
 				if not summary_content.is_empty() and not summary_content.ends_with("，"):
 					summary_content += "，"
 
+		# 获取完整的display_history
+		var display_history = chat_and_info_manager.get_display_history() if chat_and_info_manager else []
+
 		# 组合最终记忆内容
 		var memory_content = base_text + summary_content + tail_text
 		var meta := {
 			"type": "explore",
 			"explore_id": scene_state.current_explore_id,
-			"result": "death"
+			"result": "death",
+			"display_history": display_history
 		}
 
 		print("开始保存死亡记忆...")
