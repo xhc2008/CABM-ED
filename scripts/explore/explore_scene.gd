@@ -28,6 +28,7 @@ var chunk_manager: ExploreSceneChunkManager
 var scene_state: ExploreSceneState
 var chat_and_info_manager: Node  # ChatAndInfoManager
 var explore_chat_summary_manager: Node  # 探索聊天总结管理器
+var environmental_awareness: Node  # 环境感知构建器
 
 var enemy_layer
 var background_layer
@@ -110,6 +111,20 @@ func _ready():
 	explore_chat_summary_manager = summary_manager_script.new()
 	add_child(explore_chat_summary_manager)
 	explore_chat_summary_manager.setup()
+
+	# 初始化环境感知构建器
+	var ea_script = load("res://scripts/explore/environmental_awareness.gd")
+	environmental_awareness = ea_script.new()
+	add_child(environmental_awareness)
+	environmental_awareness.setup(
+		SaveManager,
+		player,
+		snow_fox,
+		enemy_manager,
+		chest_system,
+		weapon_system,
+		player_inventory
+	)
 
 	_load_tilemap_for_explore_id()
 	
@@ -1089,6 +1104,18 @@ func get_checkpoint_data() -> Dictionary:
 	var ppos = player.global_position if player else Vector2.ZERO
 	var fpos = snow_fox.global_position if snow_fox else Vector2.ZERO
 	return scene_state.get_checkpoint_data(ppos, fpos)
+
+func get_current_explore_id() -> String:
+	"""获取当前探索场景ID"""
+	if scene_state:
+		return scene_state.current_explore_id
+	return ""
+
+func get_environmental_awareness() -> String:
+	"""获取环境感知文本"""
+	if environmental_awareness and environmental_awareness.has_method("build_environmental_awareness"):
+		return environmental_awareness.build_environmental_awareness()
+	return ""
 
 func get_field_state_data() -> Dictionary:
 	"""获取场景状态数据"""

@@ -93,24 +93,24 @@ func _handle_request_async(prompt: String, scene_name: String):
 
 func _build_system_prompt(scene_name: String, user_prompt: String = "") -> String:
 	"""构建系统提示词
-	
+
 	Args:
 		scene_name: 场景名称
 		user_prompt: 用户输入的提示词（用于知识图谱检索）
 	"""
-	
+
 	var save_mgr = get_node("/root/SaveManager")
 	var prompt_builder = get_node("/root/PromptBuilder")
-	
+
 	# 获取基本信息
 	var character_name = save_mgr.get_character_name()
 	var user_name = save_mgr.get_user_name()
 	var user_address = save_mgr.get_user_address()
-	
+
 	# 获取角色提示词
 	var character_preset = prompt_builder._load_character_preset()
 	var character_prompt = character_preset.get("prompt", "")
-	
+
 	# 获取场景信息
 	var scene_description = ""
 	var final_scene_name = scene_name
@@ -122,19 +122,25 @@ func _build_system_prompt(scene_name: String, user_prompt: String = "") -> Strin
 			final_scene_name = scene_description
 	else:
 		scene_description = scene_name
-	
+
 	# 构建场景提示词
 	var scene_context = ""
 	if not final_scene_name.is_empty():
 		scene_context = "你现在正在跟着%s一起在%s进行探索和战斗。" % [user_name, final_scene_name]
+
+	# 获取环境感知信息
+	var environmental_awareness_text = ""
+	var explore_scene = get_node("/root/ExploreScene")
+	if explore_scene and explore_scene.has_method("get_environmental_awareness"):
+		environmental_awareness_text = explore_scene.get_environmental_awareness()
 	
 	# 检索知识图谱（不需要语义检索）
 	# 使用用户输入或场景名称作为查询
 	var query_for_kg = user_prompt if not user_prompt.is_empty() else final_scene_name
 	var knowledge_memory = _retrieve_knowledge_memory(query_for_kg)
 	
-	# 获取中期记忆条目
-	var memory_context = prompt_builder.get_memory_context()
+	# 获取中期记忆条目（暂时禁用）
+	# var memory_context = prompt_builder.get_memory_context()
 	
 	# 获取关系上下文
 	var relationship_context = prompt_builder.get_relationship_context()
@@ -150,14 +156,18 @@ func _build_system_prompt(scene_name: String, user_prompt: String = "") -> Strin
 	# 场景信息
 	if not scene_context.is_empty():
 		system_prompt_parts.append(scene_context)
-	
+
+	# 环境感知
+	if not environmental_awareness_text.is_empty():
+		system_prompt_parts.append("## 探索状态\n%s" % environmental_awareness_text)
+
 	# 知识记忆
 	if not knowledge_memory.is_empty():
 		system_prompt_parts.append(knowledge_memory)
 	
-	# 中期记忆
-	if not memory_context.is_empty() and memory_context != "（这是你们的第一次对话）":
-		system_prompt_parts.append("## 之前发生的事情\n```\n%s\n```" % memory_context)
+	# # 中期记忆
+	# if not memory_context.is_empty() and memory_context != "（这是你们的第一次对话）":
+	# 	system_prompt_parts.append("## 之前发生的事情\n```\n%s\n```" % memory_context)
 	
 	# 关系上下文
 	if not relationship_context.is_empty() and relationship_context != "（暂无关系信息）":
