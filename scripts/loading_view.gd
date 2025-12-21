@@ -29,17 +29,15 @@ func set_progress(value: float):
 		progress_bar.value = value
 
 func _animate_progress():
-	"""动画化进度条"""
+	"""动画化进度条 - 每个阶段固定到相应进度"""
 	if not progress_bar:
 		return
-	
+
 	if progress_tween:
 		progress_tween.kill()
-	
-	progress_tween = create_tween()
-	progress_tween.set_loops()
-	progress_tween.tween_property(progress_bar, "value", 90.0, 2.0)
-	progress_tween.tween_property(progress_bar, "value", 10.0, 2.0)
+
+	# 不再循环动画，进度会通过set_progress手动设置
+	pass
 
 func complete():
 	"""完成加载"""

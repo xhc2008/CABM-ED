@@ -430,12 +430,18 @@ func _open_map_from_explore():
 	
 	# 显示加载界面
 	_show_loading_view("正在撤离...", "离开当前区域...")
+	if loading_view:
+		loading_view.set_progress(0.0)
 	await get_tree().create_timer(0.1).timeout
-	
+
 	# 保存状态
+	if loading_view:
+		loading_view.set_progress(20.0)
 	_save_explore_inventory_state()
 
 	# 保存记忆
+	if loading_view:
+		loading_view.set_progress(35.0)
 	var memory_saver = get_node_or_null("/root/UnifiedMemorySaver")
 	if memory_saver:
 		var user_name := "玩家"
@@ -456,6 +462,7 @@ func _open_map_from_explore():
 		if not conversation_history.is_empty() and explore_chat_summary_manager:
 			if loading_view:
 				loading_view.set_status("正在清点物资...")
+				loading_view.set_progress(50.0)
 
 			# 调用总结模型生成归档内容（只获取总结部分）
 			var archived_summary = await explore_chat_summary_manager.call_explore_summary_api(
@@ -480,6 +487,7 @@ func _open_map_from_explore():
 
 		if loading_view:
 			loading_view.set_status("总结探索经历...")
+			loading_view.set_progress(80.0)
 
 		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
 	
@@ -723,6 +731,8 @@ func _on_player_died():
 func _handle_death_complete_save():
 	"""异步处理死亡的完整保存逻辑（包括记忆）"""
 	# 保存死亡前的掉落物
+	if loading_view:
+		loading_view.set_progress(20.0)
 	if drop_system and InventoryManager:
 		var scene_id = scene_state.current_explore_id
 		var pos = player.global_position if player else Vector2.ZERO
@@ -741,12 +751,16 @@ func _handle_death_complete_save():
 					drop_system.create_drop(item.get("item_id",""), int(item.get("count",1)), scene_id, pos, item.duplicate(true))
 					container.storage[i] = null
 			container.storage_changed.emit()
-	
+
 	# 保存探索状态（宝箱、掉落物、敌人状态）
+	if loading_view:
+		loading_view.set_progress(40.0)
 	print("保存探索状态...")
 	_save_explore_inventory_state()
-	
+
 	# 清除检查点
+	if loading_view:
+		loading_view.set_progress(60.0)
 	if has_node("/root/SaveManager"):
 		var sm2 = get_node("/root/SaveManager")
 		if sm2.save_data.has("explore_checkpoint"):
@@ -755,8 +769,10 @@ func _handle_death_complete_save():
 
 	# 清理聊天历史文件
 	_clear_chat_history()
-	
+
 	# 保存记忆（异步）
+	if loading_view:
+		loading_view.set_progress(80.0)
 	var memory_saver = get_node_or_null("/root/UnifiedMemorySaver")
 	if memory_saver:
 		var user_name := "玩家"

@@ -126,7 +126,7 @@ func _build_system_prompt(scene_name: String, user_prompt: String = "") -> Strin
 	# 构建场景提示词
 	var scene_context = ""
 	if not final_scene_name.is_empty():
-		scene_context = "你现在正在和%s一起在%s进行探索和战斗。" % [user_name, final_scene_name]
+		scene_context = "你现在正在跟着%s一起在%s进行探索和战斗。" % [user_name, final_scene_name]
 	
 	# 检索知识图谱（不需要语义检索）
 	# 使用用户输入或场景名称作为查询
