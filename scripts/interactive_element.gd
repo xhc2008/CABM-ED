@@ -220,6 +220,9 @@ func _open_music_player():
 	await get_tree().process_frame
 	var music_player_panel = get_node_or_null("/root/Main/MusicPlayerPanel")
 	if music_player_panel:
+		# 显示音乐播放器前禁用其他UI交互
+		if has_node("/root/UIManager"):
+			get_node("/root/UIManager").disable_all()
 		music_player_panel.show_panel()
 
 func _input(event):

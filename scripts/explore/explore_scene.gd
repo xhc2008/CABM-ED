@@ -487,7 +487,7 @@ func _open_map_from_explore():
 
 		if loading_view:
 			loading_view.set_status("总结探索经历...")
-			loading_view.set_progress(80.0)
+			loading_view.set_progress(70.0)
 
 		await memory_saver.save_memory(memory_content, memory_saver.MemoryType.EXPLORE, null, "", meta)
 	

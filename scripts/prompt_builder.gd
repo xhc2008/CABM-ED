@@ -378,7 +378,7 @@ func _get_trigger_context(trigger_mode: String) -> String:
 	return context
 
 func get_memory_context() -> String:
-	"""获取记忆上下文（仅从短期记忆）"""
+	"""获取记忆上下文（仅从中期记忆）"""
 	var save_mgr = get_node("/root/SaveManager")
 	
 	# 确保 ai_data 字段存在

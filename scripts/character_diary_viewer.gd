@@ -292,6 +292,9 @@ func show_diary():
 	current_date_index = 0
 	_load_date_content(available_dates[0])
 
+	# 设置鼠标过滤，阻止鼠标事件穿透到下面的元素
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
 	visible = true
 	pivot_offset = size / 2.0
 
@@ -326,6 +329,9 @@ func hide_diary():
 	tween.tween_property(self, "modulate:a", 0.0, ANIMATION_DURATION)
 	tween.tween_property(self, "scale", Vector2(0.8, 0.8), ANIMATION_DURATION).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	await tween.finished
+
+	# 恢复默认鼠标过滤
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 
 func _load_available_dates():

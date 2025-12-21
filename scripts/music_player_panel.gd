@@ -75,7 +75,10 @@ func show_panel():
 	"""显示面板"""
 	var viewport_size = get_viewport_rect().size
 	position = (viewport_size - size) / 2.0
-	
+
+	# 设置鼠标过滤，阻止鼠标事件穿透到下面的元素
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
 	show()
 	_refresh_scene_list()
 	_update_ui_for_scene() # 更新按钮显示
@@ -90,7 +93,14 @@ func _on_close_pressed():
 	# 如果处于删除模式，先退出
 	if is_delete_mode:
 		_exit_delete_mode()
+
+	# 恢复默认鼠标过滤
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hide()
+
+	# 重新启用UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
 
 func _ensure_custom_bgm_directory():
 	"""确保自定义BGM目录存在"""

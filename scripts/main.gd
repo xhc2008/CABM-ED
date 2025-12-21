@@ -826,11 +826,17 @@ func _on_diary_action_triggered(action: String):
 	"""日记按钮动作触发"""
 	if action == "diary_selected":
 		if character_diary_viewer:
+			# 显示日记前禁用其他UI交互
+			if has_node("/root/UIManager"):
+				get_node("/root/UIManager").disable_all()
 			character_diary_viewer.show_diary()
 
 func _on_character_diary_closed():
 	"""角色日记查看器关闭事件"""
 	print("角色日记查看器已关闭")
+	# 重新启用UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
 
 func _check_and_migrate_diary():
 	"""检查并迁移旧日记数据"""
