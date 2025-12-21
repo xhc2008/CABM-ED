@@ -254,13 +254,18 @@ func _load_tilemap_for_explore_id():
 	add_child(enemy_manager)
 	enemy_manager.setup(player, drop_system, enemy_layer, self)
 	enemy_manager.set_explore_id(explore_id)
-	
+
 	# 加载敌人数据
 	if SaveManager and SaveManager.save_data.has("enemy_system_data"):
 		enemy_manager.load_enemy_data(SaveManager.save_data.enemy_system_data)
-	
+
 	# 生成敌人
 	enemy_manager.spawn_enemies_for_scene(explore_id)
+
+	# 在敌人管理器创建后更新环境感知构建器的引用
+	if environmental_awareness:
+		environmental_awareness.enemy_manager = enemy_manager
+		print("已更新环境感知构建器的敌人管理器引用")
 
 	# 初始化区块管理器
 	chunk_manager = ExploreSceneChunkManager.new()
@@ -477,7 +482,7 @@ func _open_map_from_explore():
 		if not conversation_history.is_empty() and explore_chat_summary_manager:
 			if loading_view:
 				loading_view.set_status("正在清点物资...")
-				loading_view.set_progress(50.0)
+				loading_view.set_progress(40.0)
 
 			# 调用总结模型生成归档内容（只获取总结部分）
 			var archived_summary = await explore_chat_summary_manager.call_explore_summary_api(
@@ -798,7 +803,7 @@ func _handle_death_complete_save():
 
 		# 构建基础记忆文本
 		var base_text := "我和%s在%s进行了探索，" % [user_name, scene_name]
-		var tail_text := "我们在战斗中倒下了"
+		var tail_text := "我们在战斗中倒下了。"
 
 		# 进行聊天归档总结（如果有聊天历史）
 		var conversation_history = chat_and_info_manager.get_ai_context_history() if chat_and_info_manager else []
@@ -813,14 +818,12 @@ func _handle_death_complete_save():
 			if not archived_summary.is_empty():
 				# AI总结内容直接使用，确保以逗号结尾以便连接
 				summary_content = archived_summary.strip_edges()
-				if not summary_content.is_empty() and not summary_content.ends_with("，"):
-					summary_content += "，"
 
 		# 获取完整的display_history
 		var display_history = chat_and_info_manager.get_display_history() if chat_and_info_manager else []
 
 		# 组合最终记忆内容
-		var memory_content = base_text + summary_content + tail_text
+		var memory_content = base_text + tail_text + summary_content 
 		var meta := {
 			"type": "explore",
 			"explore_id": scene_state.current_explore_id,

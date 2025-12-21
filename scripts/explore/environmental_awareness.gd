@@ -13,9 +13,9 @@ var weapon_system: Node
 var player_inventory: PlayerInventory
 
 # 配置参数
-const MAX_ENEMY_DISTANCE = 1000.0  # 最大检测敌人距离
-const MAX_CHEST_DISTANCE = 1000.0  # 最大检测宝箱距离
-const GROUP_DISTANCE_THRESHOLD = 300.0  # 敌人/宝箱聚集团体距离阈值
+const MAX_ENEMY_DISTANCE = 500.0  # 最大检测敌人距离
+const MAX_CHEST_DISTANCE = 500.0  # 最大检测宝箱距离
+const GROUP_DISTANCE_THRESHOLD = 200.0  # 敌人/宝箱聚集团体距离阈值
 
 func _ready():
 	"""初始化环境感知构建器"""
@@ -352,12 +352,9 @@ func _describe_enemy_group(enemy_group: Array) -> String:
 		total_distance += player.global_position.distance_to(enemy.global_position)
 	var avg_distance = total_distance / enemy_group.size()
 
-	var distance_desc = "%dm" % int(avg_distance)
+	var distance_desc = "%dm" % int(avg_distance/32)
 
-	if enemy_count == 1:
-		return "%s方向%s处有1个敌人" % [direction, distance_desc]
-	else:
-		return "%s方向%s处有%d个敌人" % [direction, distance_desc, enemy_count]
+	return "%s方向%s处有%d个敌人" % [direction, distance_desc, enemy_count]
 
 func _describe_chest_group(chest_group: Array) -> String:
 	"""描述一组宝箱"""
@@ -378,7 +375,7 @@ func _describe_chest_group(chest_group: Array) -> String:
 		total_distance += player.global_position.distance_to(chest.position)
 	var avg_distance = total_distance / chest_group.size()
 
-	var distance_desc = "%dm" % int(avg_distance/100)
+	var distance_desc = "%dm" % int(avg_distance/32)
 
 	# 获取宝箱类型描述
 	var chest_types = []
@@ -390,12 +387,9 @@ func _describe_chest_group(chest_group: Array) -> String:
 	if chest_types.size() == 1:
 		type_desc = chest_system.get_chest_name_by_type(chest_types[0])
 	else:
-		type_desc = "很多宝箱"
+		type_desc = "箱子"
 
-	if chest_count == 1:
-		return "%s方向%s处有1个%s" % [direction, distance_desc, type_desc]
-	else:
-		return "%s方向%s处有%d个%s" % [direction, distance_desc, chest_count, type_desc]
+	return "%s方向%s处有%d个%s" % [direction, distance_desc, chest_count, type_desc]
 
 func _get_direction_description(from_pos: Vector2, to_pos: Vector2) -> String:
 	"""获取方向描述"""
@@ -404,21 +398,21 @@ func _get_direction_description(from_pos: Vector2, to_pos: Vector2) -> String:
 
 	# 将角度转换为方向描述
 	if angle >= -PI/8 and angle < PI/8:
-		return "正右"
+		return "正东"
 	elif angle >= PI/8 and angle < 3*PI/8:
-		return "右下"
+		return "东南"
 	elif angle >= 3*PI/8 and angle < 5*PI/8:
-		return "正下"
+		return "正南"
 	elif angle >= 5*PI/8 and angle < 7*PI/8:
-		return "左下"
+		return "西南"
 	elif angle >= 7*PI/8 or angle < -7*PI/8:
-		return "正左"
+		return "正西"
 	elif angle >= -7*PI/8 and angle < -5*PI/8:
-		return "左上"
+		return "西北"
 	elif angle >= -5*PI/8 and angle < -3*PI/8:
-		return "正上"
+		return "正北"
 	elif angle >= -3*PI/8 and angle < -PI/8:
-		return "右上"
+		return "东北"
 	else:
 		return "附近"
 
