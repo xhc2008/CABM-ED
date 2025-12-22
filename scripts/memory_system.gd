@@ -358,8 +358,9 @@ func search(query: String, top_k: int, min_similarity: float, exclude_timestamps
 		print("警告: 获取查询向量失败")
 		return []
 
-	# 计算所有记忆的相似度
-	var similarities = []
+	# 使用最大堆维护top_k*4个最相似的结果，避免排序整个数组
+	var max_candidates = top_k * 4
+	var top_similarities = []  # 维护最大堆结构
 
 	for i in range(memory_items.size()):
 		var item = memory_items[i]
@@ -371,19 +372,36 @@ func search(query: String, top_k: int, min_similarity: float, exclude_timestamps
 		var similarity = _calculate_similarity(query_vector, item.vector, item.metadata)
 
 		if similarity >= min_similarity:
-			similarities.append({
+			var candidate = {
 				"index": i,
 				"similarity": similarity,
 				"item": item
-			})
+			}
 
-	# 按相似度排序
-	similarities.sort_custom(func(a, b): return a.similarity > b.similarity)
+			# 如果堆未满，直接添加
+			if top_similarities.size() < max_candidates:
+				top_similarities.append(candidate)
+				# 保持堆性质（最小堆，堆顶是最小的相似度）
+				_heapify_up(top_similarities, top_similarities.size() - 1)
+			# 如果当前相似度大于堆顶（最小值），替换堆顶
+			elif similarity > top_similarities[0].similarity:
+				top_similarities[0] = candidate
+				_heapify_down(top_similarities, 0)
+
+	# 将堆转换为排序后的数组（从大到小）
+	var similarities = []
+	while not top_similarities.is_empty():
+		similarities.append(top_similarities[0])
+		top_similarities[0] = top_similarities.back()
+		top_similarities.pop_back()
+		_heapify_down(top_similarities, 0)
+
+	similarities.reverse()  # 反转得到从大到小的顺序
 
 	# 获取前top_k*4个结果用于重排序
 	var initial_results = []
-	var max_candidates = min(top_k * 4, similarities.size())  # 为重排序准备更多候选文档
-	for i in range(max_candidates):
+	var num_candidates = min(top_k * 4, similarities.size())  # 为重排序准备更多候选文档
+	for i in range(num_candidates):
 		initial_results.append({
 			"text": similarities[i].item.text,
 			"similarity": similarities[i].similarity,
@@ -462,6 +480,42 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array, item_metadata: Dic
 		return 0.0
 	
 	return dot / (mag1 * mag2)
+
+func _heapify_up(heap: Array, index: int) -> void:
+	"""向上调整堆（最小堆）"""
+	while index > 0:
+		var parent_index = (index - 1) / 2
+		if heap[index].similarity < heap[parent_index].similarity:
+			# 交换
+			var temp = heap[index]
+			heap[index] = heap[parent_index]
+			heap[parent_index] = temp
+			index = parent_index
+		else:
+			break
+
+func _heapify_down(heap: Array, index: int) -> void:
+	"""向下调整堆（最小堆）"""
+	var size = heap.size()
+	while true:
+		var left = index * 2 + 1
+		var right = index * 2 + 2
+		var smallest = index
+
+		# 找到最小的子节点
+		if left < size and heap[left].similarity < heap[smallest].similarity:
+			smallest = left
+		if right < size and heap[right].similarity < heap[smallest].similarity:
+			smallest = right
+
+		# 如果当前节点不是最小的，交换并继续
+		if smallest != index:
+			var temp = heap[index]
+			heap[index] = heap[smallest]
+			heap[smallest] = temp
+			index = smallest
+		else:
+			break
 
 func get_relevant_memory(query: String, top_k: int, _timeout: float, min_similarity: float, exclude_timestamps: Array = []) -> String:
 	"""获取相关记忆并格式化为提示词
