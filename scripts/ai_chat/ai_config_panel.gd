@@ -33,6 +33,9 @@ extends Panel
 @onready var stt_model_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/语音输入/ScrollContainer/VBoxContainer/STTModelInput
 @onready var stt_base_url_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/语音输入/ScrollContainer/VBoxContainer/STTBaseURLInput
 @onready var stt_key_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/语音输入/ScrollContainer/VBoxContainer/STTKeyInput
+@onready var rerank_model_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer/RerankModelInput
+@onready var rerank_base_url_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer/RerankBaseURLInput
+@onready var rerank_key_input = $MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer/RerankKeyInput
 @onready var detail_save_button = $MarginContainer/VBoxContainer/TabContainer/详细配置/SaveArea/DetailSaveButton
 @onready var detail_status_label = $MarginContainer/VBoxContainer/TabContainer/详细配置/SaveArea/DetailStatusLabel
 
@@ -151,6 +154,9 @@ func _ready():
 	stt_model_input.text_changed.connect(_on_detail_field_changed)
 	stt_base_url_input.text_changed.connect(_on_detail_field_changed)
 	stt_key_input.text_changed.connect(_on_detail_field_changed)
+	rerank_model_input.text_changed.connect(_on_detail_field_changed)
+	rerank_base_url_input.text_changed.connect(_on_detail_field_changed)
+	rerank_key_input.text_changed.connect(_on_detail_field_changed)
 	voice_enable_checkbox.toggled.connect(voice_settings.on_voice_enable_toggled)
 	voice_volume_slider.value_changed.connect(voice_settings.on_voice_volume_changed)
 	voice_reupload_button.pressed.connect(voice_settings.on_voice_reupload_pressed)
@@ -205,6 +211,9 @@ func _apply_android_input_workaround():
 				stt_model_input,
 				stt_base_url_input,
 				stt_key_input,
+				rerank_model_input,
+				rerank_base_url_input,
+				rerank_key_input,
 				save_export_api_key_input
 			]
 			for le in inputs:
@@ -254,6 +263,9 @@ func _on_detail_save_pressed():
 	var stt_model = stt_model_input.text.strip_edges()
 	var stt_base_url = stt_base_url_input.text.strip_edges()
 	var stt_key = stt_key_input.text.strip_edges()
+	var rerank_model = rerank_model_input.text.strip_edges()
+	var rerank_base_url = rerank_base_url_input.text.strip_edges()
+	var rerank_key = rerank_key_input.text.strip_edges()
 
 	# 验证必填字段
 	if chat_model.is_empty() or chat_base_url.is_empty() or chat_key.is_empty():
@@ -296,6 +308,11 @@ func _on_detail_save_pressed():
 			"model": stt_model,
 			"base_url": stt_base_url,
 			"api_key": stt_key
+		},
+		"rerank_model": {
+			"model": rerank_model,
+			"base_url": rerank_base_url,
+			"api_key": rerank_key
 		}
 	}
 	
@@ -362,6 +379,12 @@ func _load_existing_config():
 		stt_base_url_input.text = sttc.get("base_url", "")
 		stt_key_input.text = sttc.get("api_key", "")
 
+	if config.has("rerank_model"):
+		var rerankc = config.rerank_model
+		rerank_model_input.text = rerankc.get("model", "")
+		rerank_base_url_input.text = rerankc.get("base_url", "")
+		rerank_key_input.text = rerankc.get("api_key", "")
+
 	_last_saved_detail = _collect_detail_inputs()
 	_update_detail_saved_label()
 
@@ -403,6 +426,12 @@ func _sync_to_detail_config(config: Dictionary):
 		stt_base_url_input.text = sttc.base_url
 		stt_key_input.text = sttc.api_key
 
+	if config.has("rerank_model"):
+		var rerankc = config.rerank_model
+		rerank_model_input.text = rerankc.model
+		rerank_base_url_input.text = rerankc.base_url
+		rerank_key_input.text = rerankc.api_key
+
 	_last_saved_detail = _collect_detail_inputs()
 	_update_detail_saved_label()
 
@@ -439,7 +468,8 @@ func _collect_detail_inputs() -> Dictionary:
 		"tts_model": {"model": tts_model_input.text, "base_url": tts_base_url_input.text, "api_key": tts_key_input.text},
 		"embedding_model": {"model": embedding_model_input.text, "base_url": embedding_base_url_input.text, "api_key": embedding_key_input.text},
 		"view_model": {"model": view_model_input.text, "base_url": view_base_url_input.text, "api_key": view_key_input.text},
-		"stt_model": {"model": stt_model_input.text, "base_url": stt_base_url_input.text, "api_key": stt_key_input.text}
+		"stt_model": {"model": stt_model_input.text, "base_url": stt_base_url_input.text, "api_key": stt_key_input.text},
+		"rerank_model": {"model": rerank_model_input.text, "base_url": rerank_base_url_input.text, "api_key": rerank_key_input.text}
 	}
 
 func _is_detail_dirty() -> bool:

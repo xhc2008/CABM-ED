@@ -326,7 +326,7 @@ layout_mode = 2
 placeholder_text = "sk-..."
 secret = true
 
-[node name="视觉模型" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs"]
+[node name="重排模型" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs"]
 visible = false
 layout_mode = 2
 theme_override_constants/margin_left = 10
@@ -334,6 +334,54 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 metadata/_tab_index = 4
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="DescLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "用于提高长期记忆召回精度"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="RerankModelName" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "模型名称:"
+
+[node name="RerankModelInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "BAAI/bge-reranker-v2-m3"
+
+[node name="RerankBaseURLLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "Base URL:"
+
+[node name="RerankBaseURLInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "https://api.siliconflow.cn"
+
+[node name="RerankKeyLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "API 密钥:"
+
+[node name="RerankKeyInput" type="LineEdit" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/重排模型/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "sk-..."
+secret = true
+
+[node name="视觉模型" type="MarginContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs"]
+visible = false
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+metadata/_tab_index = 5
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/视觉模型"]
 layout_mode = 2
@@ -381,7 +429,7 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
-metadata/_tab_index = 5
+metadata/_tab_index = 6
 
 [node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBoxContainer/TabContainer/详细配置/DetailTabs/语音输入"]
 layout_mode = 2

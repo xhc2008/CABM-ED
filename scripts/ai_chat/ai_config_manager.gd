@@ -34,6 +34,10 @@ const CONFIG_TEMPLATES = {
         "stt_model": {
             "model": "FunAudioLLM/SenseVoiceSmall",
             "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "rerank_model": {
+            "model": "BAAI/bge-reranker-v2-m3",
+            "base_url": "https://api.siliconflow.cn/v1"
         }
     },
     "standard": {
@@ -61,6 +65,10 @@ const CONFIG_TEMPLATES = {
         },
         "stt_model": {
             "model": "FunAudioLLM/SenseVoiceSmall",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "rerank_model": {
+            "model": "BAAI/bge-reranker-v2-m3",
             "base_url": "https://api.siliconflow.cn/v1"
         }
     }

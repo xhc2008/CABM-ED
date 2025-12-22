@@ -134,6 +134,14 @@ func _load_new_format_config(path: String):
             config.stt_model.model = stt.model
         if stt.has("base_url"):
             config.stt_model.base_url = stt.base_url
+    
+    if user_config.has("rerank_model"):
+        var rerank = user_config.rerank_model
+        # 直接使用用户配置的值，不提供默认值回退
+        if rerank.has("model"):
+            config.rerank_model.model = rerank.model
+        if rerank.has("base_url"):
+            config.rerank_model.base_url = rerank.base_url
 
     # 兼容旧的 api_key 字段（用于快速配置）
     if user_config.has("api_key") and api_key.is_empty():

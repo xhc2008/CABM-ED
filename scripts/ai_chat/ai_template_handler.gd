@@ -97,6 +97,11 @@ func apply_quick_config(api_key: String) -> Dictionary:
             "model": template.stt_model.model,
             "base_url": template.stt_model.base_url,
             "api_key": api_key
+        },
+        "rerank_model": {
+            "model": template.rerank_model.model,
+            "base_url": template.rerank_model.base_url,
+            "api_key": api_key
         }
     }
     

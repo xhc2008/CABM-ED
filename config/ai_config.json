@@ -189,5 +189,12 @@
         "model": "",
         "base_url": "",
         "timeout": 5
+    },
+    "rerank_model": {
+        "model": "",
+        "base_url": "",
+        "timeout": 10,
+        "top_n": 5
     }
+
 }

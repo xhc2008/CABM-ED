@@ -93,6 +93,11 @@ func _save_api_key(api_key: String):
 			"model": "FunAudioLLM/SenseVoiceSmall",
 			"base_url": "https://api.siliconflow.cn/v1",
 			"api_key": api_key
+		},
+		"rerank_model": {
+			"model": "BAAI/bge-reranker-v2-m3",
+			"base_url": "https://api.siliconflow.cn/v1",
+			"api_key": api_key
 		}
 	}
 	

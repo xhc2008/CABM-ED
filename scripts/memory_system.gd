@@ -73,6 +73,13 @@ var embedding_base_url: String = ""
 var embedding_timeout: float = 5.0
 var vector_dim: int = 1024
 
+# 重排序API配置
+var rerank_model: String = ""
+var rerank_base_url: String = ""
+var rerank_timeout: float = 10.0
+var rerank_top_n: int = 5
+var rerank_instruction: String = ""
+
 # 请求队列系统
 class EmbeddingRequest:
 	var text: String = ""
@@ -114,10 +121,20 @@ func initialize(p_config: Dictionary, p_db_name: String = "default"):
 	embedding_base_url = embed_config.get("base_url", "")
 	embedding_timeout = embed_config.get("timeout", 30.0)
 	vector_dim = embed_config.get("vector_dim", 1024)
-	
+
+	# 从配置读取重排序模型参数
+	var rerank_config = config.get("rerank_model", {})
+	rerank_model = rerank_config.get("model", "")
+	rerank_base_url = rerank_config.get("base_url", "")
+	rerank_timeout = rerank_config.get("timeout", 10.0)
+	rerank_top_n = rerank_config.get("top_n", 5)
+	rerank_instruction = rerank_config.get("instruction", "")
+
+	print("重排序配置: model='%s', base_url='%s'" % [rerank_model, rerank_base_url])
+
 	# 加载已有数据
 	load_from_file()
-	
+
 	print("记忆系统初始化完成: %s" % db_name)
 
 func add_text(text: String, item_type: String = "conversation", metadata: Dictionary = {}, custom_timestamp: String = "") -> void:
@@ -326,8 +343,6 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 
 func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> Array:
 	"""搜索相关记忆
-	
-	Args:
 		query: 查询文本
 		top_k: 返回结果数量
 		min_similarity: 最小相似度阈值
@@ -335,47 +350,68 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 	"""
 	if memory_items.is_empty():
 		return []
-	
+
 	# 获取查询向量
 	var query_vector = await get_embedding(query)
-	
+
 	if query_vector.is_empty():
 		print("警告: 获取查询向量失败")
 		return []
-	
+
 	# 计算所有记忆的相似度
 	var similarities = []
-	
+
 	for i in range(memory_items.size()):
 		var item = memory_items[i]
-		
+
 		# 跳过要排除的时间戳（精确匹配）
 		if exclude_timestamps.has(item.timestamp):
 			continue
-		
+
 		var similarity = _calculate_similarity(query_vector, item.vector, item.metadata)
-		
+
 		if similarity >= min_similarity:
 			similarities.append({
 				"index": i,
 				"similarity": similarity,
 				"item": item
 			})
-	
+
 	# 按相似度排序
 	similarities.sort_custom(func(a, b): return a.similarity > b.similarity)
-	
-	# 返回top_k个结果
-	var results = []
-	for i in range(min(top_k, similarities.size())):
-		results.append({
+
+	# 获取前top_k个结果用于重排序
+	var initial_results = []
+	var max_candidates = min(top_k * 2, similarities.size())  # 为重排序准备更多候选文档
+	for i in range(max_candidates):
+		initial_results.append({
 			"text": similarities[i].item.text,
 			"similarity": similarities[i].similarity,
 			"timestamp": similarities[i].item.timestamp,
 			"type": similarities[i].item.type
 		})
-	
-	return results
+
+	# 进行重排序
+	var reranked_results = await rerank_documents(query, initial_results)
+
+	# 返回重排序后的结果，如果重排序失败则返回原始检索结果
+	var final_results = []
+	if not reranked_results.is_empty():
+		# 重排序成功，返回重排序结果（可能少于top_k）
+		for i in range(min(top_k, reranked_results.size())):
+			final_results.append(reranked_results[i])
+	else:
+		# 重排序失败，返回原始检索的前top_k个结果
+		print("重排序失败，使用原始检索结果")
+		for i in range(min(top_k, similarities.size())):
+			final_results.append({
+				"text": similarities[i].item.text,
+				"similarity": similarities[i].similarity,
+				"timestamp": similarities[i].item.timestamp,
+				"type": similarities[i].item.type
+			})
+
+	return final_results
 
 func _calculate_similarity(vec1: Array, vec2: Array, item_metadata: Dictionary = {}) -> float:
 	"""计算余弦相似度"""
@@ -557,3 +593,139 @@ func clear() -> void:
 	"""清空所有记忆"""
 	memory_items.clear()
 	print("记忆已清空")
+
+func rerank_documents(query: String, documents: Array) -> Array:
+	"""对文档进行重排序
+
+	Args:
+		query: 查询文本
+		documents: 文档列表，每个文档包含text, similarity, timestamp, type等字段
+
+	Returns:
+		重排序后的文档列表
+	"""
+	print("检查重排序配置: model='%s', base_url='%s'" % [rerank_model, rerank_base_url])
+	if rerank_base_url.is_empty() or rerank_model.is_empty():
+		print("重排序模型未配置，使用原始检索结果")
+		return documents
+
+	if documents.is_empty():
+		return documents
+
+	# 从配置读取API密钥
+	var api_key = ""
+	if config.has("rerank_model") and config.rerank_model.has("api_key"):
+		api_key = config.rerank_model.get("api_key", "")
+
+	if api_key.is_empty():
+		print("重排序模型API密钥未配置，使用原始检索结果")
+		return documents
+
+	# 准备重排序请求数据
+	var document_texts = []
+	for doc in documents:
+		document_texts.append(doc.text)
+
+	var url = rerank_base_url.trim_suffix("/") + "/rerank"
+	var headers = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + api_key
+	]
+
+	var body = {
+		"model": rerank_model,
+		"query": query,
+		"documents": document_texts,
+		"instruction": rerank_instruction,
+		"top_n": min(rerank_top_n, documents.size()),
+		"return_documents": true
+	}
+
+	var json_body = JSON.stringify(body)
+
+	print("调用重排序API，文档数量: %d" % documents.size())
+
+	# 创建新的HTTP请求节点用于重排序
+	var rerank_request = HTTPRequest.new()
+	add_child(rerank_request)
+	rerank_request.timeout = rerank_timeout
+
+	# 发送请求
+	var error = rerank_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
+	if error != OK:
+		print("重排序请求失败: ", error)
+		rerank_request.queue_free()
+		return documents
+
+	# 等待响应
+	var response_data = await _wait_for_rerank_response(rerank_request)
+
+	rerank_request.queue_free()
+
+	if response_data.is_empty():
+		print("重排序响应为空，使用原始检索结果")
+		return documents
+
+	# 解析重排序结果
+	var reranked_results = []
+	var results = response_data.get("results", [])
+
+	for result in results:
+		var document = result.get("document", {})
+		var text = document.get("text", "")
+		var relevance_score = result.get("relevance_score", 0.0)
+		var index = result.get("index", 0)
+
+		# 从原始文档中获取额外信息
+		if index < documents.size():
+			var original_doc = documents[index]
+			reranked_results.append({
+				"text": text,
+				"similarity": relevance_score / 100.0,  # 将重排序分数转换为0-1范围
+				"timestamp": original_doc.timestamp,
+				"type": original_doc.type
+			})
+
+	print("重排序完成，返回 %d 个结果" % reranked_results.size())
+	return reranked_results if not reranked_results.is_empty() else documents
+
+func _wait_for_rerank_response(rerank_request: HTTPRequest) -> Dictionary:
+	"""等待重排序响应完成"""
+	var result_data = []
+	var response_code = 0
+	var _headers = []
+	var body = []
+
+	# 连接信号
+	var completed = false
+	rerank_request.request_completed.connect(func(r, c, h, b):
+		result_data = [r, c, h, b]
+		completed = true
+	)
+
+	# 等待完成
+	while not completed:
+		await get_tree().process_frame
+
+	var http_result = result_data[0]
+	response_code = result_data[1]
+	_headers = result_data[2]
+	body = result_data[3]
+
+	if http_result != HTTPRequest.RESULT_SUCCESS:
+		print("重排序请求失败: ", http_result)
+		return {}
+
+	if response_code != 200:
+		var error_text = body.get_string_from_utf8()
+		print("重排序API返回错误 %d: %s" % [response_code, error_text])
+		return {}
+
+	var json = JSON.new()
+	var parse_result = json.parse(body.get_string_from_utf8())
+
+	if parse_result != OK:
+		print("解析重排序响应失败")
+		return {}
+
+	return json.data
