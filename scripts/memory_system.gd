@@ -341,7 +341,7 @@ func _on_embedding_request_completed(result: int, response_code: int, _headers: 
 	# 继续处理下一个请求
 	_process_request_queue()
 
-func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> Array:
+func search(query: String, top_k: int, min_similarity: float, exclude_timestamps: Array = []) -> Array:
 	"""搜索相关记忆
 		query: 查询文本
 		top_k: 返回结果数量
@@ -380,9 +380,9 @@ func search(query: String, top_k: int = 5, min_similarity: float = 0.3, exclude_
 	# 按相似度排序
 	similarities.sort_custom(func(a, b): return a.similarity > b.similarity)
 
-	# 获取前top_k个结果用于重排序
+	# 获取前top_k*4个结果用于重排序
 	var initial_results = []
-	var max_candidates = min(top_k * 2, similarities.size())  # 为重排序准备更多候选文档
+	var max_candidates = min(top_k * 4, similarities.size())  # 为重排序准备更多候选文档
 	for i in range(max_candidates):
 		initial_results.append({
 			"text": similarities[i].item.text,
@@ -463,7 +463,7 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array, item_metadata: Dic
 	
 	return dot / (mag1 * mag2)
 
-func get_relevant_memory(query: String, top_k: int = 5, _timeout: float = 10.0, min_similarity: float = 0.3, exclude_timestamps: Array = []) -> String:
+func get_relevant_memory(query: String, top_k: int, _timeout: float, min_similarity: float, exclude_timestamps: Array = []) -> String:
 	"""获取相关记忆并格式化为提示词
 	
 	Args:
@@ -695,16 +695,9 @@ func _wait_for_rerank_response(rerank_request: HTTPRequest) -> Dictionary:
 	var _headers = []
 	var body = []
 
-	# 连接信号
-	var completed = false
-	rerank_request.request_completed.connect(func(r, c, h, b):
-		result_data = [r, c, h, b]
-		completed = true
-	)
-
-	# 等待完成
-	while not completed:
-		await get_tree().process_frame
+	# 使用信号的await语法，避免竞态条件
+	var signal_result = await rerank_request.request_completed
+	result_data = signal_result
 
 	var http_result = result_data[0]
 	response_code = result_data[1]
