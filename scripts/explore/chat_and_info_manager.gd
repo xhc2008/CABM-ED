@@ -162,7 +162,7 @@ func _on_chat_message_submitted(text: String):
 	exit_chat_mode()
 
 func _process_user_message(text: String):
-	"""处理用户消息（发送给AI）"""
+	"""处理用户消息（添加到历史并发送给AI）"""
 	if not adventure_ai:
 		print("警告: adventure_ai未初始化")
 		return
@@ -176,6 +176,15 @@ func _process_user_message(text: String):
 	var user_message_line := "<%s> %s" % [user_name, text]
 	adventure_ai.add_to_display_history("user", user_message_line)
 	print("添加到显示历史: ", user_message_line)
+
+	# 发送给AI
+	_send_to_ai_only(text)
+
+func _send_to_ai_only(text: String):
+	"""仅发送消息给AI（不添加到显示历史）"""
+	if not adventure_ai:
+		print("警告: adventure_ai未初始化")
+		return
 
 	# 获取探索场景名称（如果在探索场景中）
 	var explore_scene_name := ""
@@ -272,11 +281,18 @@ func _on_all_sentences_completed() -> void:
 		var combined_message = "\n".join(pending_messages)
 		print("处理暂存消息: ", combined_message)
 
+		# 将每条暂存消息单独添加到显示历史
+		var user_name := _get_user_name()
+		for pending_msg in pending_messages:
+			var pending_message_line := "<%s> %s" % [user_name, pending_msg]
+			adventure_ai.add_to_display_history("user", pending_message_line)
+			print("将暂存消息添加到显示历史: ", pending_message_line)
+
 		# 清空暂存消息
 		pending_messages.clear()
 
 		# 发送合并后的消息（这会设置is_ai_processing = true）
-		_process_user_message(combined_message)
+		_send_to_ai_only(combined_message)
 		print("处理暂存消息后is_ai_processing状态: ", is_ai_processing)
 	else:
 		# 没有暂存消息，重置AI处理状态
@@ -319,7 +335,7 @@ func _on_ai_error_occurred(error_message: String) -> void:
 		var combined_message = "\n".join(pending_messages)
 		print("AI错误后处理暂存消息: ", combined_message)
 		pending_messages.clear()
-		_process_user_message(combined_message)  # 这会设置is_ai_processing = true
+		_send_to_ai_only(combined_message)  # 这会设置is_ai_processing = true
 		print("错误处理暂存消息后is_ai_processing状态: ", is_ai_processing)
 	else:
 		# 没有暂存消息，重置AI处理状态
