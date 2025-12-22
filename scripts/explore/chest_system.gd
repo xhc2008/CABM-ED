@@ -35,31 +35,45 @@ func generate_chest_loot(chest_type: String) -> Array:
 	storage.resize(CHEST_STORAGE_SIZE)
 	for i in range(CHEST_STORAGE_SIZE):
 		storage[i] = null
-	
+
 	if not loot_config.has("loot_tables"):
 		return storage
-	
+
 	var loot_table = loot_config.loot_tables.get(chest_type, {})
 	if loot_table.is_empty():
 		print("警告: 未找到战利品表: ", chest_type)
 		return storage
-	
+
 	var items = loot_table.get("items", [])
 	var slot_index = 0
-	
+
 	for item_entry in items:
 		# 根据概率决定是否生成该物品
 		if randf() <= item_entry.probability:
 			if slot_index >= CHEST_STORAGE_SIZE:
 				break
-			
+
 			var count = randi_range(item_entry.min_count, item_entry.max_count)
 			storage[slot_index] = {
 				"item_id": item_entry.item_id,
 				"count": count
 			}
 			slot_index += 1
-	
+
+	# 确保宝箱不会完全为空 - 如果没有生成任何物品，强制添加绷带
+	var has_items = false
+	for item in storage:
+		if item != null:
+			has_items = true
+			break
+
+	if not has_items:
+		print("宝箱生成为空，强制添加绷带")
+		storage[0] = {
+			"item_id": "bandage",
+			"count": randi_range(1, 3)  # 至少1个，最多3个绷带
+		}
+
 	return storage
 
 func get_chest_storage(chest_position: Vector2i, chest_type: String) -> Array:

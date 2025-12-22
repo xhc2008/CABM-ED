@@ -3,6 +3,7 @@ config/character_presets
 novel/config
 *.jks
 CABM-ED/
+*.7z
 # ================================
 # Godot 项目忽略规则
 # ================================
