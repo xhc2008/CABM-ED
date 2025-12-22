@@ -1,176 +1,101 @@
 extends Node
 
 # AI 配置加载器
-# 负责加载和管理 AI 配置和 API 密钥
+# 职责：加载和管理 AI 配置和 API 密钥
+# 加载策略：
+# - api_key, base_url, model: 只从用户配置(user://ai_keys.json)加载
+# - 其他配置：只从项目配置(res://config/ai_config.json)加载
+# - 不回退，不混合，配置缺失就留空
 
-var config: Dictionary = {}
-var api_key: String = ""
+var config: Dictionary = {}  # 合并后的完整配置
+var api_key: String = ""     # 主 API 密钥
 
 func load_all():
-    """加载所有配置"""
-    _load_config()
-    _load_api_key()
+	"""加载所有配置"""
+	_load_project_config()  # 先加载项目配置作为基础
+	_load_user_config()     # 再加载用户配置覆盖特定字段
 
-func _load_config():
-    """加载 AI 配置"""
-    var config_path = "res://config/ai_config.json"
-    if not FileAccess.file_exists(config_path):
-        push_error("AI 配置文件不存在")
-        return
+func _load_project_config():
+	"""加载项目配置文件中的配置"""
+	var config_path = "res://config/ai_config.json"
+	if not FileAccess.file_exists(config_path):
+		push_error("AI 项目配置文件不存在: " + config_path)
+		return
 
-    var file = FileAccess.open(config_path, FileAccess.READ)
-    var json_string = file.get_as_text()
-    file.close()
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if not file:
+		push_error("无法打开项目配置文件")
+		return
+	
+	var json_string = file.get_as_text()
+	file.close()
 
-    var json = JSON.new()
-    if json.parse(json_string) == OK:
-        config = json.data
-        print("AI 配置加载成功")
-    else:
-        push_error("AI 配置解析失败")
+	var json = JSON.new()
+	if json.parse(json_string) == OK:
+		config = json.data
+		print("AI 项目配置加载成功")
+	else:
+		push_error("AI 项目配置解析失败")
 
-func _load_api_key():
-    """加载 API 密钥和配置"""
-    var new_key_path = "user://ai_keys.json"
-    var old_key_path = "user://api_keys.json"
+func _load_user_config():
+	"""加载用户配置文件中的 API 密钥和模型配置"""
+	var user_config_path = "user://ai_keys.json"
+	if not FileAccess.file_exists(user_config_path):
+		push_error("AI 用户配置文件不存在: " + user_config_path)
+		return
 
-    if FileAccess.file_exists(new_key_path):
-        _load_new_format_config(new_key_path)
-        return
+	var file = FileAccess.open(user_config_path, FileAccess.READ)
+	if not file:
+		push_error("无法打开用户配置文件")
+		return
+	
+	var json_string = file.get_as_text()
+	file.close()
 
-    if FileAccess.file_exists(old_key_path):
-        _load_old_format_config(old_key_path)
-        return
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		push_error("用户配置解析失败")
+		return
 
-    var config_key_path = "res://config/api_keys.json"
-    if FileAccess.file_exists(config_key_path):
-        var config_file = FileAccess.open(config_key_path, FileAccess.READ)
-        var content = config_file.get_as_text()
-        config_file.close()
+	var user_config = json.data
+	
+	# 处理每个模型的配置：只更新 api_key, base_url, model
+	_update_model_config("chat_model", user_config)
+	_update_model_config("summary_model", user_config)
+	_update_model_config("relationship_model", user_config)
+	_update_model_config("tts_model", user_config)
+	_update_model_config("embedding_model", user_config)
+	_update_model_config("view_model", user_config)
+	_update_model_config("stt_model", user_config)
+	_update_model_config("rerank_model", user_config)
+	
+	# 兼容旧格式：直接读取 api_key 字段
+	if user_config.has("api_key"):
+		api_key = user_config.api_key
+	
+	print("AI 用户配置加载成功")
 
-        var user_file = FileAccess.open(old_key_path, FileAccess.WRITE)
-        user_file.store_string(content)
-        user_file.close()
+func _update_model_config(model_name: String, user_config: Dictionary):
+	"""更新指定模型的配置（仅更新 api_key, base_url, model）"""
+	if not user_config.has(model_name):
+		return
+	
+	var user_model_config = user_config[model_name]
+	
+	# 确保配置字典中有该模型
+	if not config.has(model_name):
+		config[model_name] = {}
+	
+	# 只更新特定字段
+	if user_model_config.has("api_key"):
+		config[model_name]["api_key"] = user_model_config.api_key
+		# 如果是 chat_model，也设置主 api_key
+		if model_name == "chat_model" and api_key.is_empty():
+			api_key = user_model_config.api_key
+	
+	if user_model_config.has("base_url"):
+		config[model_name]["base_url"] = user_model_config.base_url
+	
+	if user_model_config.has("model"):
+		config[model_name]["model"] = user_model_config.model
 
-        _load_old_format_config(old_key_path)
-        return
-
-    push_error("API 密钥文件不存在，请配置 AI 设置")
-
-func _load_new_format_config(path: String):
-    """加载新格式的配置文件"""
-    var file = FileAccess.open(path, FileAccess.READ)
-    if file == null:
-        push_error("无法打开配置文件")
-        return
-
-    var json_string = file.get_as_text()
-    file.close()
-
-    var json = JSON.new()
-    if json.parse(json_string) != OK:
-        push_error("配置文件解析失败")
-        return
-
-    var user_config = json.data
-
-    # 严格使用用户配置，不回退到默认值
-    # 即使配置不存在或不合法也不使用 ai_config.json 的默认值
-
-    if user_config.has("chat_model"):
-        var chat = user_config.chat_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if chat.has("model"):
-            config.chat_model.model = chat.model
-        if chat.has("base_url"):
-            config.chat_model.base_url = chat.base_url
-        if chat.has("api_key"):
-            api_key = chat.api_key
-
-    if user_config.has("summary_model"):
-        var summary = user_config.summary_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if summary.has("model"):
-            config.summary_model.model = summary.model
-        if summary.has("base_url"):
-            config.summary_model.base_url = summary.base_url
-
-    if user_config.has("relationship_model"):
-        var relationship = user_config.relationship_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if relationship.has("model"):
-            config.relationship_model.model = relationship.model
-        if relationship.has("base_url"):
-            config.relationship_model.base_url = relationship.base_url
-
-    if user_config.has("tts_model"):
-        var tts = user_config.tts_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if tts.has("model"):
-            config.tts_model.model = tts.model
-        if tts.has("base_url"):
-            config.tts_model.base_url = tts.base_url
-
-    if user_config.has("embedding_model"):
-        var embedding = user_config.embedding_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if embedding.has("model"):
-            config.embedding_model.model = embedding.model
-        if embedding.has("base_url"):
-            config.embedding_model.base_url = embedding.base_url
-
-    if user_config.has("view_model"):
-        var view = user_config.view_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if view.has("model"):
-            config.view_model.model = view.model
-        if view.has("base_url"):
-            config.view_model.base_url = view.base_url
-
-    if user_config.has("stt_model"):
-        var stt = user_config.stt_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if stt.has("model"):
-            config.stt_model.model = stt.model
-        if stt.has("base_url"):
-            config.stt_model.base_url = stt.base_url
-    
-    if user_config.has("rerank_model"):
-        var rerank = user_config.rerank_model
-        # 直接使用用户配置的值，不提供默认值回退
-        if rerank.has("model"):
-            config.rerank_model.model = rerank.model
-        if rerank.has("base_url"):
-            config.rerank_model.base_url = rerank.base_url
-
-    # 兼容旧的 api_key 字段（用于快速配置）
-    if user_config.has("api_key") and api_key.is_empty():
-        api_key = user_config.api_key
-
-    if api_key.is_empty():
-        push_error("API 密钥为空")
-    else:
-        print("API 配置加载成功")
-        print("  对话模型: ", config.chat_model.model)
-        print("  总结模型: ", config.summary_model.model)
-
-func _load_old_format_config(path: String):
-    """加载旧格式的配置文件（兼容性）"""
-    var file = FileAccess.open(path, FileAccess.READ)
-    if file == null:
-        push_error("无法打开配置文件")
-        return
-
-    var json_string = file.get_as_text()
-    file.close()
-
-    var json = JSON.new()
-    if json.parse(json_string) == OK:
-        var keys = json.data
-        api_key = keys.get("openai_api_key", "")
-        if api_key.is_empty():
-            push_error("API 密钥为空")
-        else:
-            print("API 密钥加载成功 (旧格式)")
-    else:
-        push_error("API 密钥文件解析失败")

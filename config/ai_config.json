@@ -193,8 +193,7 @@
     "rerank_model": {
         "model": "",
         "base_url": "",
-        "timeout": 10,
+        "timeout": 5,
         "top_n": 5
     }
-
 }

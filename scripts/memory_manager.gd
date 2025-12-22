@@ -1,6 +1,8 @@
 extends Node
 ## 记忆管理器 - 统一管理对话和日记的向量存储
-## 自动加载节点，提供全局记忆访问接口
+## 加载策略：
+## - 嵌入和重排序模型：从用户配置加载 api_key, base_url, model
+## - 其他所有配置：从项目配置加载
 
 signal memory_system_ready
 
@@ -12,154 +14,233 @@ var is_initialized: bool = false
 var auto_save_timer: Timer = null
 
 func _ready():
+	# 等待保存管理器就绪
 	var sm = get_node_or_null("/root/SaveManager")
 	if sm and not sm.is_resources_ready():
 		print("记忆管理器等待资源加载")
 		return
 	# 加载配置
 	_load_config()
-	
+
+	# 如果配置加载失败，不继续初始化
+	if config.is_empty() or not config.has("embedding_model"):
+		print("记忆管理器初始化失败：配置不完整")
+		return
+
 	# 创建记忆系统实例
 	var memory_script = load("res://scripts/memory_system.gd")
 	memory_system = memory_script.new()
 	add_child(memory_system)
-	
+
 	# 初始化记忆系统
 	memory_system.initialize(config, "main_memory")
 	is_initialized = true
-	
+
 	# 设置自动保存
 	if config.get("storage", {}).get("auto_save", true):
 		_setup_auto_save()
-	
+
 	memory_system_ready.emit()
 	print("记忆管理器已就绪")
 
 func _load_config():
-	"""加载记忆配置（优先从用户配置，然后从项目配置）"""
-	# 先尝试从用户配置加载（UI保存的配置）
-	var user_config_path = "user://ai_keys.json"
-	var project_config_path = "res://config/ai_config.json"
+	"""加载记忆配置"""
+	# 1. 先加载项目配置中的记忆相关配置
+	var project_config = _load_project_config()
 	
-	var ai_config = {}
+	# 2. 加载用户配置中的嵌入和重排序模型配置
+	var user_config = _load_user_config()
 	
-	# 优先读取用户配置
-	if FileAccess.file_exists(user_config_path):
-		var file = FileAccess.open(user_config_path, FileAccess.READ)
-		if file != null:
-			var json = JSON.new()
-			if json.parse(file.get_as_text()) == OK:
-				ai_config = json.data
-				print("从用户配置加载: user://ai_keys.json")
-			file.close()
+	# 3. 合并配置（项目配置为基础，用户配置覆盖特定字段）
+	config = _merge_configs(project_config, user_config)
 	
-	# 如果用户配置没有嵌入模型，从项目配置读取
-	if not ai_config.has("embedding_model") or ai_config.embedding_model.get("model", "").is_empty():
-		if FileAccess.file_exists(project_config_path):
-			var file = FileAccess.open(project_config_path, FileAccess.READ)
-			if file != null:
-				var json = JSON.new()
-				if json.parse(file.get_as_text()) == OK:
-					var project_config = json.data
-					# 合并项目配置
-					if project_config.has("embedding_model"):
-						ai_config["embedding_model"] = project_config.embedding_model
-					if project_config.has("memory"):
-						ai_config["memory"] = project_config.memory
-					print("从项目配置补充: res://config/ai_config.json")
-				file.close()
+	print("记忆配置加载完成")
+	_log_memory_config()
+
+func _load_project_config() -> Dictionary:
+	"""从项目配置文件加载记忆相关配置"""
+	var config_path = "res://config/ai_config.json"
+	var result = {}
 	
-	# 如果还是没有配置，使用默认值
-	if ai_config.is_empty():
-		print("警告: 未找到配置文件，使用默认配置")
-		config = _get_default_config()
-		return
+	if not FileAccess.file_exists(config_path):
+		print("警告: AI 项目配置文件不存在")
+		return result
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if not file:
+		print("警告: 无法打开项目配置文件")
+		return result
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		print("警告: 项目配置解析失败")
+		return result
+	
+	var project_config = json.data
 	
 	# 提取记忆相关配置
-	config = {}
-	
-	# 嵌入模型配置
-	if ai_config.has("embedding_model"):
-		config["embedding_model"] = ai_config.embedding_model
-	else:
-		config["embedding_model"] = _get_default_config().embedding_model
-	
-	# 记忆系统配置
-	if ai_config.has("memory"):
-		config["memory"] = ai_config.memory
-		# 合并retrieval和storage配置
-		if ai_config.memory.has("vector_db"):
-			config["retrieval"] = {
-				"top_k": ai_config.memory.vector_db.get("top_k", 5),
-				"min_similarity": ai_config.memory.vector_db.get("min_similarity", 0.3),
-				"timeout": ai_config.memory.vector_db.get("timeout", 10.0)
-			}
-			config["storage"] = {
-				"auto_save": ai_config.memory.vector_db.get("auto_save", true),
-				"save_interval": ai_config.memory.vector_db.get("save_interval", 300)
-			}
-	else:
-		var defaults = _get_default_config()
-		config["memory"] = defaults.memory
-		config["retrieval"] = defaults.retrieval
-		config["storage"] = defaults.storage
-	
-	print("记忆配置已加载")
-
-
-
-func _get_default_config() -> Dictionary:
-	"""获取默认配置"""
-	return {
-		"embedding_model": {
-			"model": "",
-			"base_url": "",
-			"timeout": 30,
-			"vector_dim": 1024,
-			"batch_size": 64
-		},
-		"memory": {
-			"max_memory_items": 15,
-			"max_conversation_history": 10,
-			"max_relationship_history": 2,
-			"vector_db": {
-				"enable": true,
-				"top_k": 5,
-				"min_similarity": 0.3,
-				"timeout": 10.0,
-				"auto_save": true,
-				"save_interval": 300,
-				"max_items": 1000
-			},
-			"prompts": {
-				"memory_prefix": "这是唤醒的记忆，可以作为参考：\n```\n",
-				"memory_suffix": "\n```\n以上是记忆而不是最近的对话，可以不使用。",
-				"no_memory": ""
-			},
-			"storage": {
-				"store_conversations": true,
-				"store_summaries": true,
-				"store_diaries": true,
-				"summary_before_storage": false
-			}
-		},
-		"retrieval": {
-			"top_k": 5,
-			"min_similarity": 0.3,
-			"timeout": 10.0
-		},
-		"storage": {
-			"auto_save": true,
-			"save_interval": 300
+	if project_config.has("memory"):
+		result["memory"] = project_config.memory
+		
+		# 从 memory 配置中提取子配置
+		var memory_config = project_config.memory
+		
+		# 存储配置
+		result["storage"] = {
+			"store_summaries": memory_config.get("store_summaries", true),
+			"store_diaries": memory_config.get("store_diaries", true),
+			"auto_save": memory_config.get("auto_save", true),
+			"save_interval": memory_config.get("save_interval", 300)
 		}
-	}
+		
+		# 检索配置
+		if memory_config.has("vector_db"):
+			var vector_db = memory_config.vector_db
+			result["retrieval"] = {
+				"top_k": vector_db.get("top_k", 5),
+				"min_similarity": vector_db.get("min_similarity", 0.3),
+				"timeout": vector_db.get("timeout", 10.0)
+			}
+	
+	# 嵌入模型的其他配置（非 api_key/base_url/model）
+	if project_config.has("embedding_model"):
+		var embed_config = project_config.embedding_model
+		result["embedding_model_config"] = {}
+		
+		# 复制除了 api_key/base_url/model 之外的所有字段
+		for key in embed_config:
+			if key not in ["api_key", "base_url", "model"]:
+				result["embedding_model_config"][key] = embed_config[key]
+	
+	# 重排序模型的其他配置
+	if project_config.has("rerank_model"):
+		var rerank_config = project_config.rerank_model
+		result["rerank_model_config"] = {}
+		
+		for key in rerank_config:
+			if key not in ["api_key", "base_url", "model"]:
+				result["rerank_model_config"][key] = rerank_config[key]
+	
+	print("项目配置加载成功")
+	return result
 
+func _load_user_config() -> Dictionary:
+	"""从用户配置文件加载嵌入和重排序模型的 api_key/base_url/model"""
+	var config_path = "user://ai_keys.json"
+	var result = {}
+	
+	if not FileAccess.file_exists(config_path):
+		print("警告: AI 用户配置文件不存在")
+		return result
+	
+	var file = FileAccess.open(config_path, FileAccess.READ)
+	if not file:
+		print("警告: 无法打开用户配置文件")
+		return result
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		print("警告: 用户配置解析失败")
+		return result
+	
+	var user_config = json.data
+	
+	# 只提取嵌入模型和重排序模型的 api_key/base_url/model
+	if user_config.has("embedding_model"):
+		result["embedding_model"] = {
+			"api_key": user_config.embedding_model.get("api_key", ""),
+			"base_url": user_config.embedding_model.get("base_url", ""),
+			"model": user_config.embedding_model.get("model", "")
+		}
+	
+	if user_config.has("rerank_model"):
+		result["rerank_model"] = {
+			"api_key": user_config.rerank_model.get("api_key", ""),
+			"base_url": user_config.rerank_model.get("base_url", ""),
+			"model": user_config.rerank_model.get("model", "")
+		}
+	
+	print("用户配置加载成功")
+	return result
+
+func _merge_configs(project_config: Dictionary, user_config: Dictionary) -> Dictionary:
+	"""合并项目配置和用户配置"""
+	var merged = {}
+	
+	# 1. 先复制项目配置中的所有内容
+	merged = project_config.duplicate(true)
+	
+	# 2. 合并嵌入模型配置
+	if user_config.has("embedding_model"):
+		var user_embed = user_config.embedding_model
+		var project_embed = project_config.get("embedding_model_config", {})
+		
+		merged["embedding_model"] = {}
+		# 用户配置的字段优先
+		if user_embed.has("model") and not user_embed.model.is_empty():
+			merged["embedding_model"]["model"] = user_embed.model
+		if user_embed.has("base_url") and not user_embed.base_url.is_empty():
+			merged["embedding_model"]["base_url"] = user_embed.base_url
+		if user_embed.has("api_key") and not user_embed.api_key.is_empty():
+			merged["embedding_model"]["api_key"] = user_embed.api_key
+		
+		# 添加项目配置中的其他字段
+		for key in project_embed:
+			merged["embedding_model"][key] = project_embed[key]
+	
+	# 3. 合并重排序模型配置（如果有）
+	if user_config.has("rerank_model"):
+		var user_rerank = user_config.rerank_model
+		var project_rerank = project_config.get("rerank_model_config", {})
+		
+		merged["rerank_model"] = {}
+		# 用户配置的字段优先
+		if user_rerank.has("model") and not user_rerank.model.is_empty():
+			merged["rerank_model"]["model"] = user_rerank.model
+		if user_rerank.has("base_url") and not user_rerank.base_url.is_empty():
+			merged["rerank_model"]["base_url"] = user_rerank.base_url
+		if user_rerank.has("api_key") and not user_rerank.api_key.is_empty():
+			merged["rerank_model"]["api_key"] = user_rerank.api_key
+		
+		# 添加项目配置中的其他字段
+		for key in project_rerank:
+			merged["rerank_model"][key] = project_rerank[key]
+	
+	return merged
+
+func _log_memory_config():
+	"""打印记忆配置摘要"""
+	if config.has("embedding_model"):
+		var embed = config.embedding_model
+		print("嵌入模型: " + str(embed.get("model", "未设置")))
+		if embed.has("base_url"):
+			print("  Base URL: " + str(embed.base_url))
+	
+	if config.has("rerank_model"):
+		print("重排序模型: 已配置")
+	else:
+		print("重排序模型: 未配置")
+	
+	if config.has("storage"):
+		var storage = config.storage
+		print("存储配置:")
+		print("  保存总结: " + str(storage.get("store_summaries", true)))
+		print("  保存日记: " + str(storage.get("store_diaries", true)))
+		print("  自动保存: " + str(storage.get("auto_save", true)))
+
+# 以下方法保持不变...
 func _setup_auto_save():
 	"""设置自动保存定时器"""
 	auto_save_timer = Timer.new()
 	add_child(auto_save_timer)
 	
-	var interval = config.storage.get("save_interval", 300)
+	var interval = config.get("storage", {}).get("save_interval", 300)
 	auto_save_timer.wait_time = interval
 	auto_save_timer.timeout.connect(_on_auto_save)
 	auto_save_timer.start()
@@ -173,13 +254,7 @@ func _on_auto_save():
 		print("记忆数据已自动保存")
 
 func add_conversation_summary(summary: String, metadata: Dictionary = {}, custom_timestamp: String = ""):
-	"""添加对话总结到记忆系统
-	
-	Args:
-		summary: 对话总结文本
-		metadata: 元数据（可选），如 {"mood": "happy", "affection": 75}
-		custom_timestamp: 自定义时间戳（可选），格式为 "YYYY-MM-DDTHH:MM:SS"
-	"""
+	"""添加对话总结到记忆系统"""
 	if not is_initialized:
 		await memory_system_ready
 	
@@ -188,38 +263,22 @@ func add_conversation_summary(summary: String, metadata: Dictionary = {}, custom
 	
 	var storage_config = config.get("storage", {})
 	if storage_config.get("store_summaries", true):
-		# 只在有实际内容时才传递 metadata 和 custom_timestamp
 		await memory_system.add_text(summary, "conversation", metadata, custom_timestamp)
 		print("对话总结已添加到向量库")
 
 func add_diary_entry(entry: Dictionary):
-	"""添加日记条目到记忆系统
-	
-	Args:
-		entry: 日记条目 {time: String, event: String, type: String (可选)}
-	"""
+	"""添加日记条目到记忆系统"""
 	if not is_initialized:
 		await memory_system_ready
 	
 	var storage_config = config.get("storage", {})
 	if storage_config.get("store_diaries", true):
-		# 日记文本（add_text 会自动添加当前时间戳）
 		var diary_text = entry.event
-		
-		# metadata 留空，因为时间已经在文本中了
 		await memory_system.add_diary_entry(diary_text)
 		print("日记条目已添加到向量库")
 
 func get_relevant_memory_for_chat(context: String, exclude_timestamps: Array = []) -> String:
-	"""获取与当前对话相关的记忆
-	
-	Args:
-		context: 当前对话上下文
-		exclude_timestamps: 要排除的时间戳列表（通常是短期记忆的时间戳）
-	
-	Returns:
-		格式化的记忆提示词
-	"""
+	"""获取与当前对话相关的记忆"""
 	if not is_initialized:
 		print("记忆系统未初始化，等待就绪...")
 		await memory_system_ready

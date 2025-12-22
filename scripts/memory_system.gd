@@ -604,7 +604,6 @@ func rerank_documents(query: String, documents: Array) -> Array:
 	Returns:
 		重排序后的文档列表
 	"""
-	print("检查重排序配置: model='%s', base_url='%s'" % [rerank_model, rerank_base_url])
 	if rerank_base_url.is_empty() or rerank_model.is_empty():
 		print("重排序模型未配置，使用原始检索结果")
 		return documents
