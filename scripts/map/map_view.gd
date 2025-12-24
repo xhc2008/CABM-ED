@@ -290,6 +290,12 @@ func _on_explore_point_pressed(explore_id: String):
 			break
 	if explore_data.is_empty():
 		return
+
+	# 找到点位位置并平滑移动到中心
+	var point_pos = _get_world_point_pos(explore_id)
+	if point_pos != Vector2.ZERO:
+		await _center_on_point(point_pos, true)
+
 	sidebar_title.text = explore_data.get("name", "探索区")
 	var intro = explore_data.get("intro", "")
 	sidebar_description.text = intro
@@ -524,10 +530,39 @@ func _switch_to_world(center_on_base: bool):
 		_update_canvas_position()
 	_apply_zoom(true)
 
-func _center_on_point(pos: Vector2):
+func _center_on_point(pos: Vector2, smooth: bool = false):
 	var visible_size = get_viewport_rect().size
 	var target = pos * zoom - visible_size / 2.0
-	canvas_offset = target
+
+	if smooth:
+		# 计算移动距离并根据距离确定合适的动画时长
+		var distance = canvas_offset.distance_to(target)
+		var max_distance = max(base_canvas_size.x, base_canvas_size.y) * zoom  # 地图最大可能距离
+		var normalized_distance = clamp(distance / max_distance, 0.0, 1.0)
+
+		# 根据距离动态调整时长：距离越远时长越长，最小0.1秒，最大0.8秒
+		var duration = lerp(0.1, 0.8, normalized_distance)
+
+		# 如果距离太小（比如小于10像素），直接瞬移避免不必要的延迟
+		if distance < 10.0:
+			canvas_offset = target
+			_update_canvas_position()
+			return
+
+		# 使用Tween平滑移动 - 在过程中禁用拖拽
+		is_dragging = false  # 确保不处于拖拽状态
+		var tween = create_tween()
+		tween.set_trans(Tween.TRANS_SINE)
+		tween.set_ease(Tween.EASE_IN_OUT)
+		var start_offset = canvas_offset
+		tween.tween_method(_smooth_move_to_target, start_offset, target, duration)
+		await tween.finished
+	else:
+		canvas_offset = target
+		_update_canvas_position()
+
+func _smooth_move_to_target(offset: Vector2):
+	canvas_offset = offset
 	_update_canvas_position()
 
 func _find_base_for_scene(scene_id: String) -> String:
