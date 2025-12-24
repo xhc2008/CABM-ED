@@ -532,7 +532,8 @@ func _switch_to_world(center_on_base: bool):
 
 func _center_on_point(pos: Vector2, smooth: bool = false):
 	var visible_size = get_viewport_rect().size
-	var target = pos * zoom - visible_size / 2.0
+	var target_center_offset = Vector2(visible_size.x * 0.4, visible_size.y * 0.5)
+	var target = pos * zoom - target_center_offset
 
 	if smooth:
 		# 计算移动距离并根据距离确定合适的动画时长
