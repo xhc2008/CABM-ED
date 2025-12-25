@@ -1,0 +1,96 @@
+[gd_scene load_steps=2 format=3 uid="uid://cbnksm5qnqh5p"]
+
+[ext_resource type="Script" uid="uid://c7rn3p1wf4v6l" path="res://scripts/ai_chat/ai_memory_config.gd" id="1"]
+
+[node name="MemoryConfigPanel" type="MarginContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+script = ExtResource("1")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 15
+
+[node name="DescLabel" type="Label" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "配置记忆系统的各种功能模块"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="VectorContainer" type="VBoxContainer" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="VectorTitle" type="Label" parent="ScrollContainer/VBoxContainer/VectorContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "向量记忆"
+
+[node name="SaveVectorCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "保存记忆条目时是否计算并存储向量表示"
+text = "保存记忆向量"
+
+[node name="SemanticSearchCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "回复前是否进行向量相似度检索"
+text = "└启用语义检索"
+
+[node name="RerankCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "检索后是否使用重排序模型优化结果顺序"
+text = "    └启用重排序"
+
+[node name="HSeparator2" type="HSeparator" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="KGContainer" type="VBoxContainer" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="KGTitle" type="Label" parent="ScrollContainer/VBoxContainer/KGContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "知识图谱"
+
+[node name="SaveKGCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/KGContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "对话结束后是否调用模型进行信息提取和图谱构建"
+text = "保存知识图谱"
+
+[node name="KGSearchCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/KGContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "回复前是否进行知识图谱检索"
+text = "└启用图谱检索"
+
+[node name="SaveArea" type="HBoxContainer" parent="ScrollContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="MemorySaveButton" type="Button" parent="ScrollContainer/VBoxContainer/SaveArea"]
+layout_mode = 2
+text = "保存配置"
+
+[node name="MemoryStatusLabel" type="Label" parent="ScrollContainer/VBoxContainer/SaveArea"]
+layout_mode = 2
+horizontal_alignment = 1

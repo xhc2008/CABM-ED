@@ -67,6 +67,35 @@ var db_name: String = "default"
 var cosine_calculator = null
 var http_request: HTTPRequest = null
 
+# 记忆系统配置检查函数
+func _should_save_memory_vectors() -> bool:
+	"""检查是否应该保存记忆向量"""
+	return _check_memory_config("save_memory_vectors", true)
+
+func _should_perform_semantic_search() -> bool:
+	"""检查是否应该进行语义检索"""
+	return _check_memory_config("enable_semantic_search", true)
+
+func _should_perform_reranking() -> bool:
+	"""检查是否应该进行重排序"""
+	return _check_memory_config("enable_reranking", true)
+
+func _should_save_knowledge_graph() -> bool:
+	"""检查是否应该保存知识图谱"""
+	return _check_memory_config("save_knowledge_graph", true)
+
+func _should_perform_kg_search() -> bool:
+	"""检查是否应该进行知识图谱检索"""
+	return _check_memory_config("enable_kg_search", true)
+
+func _check_memory_config(key: String, default_value: bool) -> bool:
+	"""通用配置检查函数"""
+	var ai_config_mgr = get_node_or_null("/root/AIConfigManager")
+	if ai_config_mgr:
+		var memory_config = ai_config_mgr.load_memory_config()
+		return memory_config.get(key, default_value)
+	return default_value
+
 # 嵌入API配置
 var embedding_model: String = ""
 var embedding_base_url: String = ""
@@ -139,7 +168,7 @@ func initialize(p_config: Dictionary, p_db_name: String = "default"):
 
 func add_text(text: String, item_type: String = "conversation", metadata: Dictionary = {}, custom_timestamp: String = "") -> void:
 	"""添加文本到记忆系统（异步，支持队列）
-	
+
 	Args:
 		text: 原始文本内容
 		item_type: 类型（conversation 或 diary）
@@ -149,7 +178,13 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 	if text.strip_edges().is_empty():
 		print("警告: 尝试添加空文本")
 		return
-	
+
+	# 检查配置：是否应该保存记忆向量
+	var should_save_vectors = _should_save_memory_vectors()
+	if not should_save_vectors:
+		print("配置已禁用保存记忆向量，跳过添加")
+		return
+
 	# 使用自定义时间戳或当前时间
 	var timestamp: String
 	if not custom_timestamp.is_empty():
@@ -157,17 +192,17 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 		print("使用自定义时间戳: %s" % timestamp)
 	else:
 		timestamp = MemoryItem._get_local_datetime_string()
-	
+
 	var time_str = _format_timestamp_for_display(timestamp)
 	var formatted_text = "[%s] %s" % [time_str, text]
-	
+
 	# 获取文本的向量表示（使用队列系统，可能有延迟）
 	var vector = await get_embedding(formatted_text)
-	
+
 	if vector.is_empty():
 		print("警告: 获取向量失败，跳过添加")
 		return
-	
+
 	# 创建记忆项（使用确定的时间戳）
 	var item = MemoryItem.new(formatted_text, vector, item_type)
 	# 预计算向量模长并存入 metadata，便于后续快速相似度计算
@@ -182,15 +217,15 @@ func add_text(text: String, item_type: String = "conversation", metadata: Dictio
 	else:
 		item.metadata["mag"] = mag
 	item.timestamp = timestamp  # 覆盖构造函数中的时间戳
-	
+
 	# 只在有实际内容时才设置 metadata
 	if not metadata.is_empty():
 		item.metadata = metadata.duplicate()
-	
+
 	memory_items.append(item)
-	
+
 	print("添加记忆: [%s] %s..." % [item_type, formatted_text.substr(0, 50)])
-	
+
 	# 立即保存到文件
 	save_to_file()
 	print("记忆已保存到文件: %d 条" % memory_items.size())
@@ -348,6 +383,11 @@ func search(query: String, top_k: int, min_similarity: float, exclude_timestamps
 		min_similarity: 最小相似度阈值
 		exclude_timestamps: 要排除的时间戳列表（通过时间戳精确匹配）
 	"""
+	# 检查配置：是否应该进行语义检索
+	if not _should_perform_semantic_search():
+		print("配置已禁用语义检索，跳过向量搜索")
+		return []
+
 	if memory_items.is_empty():
 		return []
 
@@ -397,6 +437,20 @@ func search(query: String, top_k: int, min_similarity: float, exclude_timestamps
 		_heapify_down(top_similarities, 0)
 
 	similarities.reverse()  # 反转得到从大到小的顺序
+
+	# 检查配置：是否应该进行重排序
+	if not _should_perform_reranking():
+		print("配置已禁用重排序，使用原始检索结果")
+		# 不进行重排序，直接返回原始检索的前top_k个结果
+		var final_results = []
+		for i in range(min(top_k, similarities.size())):
+			final_results.append({
+				"text": similarities[i].item.text,
+				"similarity": similarities[i].similarity,
+				"timestamp": similarities[i].item.timestamp,
+				"type": similarities[i].item.type
+			})
+		return final_results
 
 	# 获取前top_k*4个结果用于重排序
 	var initial_results = []

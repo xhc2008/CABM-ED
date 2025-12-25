@@ -11,6 +11,14 @@ var config_loader: Node
 var api_key: String = ""
 var config: Dictionary = {}
 
+func _should_perform_kg_search() -> bool:
+	"""检查是否应该进行知识图谱检索"""
+	var ai_config_mgr = get_node_or_null("/root/AIConfigManager")
+	if ai_config_mgr:
+		var memory_config = ai_config_mgr.load_memory_config()
+		return memory_config.get("enable_kg_search", true)
+	return true  # 默认启用
+
 # HTTP请求节点
 var http_request: HTTPRequest
 
@@ -180,6 +188,12 @@ func _build_system_prompt(scene_name: String, user_prompt: String = "") -> Strin
 
 func _retrieve_knowledge_memory(query: String) -> String:
 	"""检索知识图谱并返回格式化的知识记忆提示段"""
+	# 检查配置：是否应该进行知识图谱检索
+	var should_perform_kg_search = _should_perform_kg_search()
+	if not should_perform_kg_search:
+		print("配置已禁用知识图谱检索，跳过KG检索")
+		return ""
+
 	if query.strip_edges().is_empty():
 		return ""
 	
@@ -211,8 +225,8 @@ func _retrieve_knowledge_memory(query: String) -> String:
 		lines.append("[%s] %s %s %s (权重：%s)" % [t, s, p, o, str(i)])
 	
 	var mem_prompts = config.get("knowledge_memory", {}).get("prompts", {})
-	var prefix = mem_prompts.get("memory_prefix", "\n```\n")
-	var suffix = mem_prompts.get("memory_suffix", "\n```\n以上是当前输入相关的认知，可作为参考。")
+	var prefix = mem_prompts.get("memory_prefix", "")
+	var suffix = mem_prompts.get("memory_suffix", "")
 	kg_prompt = prefix + "\n".join(lines) + suffix
 	
 	return kg_prompt

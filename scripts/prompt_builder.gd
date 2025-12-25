@@ -5,6 +5,14 @@ extends Node
 
 var config: Dictionary = {}
 
+func _should_perform_kg_search() -> bool:
+	"""检查是否应该进行知识图谱检索"""
+	var ai_config_mgr = get_node_or_null("/root/AIConfigManager")
+	if ai_config_mgr:
+		var memory_config = ai_config_mgr.load_memory_config()
+		return memory_config.get("enable_kg_search", true)
+	return true  # 默认启用
+
 func _ready():
 	_load_config()
 
@@ -578,6 +586,12 @@ func _retrieve_long_term_memory(query: String) -> String:
 
 func _retrieve_knowledge_memory(query: String) -> String:
 	"""检索知识图谱并返回格式化的知识记忆提示段（只包含KG部分）"""
+	# 检查配置：是否应该进行知识图谱检索
+	var should_perform_kg_search = _should_perform_kg_search()
+	if not should_perform_kg_search:
+		print("配置已禁用知识图谱检索，跳过KG检索")
+		return ""
+
 	if query.strip_edges().is_empty():
 		query = _get_recent_context_for_query()
 
@@ -611,8 +625,8 @@ func _retrieve_knowledge_memory(query: String) -> String:
 		lines.append("[%s] %s %s %s (权重：%s)" % [t, s, p, o, str(i)])
 
 	var mem_prompts = config.get("knowledge_memory", {}).get("prompts", {})
-	var prefix = mem_prompts.get("memory_prefix")
-	var suffix = mem_prompts.get("memory_suffix")
+	var prefix = mem_prompts.get("memory_prefix", "")
+	var suffix = mem_prompts.get("memory_suffix", "")
 	kg_prompt = prefix + "\n".join(lines) + suffix
 
 	print("PromptBuilder: 知识图谱检索到 %d 条记录" % graph_results.size())

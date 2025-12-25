@@ -185,6 +185,33 @@ func load_response_mode() -> String:
     var config = load_config()
     return config.get("response_mode", "verbal")
 
+## 保存记忆系统配置
+func save_memory_config(memory_config: Dictionary) -> bool:
+    var config = load_config()
+    config["memory_system"] = memory_config
+    return save_config(config)
+
+## 加载记忆系统配置
+func load_memory_config() -> Dictionary:
+    var config = load_config()
+    var default_config = {
+        "save_memory_vectors": true,
+        "enable_semantic_search": true,
+        "enable_reranking": true,
+        "save_knowledge_graph": true,
+        "enable_kg_search": true
+    }
+
+    if config.has("memory_system"):
+        var memory_config = config.memory_system
+        # 合并默认配置，确保所有字段都存在
+        for key in default_config.keys():
+            if not memory_config.has(key):
+                memory_config[key] = default_config[key]
+        return memory_config
+
+    return default_config
+
 ## 遮蔽密钥显示
 func mask_key(key: String) -> String:
     if key.length() <= 10:
