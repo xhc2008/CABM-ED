@@ -5,6 +5,7 @@ extends Panel
 
 @onready var close_button = $MarginContainer/VBoxContainer/TitleContainer/CloseButton
 @onready var tab_container = $MarginContainer/VBoxContainer/TabContainer
+@onready var memory_config = $MarginContainer/VBoxContainer/TabContainer/记忆系统
 
 # 快速配置引用
 @onready var quick_template_free = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer/FreeButton
@@ -72,7 +73,6 @@ var log_exporter: Node
 var save_exporter: Node
 var memory_repair: Node
 var response_settings: Node
-var memory_config: Node
 var _last_saved_detail: Dictionary = {}
 
 func _ready():
@@ -132,7 +132,6 @@ func _ready():
 	add_child(response_settings)
 
 	# 初始化记忆系统配置
-	memory_config = load("res://scenes/memory_config_panel.tscn").instantiate()
 	memory_config.initialize(config_manager)
 	
 	# 连接信号
@@ -178,9 +177,6 @@ func _ready():
 	# 创建回复设置选项卡
 	response_settings.setup_response_settings_tab()
 
-	# 添加记忆系统选项卡
-	memory_config.name = "记忆系统"
-	tab_container.add_child(memory_config)
 
 	# 加载现有配置
 	config_manager.migrate_old_config()
@@ -188,7 +184,6 @@ func _ready():
 	template_handler.load_selected_template()
 	voice_settings.load_voice_settings()
 	response_settings.load_response_settings()
-	memory_config.load_memory_config()
 	_apply_android_input_workaround()
 	_last_saved_detail = _collect_detail_inputs()
 	_update_detail_saved_label()

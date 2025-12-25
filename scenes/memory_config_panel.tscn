@@ -24,7 +24,7 @@ theme_override_constants/separation = 15
 
 [node name="DescLabel" type="Label" parent="ScrollContainer/VBoxContainer"]
 layout_mode = 2
-text = "配置记忆系统的各种功能模块"
+text = "记忆系统"
 horizontal_alignment = 1
 autowrap_mode = 3
 
@@ -43,19 +43,22 @@ text = "向量记忆"
 [node name="SaveVectorCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "保存记忆条目时是否计算并存储向量表示"
+size_flags_horizontal = 0
+tooltip_text = "保存长期记忆"
 text = "保存记忆向量"
 
 [node name="SemanticSearchCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "回复前是否进行向量相似度检索"
+size_flags_horizontal = 0
+tooltip_text = "启用长期记忆"
 text = "└启用语义检索"
 
 [node name="RerankCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "检索后是否使用重排序模型优化结果顺序"
+size_flags_horizontal = 0
+tooltip_text = "优化长期记忆"
 text = "    └启用重排序"
 
 [node name="HSeparator2" type="HSeparator" parent="ScrollContainer/VBoxContainer"]
@@ -73,24 +76,13 @@ text = "知识图谱"
 [node name="SaveKGCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/KGContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "对话结束后是否调用模型进行信息提取和图谱构建"
+size_flags_horizontal = 0
+tooltip_text = "保存学习到的知识"
 text = "保存知识图谱"
 
 [node name="KGSearchCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/KGContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "回复前是否进行知识图谱检索"
+size_flags_horizontal = 0
+tooltip_text = "使用学习到的知识"
 text = "└启用图谱检索"
-
-[node name="SaveArea" type="HBoxContainer" parent="ScrollContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="MemorySaveButton" type="Button" parent="ScrollContainer/VBoxContainer/SaveArea"]
-layout_mode = 2
-text = "保存配置"
-
-[node name="MemoryStatusLabel" type="Label" parent="ScrollContainer/VBoxContainer/SaveArea"]
-layout_mode = 2
-horizontal_alignment = 1
