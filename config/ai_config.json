@@ -100,7 +100,7 @@
         },
         "relationship": {
             "max_tokens": 256,
-            "temperature": 0.6,
+            "temperature": 0.8,
             "top_p": 0.7,
             "system_prompt": "你是一个总结专家。请根据对话内容总结两人之间的关系、人物特点等，不超过100字。需要被更新的关系：{relationship}"
         },
@@ -124,7 +124,7 @@
         },
         "retrieval_optimization": {
             "max_tokens": 512,
-            "temperature": 0.3,
+            "temperature": 0.4,
             "top_p": 0.7,
             "system_prompt": "你是一个检索优化专家。你的任务是根据用户的问题和上下文信息，生成2-5个优化后的检索查询。这些查询应该能够更好地匹配相关的记忆内容。直接输出查询内容，每行一个查询，查询应该简洁明了，直接针对记忆检索。"
         }
