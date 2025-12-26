@@ -1,5 +1,8 @@
 extends Node2D
 
+# 导入地图系统
+const MapSystemClass = preload("res://scripts/explore/explore_map_system.gd")
+
 @onready var player = $Player
 @onready var snow_fox = $SnowFox
 @onready var tilemap_layers_container = $TileMapLayersContainer
@@ -21,6 +24,9 @@ var weapon_system: WeaponSystem
 var weapon_ui: Control  # 武器UI
 var player_health_bar: ProgressBar
 var hit_flash: ColorRect
+
+# 地图系统
+var map_system: MapSystemClass
 
 # 模块化管理器
 var enemy_manager: ExploreSceneEnemyManager
@@ -98,6 +104,9 @@ func _ready():
 	_create_mobile_ui()
 	_create_health_ui()
 	_create_hit_flash()
+
+	# 初始化地图系统
+	_init_map_system()
 	
 	# 初始化聊天和信息播报管理器
 	var manager_script = load("res://scripts/explore/chat_and_info_manager.gd")
@@ -274,6 +283,11 @@ func _load_tilemap_for_explore_id():
 	
 	# 恢复检查点
 	scene_state.restore_checkpoint(player, snow_fox)
+
+	# 设置地图系统
+	if map_system:
+		map_system.setup(player, background_layer, frontground_layer, explore_id)
+		_create_map_ui()
 
 	# 加载聊天历史
 	_load_chat_history()
@@ -633,11 +647,23 @@ func _input(event: InputEvent):
 
 func _create_health_ui():
 	player_health_bar = ProgressBar.new()
-	player_health_bar.position = Vector2(20, 20)
-	player_health_bar.size = Vector2(240, 24)
+	player_health_bar.size = Vector2(400, 30)
 	player_health_bar.min_value = 0
 	player_health_bar.max_value = 100
 	player_health_bar.value = 100
+
+	# 设置锚点到屏幕中央下方
+	player_health_bar.anchor_left = 0.5
+	player_health_bar.anchor_top = 1.0
+	player_health_bar.anchor_right = 0.5
+	player_health_bar.anchor_bottom = 1.0
+
+	# 设置边距（距离底部20像素，水平居中）
+	player_health_bar.offset_left = -200  # 宽度的一半
+	player_health_bar.offset_top = -70    # 距离底部50像素
+	player_health_bar.offset_right = 200  # 宽度的一半
+	player_health_bar.offset_bottom = -40 # 距离底部20像素
+
 	ui_root.add_child(player_health_bar)
 	if player:
 		player.health_changed.connect(_on_player_health_changed)
@@ -1202,3 +1228,45 @@ func _clear_chat_history():
 			print("已清除探索聊天历史文件: ", scene_state.current_explore_id)
 		else:
 			push_error("清除聊天历史文件失败: ", error)
+
+func _init_map_system():
+	"""初始化地图系统"""
+	map_system = MapSystemClass.new()
+	add_child(map_system)
+
+func _create_map_ui():
+	"""创建地图UI"""
+	if not map_system:
+		return
+
+	# 创建小地图UI
+	var minimap_ui = map_system.create_minimap_ui()
+	if minimap_ui:
+		ui_root.add_child(minimap_ui)
+
+	# 创建大地图UI
+	var fullmap_ui = map_system.create_fullmap_ui()
+	if fullmap_ui:
+		ui_root.add_child(fullmap_ui)
+
+func _on_fullmap_opened():
+	"""大地图打开时的回调"""
+	print("大地图已打开，禁用玩家控制")
+	set_player_controls_enabled(false)
+	_hide_combat_ui()
+
+	# 隐藏其他UI元素
+	if inventory_button:
+		inventory_button.visible = false
+	if interaction_prompt:
+		interaction_prompt.hide_interactions()
+
+func _on_fullmap_closed():
+	"""大地图关闭时的回调"""
+	print("大地图已关闭，恢复玩家控制")
+	set_player_controls_enabled(true)
+	_show_combat_ui()
+
+	# 恢复其他UI元素
+	if inventory_button:
+		inventory_button.visible = true
