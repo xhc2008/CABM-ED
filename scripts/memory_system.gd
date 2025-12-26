@@ -161,7 +161,6 @@ func _load_cosine_calculator():
 func initialize(p_config: Dictionary, p_db_name: String = "default"):
 	"""初始化记忆系统"""
 	config = p_config
-	print(config)
 	db_name = p_db_name
 	# 从配置读取嵌入模型参数
 	var embed_config = config.get("embedding_model", {})

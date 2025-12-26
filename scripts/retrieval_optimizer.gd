@@ -44,9 +44,6 @@ func initialize(p_model: String, p_base_url: String, p_api_key: String, p_timeou
 	temperature = p_temperature
 	top_p = p_top_p
 	system_prompt = p_system_prompt
-	print(model)
-	print(base_url)
-	print(api_key)
 
 func optimize_query(query: String, context: String) -> Array:
 	"""优化检索查询
