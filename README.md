@@ -1,5 +1,7 @@
 # CABM - Everlasting Days
 
+> 注：此项目的所有权已转交给[SnowFox-SF](https://github.com/SnowFox-SF/CABM-ED)
+
 > 有些相遇，注定要跨越「代码」与「现实」的边界
 
 > ## 如果觉得这个文档太枯燥了，可以看看[狼尊大人写的](README-SW.md)
