@@ -66,6 +66,7 @@ var config: Dictionary = {}
 var db_name: String = "default"
 var cosine_calculator = null
 var http_request: HTTPRequest = null
+var retrieval_optimizer = null
 
 # 记忆系统配置检查函数
 func _should_save_memory_vectors() -> bool:
@@ -79,6 +80,10 @@ func _should_perform_semantic_search() -> bool:
 func _should_perform_reranking() -> bool:
 	"""检查是否应该进行重排序"""
 	return _check_memory_config("enable_reranking", true)
+
+func _should_perform_pre_recall_reasoning() -> bool:
+	"""检查是否应该进行召回前推理"""
+	return _check_memory_config("enable_pre_recall_reasoning", false)
 
 func _should_save_knowledge_graph() -> bool:
 	"""检查是否应该保存知识图谱"""
@@ -109,6 +114,15 @@ var rerank_timeout: float = 10.0
 var rerank_top_n: int = 5
 var rerank_instruction: String = ""
 
+# 召回前推理API配置
+var retrieval_optimization_model: String = ""
+var retrieval_optimization_base_url: String = ""
+var retrieval_optimization_timeout: float = 30.0
+var retrieval_optimization_max_tokens: int = 512
+var retrieval_optimization_temperature: float = 0.3
+var retrieval_optimization_top_p: float = 0.7
+var retrieval_optimization_system_prompt: String = ""
+
 # 请求队列系统
 class EmbeddingRequest:
 	var text: String = ""
@@ -126,7 +140,12 @@ func _ready():
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.request_completed.connect(_on_embedding_request_completed)
-	
+
+	# 创建检索优化器
+	retrieval_optimizer = Node.new()
+	retrieval_optimizer.script = load("res://scripts/retrieval_optimizer.gd")
+	add_child(retrieval_optimizer)
+
 	# 加载C++余弦计算插件
 	_load_cosine_calculator()
 
@@ -142,8 +161,8 @@ func _load_cosine_calculator():
 func initialize(p_config: Dictionary, p_db_name: String = "default"):
 	"""初始化记忆系统"""
 	config = p_config
+	print(config)
 	db_name = p_db_name
-	
 	# 从配置读取嵌入模型参数
 	var embed_config = config.get("embedding_model", {})
 	embedding_model = embed_config.get("model", "")
@@ -160,6 +179,35 @@ func initialize(p_config: Dictionary, p_db_name: String = "default"):
 	rerank_instruction = rerank_config.get("instruction", "")
 
 	print("重排序配置: model='%s', base_url='%s'" % [rerank_model, rerank_base_url])
+
+	# 从配置读取召回前推理模型参数
+	var summary_config = config.get("summary_model", {})
+	retrieval_optimization_model = summary_config.get("model", "")
+	retrieval_optimization_base_url = summary_config.get("base_url", "")
+	retrieval_optimization_timeout = summary_config.get("timeout", 30.0)
+
+	var retrieval_config = summary_config.get("retrieval_optimization", {})
+	retrieval_optimization_max_tokens = retrieval_config.get("max_tokens", 512)
+	retrieval_optimization_temperature = retrieval_config.get("temperature", 0.3)
+	retrieval_optimization_top_p = retrieval_config.get("top_p", 0.7)
+	retrieval_optimization_system_prompt = retrieval_config.get("system_prompt", "")
+
+	print("召回前推理配置: model='%s', base_url='%s'" % [retrieval_optimization_model, retrieval_optimization_base_url])
+
+	# 初始化检索优化器
+	var api_key = ""
+	if config.has("summary_model") and config.summary_model.has("api_key"):
+		api_key = config.summary_model.get("api_key", "")
+	retrieval_optimizer.initialize(
+		retrieval_optimization_model,
+		retrieval_optimization_base_url,
+		api_key,
+		retrieval_optimization_timeout,
+		retrieval_optimization_max_tokens,
+		retrieval_optimization_temperature,
+		retrieval_optimization_top_p,
+		retrieval_optimization_system_prompt
+	)
 
 	# 加载已有数据
 	load_from_file()
@@ -391,70 +439,100 @@ func search(query: String, top_k: int, min_similarity: float, exclude_timestamps
 	if memory_items.is_empty():
 		return []
 
-	# 获取查询向量
-	var query_vector = await get_embedding(query)
+	# 准备查询列表
+	var queries_to_search = [query]  # 始终包含原始查询
 
-	if query_vector.is_empty():
-		print("警告: 获取查询向量失败")
-		return []
+	# 检查配置：是否应该进行召回前推理
+	if _should_perform_pre_recall_reasoning():
+		print("启用召回前推理，生成优化查询")
+		var context = _flatten_context_for_optimization()
+		var optimized_queries = await retrieval_optimizer.optimize_query(query, context)
 
-	# 使用最大堆维护top_k*4个最相似的结果，避免排序整个数组
-	var max_candidates = top_k * 4
-	var top_similarities = []  # 维护最大堆结构
+		if not optimized_queries.is_empty():
+			queries_to_search.append_array(optimized_queries)
+			print("召回前推理成功，添加 %d 个优化查询" % optimized_queries.size())
+		else:
+			print("召回前推理失败，使用原始查询")
 
-	for i in range(memory_items.size()):
-		var item = memory_items[i]
+	# 对所有查询进行检索并合并结果
+	var seen_items = {}  # 用于去重，key为item的索引
 
-		# 跳过要排除的时间戳（精确匹配）
-		if exclude_timestamps.has(item.timestamp):
+	for search_query in queries_to_search:
+		var query_vector = await get_embedding(search_query)
+		if query_vector.is_empty():
+			print("警告: 获取查询向量失败，跳过查询: %s" % search_query.substr(0, 30))
 			continue
 
-		var similarity = _calculate_similarity(query_vector, item.vector, item.metadata)
+		# 使用最大堆维护top_k*2个最相似的结果（因为有多路查询）
+		var max_candidates_per_query = top_k * 2
+		var top_similarities = []
 
-		if similarity >= min_similarity:
-			var candidate = {
-				"index": i,
-				"similarity": similarity,
-				"item": item
-			}
+		for i in range(memory_items.size()):
+			var item = memory_items[i]
 
-			# 如果堆未满，直接添加
-			if top_similarities.size() < max_candidates:
-				top_similarities.append(candidate)
-				# 保持堆性质（最小堆，堆顶是最小的相似度）
-				_heapify_up(top_similarities, top_similarities.size() - 1)
-			# 如果当前相似度大于堆顶（最小值），替换堆顶
-			elif similarity > top_similarities[0].similarity:
-				top_similarities[0] = candidate
-				_heapify_down(top_similarities, 0)
+			# 跳过要排除的时间戳（精确匹配）
+			if exclude_timestamps.has(item.timestamp):
+				continue
 
-	# 将堆转换为排序后的数组（从大到小）
+			var similarity = _calculate_similarity(query_vector, item.vector, item.metadata)
+
+			if similarity >= min_similarity:
+				var candidate = {
+					"index": i,
+					"similarity": similarity,
+					"item": item,
+					"query": search_query  # 记录是哪个查询找到的
+				}
+
+				# 如果堆未满，直接添加
+				if top_similarities.size() < max_candidates_per_query:
+					top_similarities.append(candidate)
+					_heapify_up(top_similarities, top_similarities.size() - 1)
+				# 如果当前相似度大于堆顶（最小值），替换堆顶
+				elif similarity > top_similarities[0].similarity:
+					top_similarities[0] = candidate
+					_heapify_down(top_similarities, 0)
+
+		# 将这个查询的结果添加到总候选列表
+		while not top_similarities.is_empty():
+			var candidate = top_similarities[0]
+			top_similarities[0] = top_similarities.back()
+			top_similarities.pop_back()
+			_heapify_down(top_similarities, 0)
+
+			# 去重：如果已经见过这个item，取相似度更高的那个
+			var item_index = candidate.index
+			if seen_items.has(item_index):
+				if candidate.similarity > seen_items[item_index].similarity:
+					seen_items[item_index] = candidate
+			else:
+				seen_items[item_index] = candidate
+
+	# 将去重后的候选转换为排序列表
 	var similarities = []
-	while not top_similarities.is_empty():
-		similarities.append(top_similarities[0])
-		top_similarities[0] = top_similarities.back()
-		top_similarities.pop_back()
-		_heapify_down(top_similarities, 0)
+	for candidate in seen_items.values():
+		similarities.append(candidate)
 
-	similarities.reverse()  # 反转得到从大到小的顺序
+	# 按相似度排序（从大到小）
+	similarities.sort_custom(func(a, b): return a.similarity > b.similarity)
 
 	# 检查配置：是否应该进行重排序
 	if not _should_perform_reranking():
 		print("配置已禁用重排序，使用原始检索结果")
 		# 不进行重排序，直接返回原始检索的前top_k个结果
-		var final_results = []
+		var results_without_reranking = []
 		for i in range(min(top_k, similarities.size())):
-			final_results.append({
+			results_without_reranking.append({
 				"text": similarities[i].item.text,
 				"similarity": similarities[i].similarity,
 				"timestamp": similarities[i].item.timestamp,
 				"type": similarities[i].item.type
 			})
-		return final_results
+		return results_without_reranking
 
-	# 获取前top_k*4个结果用于重排序
+	# 获取前top_k*5个结果用于重排序
 	var initial_results = []
-	var num_candidates = min(top_k * 4, similarities.size())  # 为重排序准备更多候选文档
+	var num_candidates = min(top_k * 5, similarities.size())  # 为重排序准备更多候选文档
 	for i in range(num_candidates):
 		initial_results.append({
 			"text": similarities[i].item.text,
@@ -538,7 +616,7 @@ func _calculate_similarity_gdscript(vec1: Array, vec2: Array, item_metadata: Dic
 func _heapify_up(heap: Array, index: int) -> void:
 	"""向上调整堆（最小堆）"""
 	while index > 0:
-		var parent_index = (index - 1) / 2
+		var parent_index = int((index - 1) / 2.0)
 		if heap[index].similarity < heap[parent_index].similarity:
 			# 交换
 			var temp = heap[index]
@@ -795,6 +873,30 @@ func rerank_documents(query: String, documents: Array) -> Array:
 
 	print("重排序完成，返回 %d 个结果" % reranked_results.size())
 	return reranked_results if not reranked_results.is_empty() else documents
+
+func _flatten_context_for_optimization(max_items: int = 10) -> String:
+	"""为检索优化创建扁平化的上下文
+	Args:
+		max_items: 最大记忆项数量
+	Returns:
+		扁平化的上下文字符串
+	"""
+	if memory_items.is_empty():
+		return "暂无记忆内容"
+
+	# 获取最近的记忆项（按时间戳倒序）
+	var recent_items = memory_items.duplicate()
+	recent_items.sort_custom(func(a, b): return a.timestamp > b.timestamp)
+
+	var context_parts = []
+	var count = 0
+	for item in recent_items:
+		if count >= max_items:
+			break
+		context_parts.append(item.text)
+		count += 1
+
+	return "\n".join(context_parts)
 
 func _wait_for_rerank_response(rerank_request: HTTPRequest) -> Dictionary:
 	"""等待重排序响应完成"""

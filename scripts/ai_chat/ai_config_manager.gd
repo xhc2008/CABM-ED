@@ -198,6 +198,7 @@ func load_memory_config() -> Dictionary:
         "save_memory_vectors": true,
         "enable_semantic_search": true,
         "enable_reranking": true,
+        "enable_pre_recall_reasoning": false,
         "save_knowledge_graph": true,
         "enable_kg_search": true
     }

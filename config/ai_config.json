@@ -121,6 +121,12 @@
             "temperature": 0.1,
             "top_p": 0.7,
             "system_prompt": "你是一个信息提取专家。你的任务是从用户的输入中精准抽取出0~5个关键词。你的输出是一个\"keywords\"数组，允许为空。"
+        },
+        "retrieval_optimization": {
+            "max_tokens": 512,
+            "temperature": 0.3,
+            "top_p": 0.7,
+            "system_prompt": "你是一个检索优化专家。你的任务是根据用户的问题和上下文信息，生成2-5个优化后的检索查询。这些查询应该能够更好地匹配相关的记忆内容。直接输出查询内容，每行一个查询，查询应该简洁明了，直接针对记忆检索。"
         }
     },
     "embedding_model": {
@@ -139,7 +145,7 @@
         "vector_db": {
             "enable": true,
             "top_k": 5,
-            "min_similarity": 0.6,
+            "min_similarity": 0.5,
             "timeout": 10.0,
             "auto_save": true,
             "save_interval": 300,

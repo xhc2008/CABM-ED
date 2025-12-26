@@ -84,6 +84,10 @@ func _load_project_config() -> Dictionary:
 	# 提取记忆相关配置
 	if project_config.has("memory"):
 		result["memory"] = project_config.memory
+
+	# 复制summary_model配置
+	if project_config.has("summary_model"):
+		result["summary_model"] = project_config.summary_model
 		
 		# 从 memory 配置中提取子配置
 		var memory_config = project_config.memory
@@ -119,11 +123,20 @@ func _load_project_config() -> Dictionary:
 	if project_config.has("rerank_model"):
 		var rerank_config = project_config.rerank_model
 		result["rerank_model_config"] = {}
-		
+
 		for key in rerank_config:
 			if key not in ["api_key", "base_url", "model"]:
 				result["rerank_model_config"][key] = rerank_config[key]
-	
+
+	# 总结模型的其他配置
+	if project_config.has("summary_model"):
+		var summary_config = project_config.summary_model
+		result["summary_model_config"] = {}
+
+		for key in summary_config:
+			if key not in ["api_key", "base_url", "model"]:
+				result["summary_model_config"][key] = summary_config[key]
+
 	print("项目配置加载成功")
 	return result
 
@@ -165,7 +178,14 @@ func _load_user_config() -> Dictionary:
 			"base_url": user_config.rerank_model.get("base_url", ""),
 			"model": user_config.rerank_model.get("model", "")
 		}
-	
+
+	if user_config.has("summary_model"):
+		result["summary_model"] = {
+			"api_key": user_config.summary_model.get("api_key", ""),
+			"base_url": user_config.summary_model.get("base_url", ""),
+			"model": user_config.summary_model.get("model", "")
+		}
+
 	print("用户配置加载成功")
 	return result
 
@@ -211,7 +231,19 @@ func _merge_configs(project_config: Dictionary, user_config: Dictionary) -> Dict
 		# 添加项目配置中的其他字段
 		for key in project_rerank:
 			merged["rerank_model"][key] = project_rerank[key]
-	
+
+	# 4. 合并总结模型配置（用于检索优化）
+	if user_config.has("summary_model"):
+		var user_summary = user_config.summary_model
+
+		# summary_model 已经从项目配置复制过来了，现在只需要覆盖用户配置的字段
+		if user_summary.has("model") and not user_summary.model.is_empty():
+			merged["summary_model"]["model"] = user_summary.model
+		if user_summary.has("base_url") and not user_summary.base_url.is_empty():
+			merged["summary_model"]["base_url"] = user_summary.base_url
+		if user_summary.has("api_key") and not user_summary.api_key.is_empty():
+			merged["summary_model"]["api_key"] = user_summary.api_key
+
 	return merged
 
 func _log_memory_config():
@@ -226,6 +258,14 @@ func _log_memory_config():
 		print("重排序模型: 已配置")
 	else:
 		print("重排序模型: 未配置")
+
+	if config.has("summary_model"):
+		var summary = config.summary_model
+		print("总结模型: " + str(summary.get("model", "未设置")))
+		if summary.has("base_url"):
+			print("  Base URL: " + str(summary.base_url))
+	else:
+		print("总结模型: 未配置")
 	
 	if config.has("storage"):
 		var storage = config.storage

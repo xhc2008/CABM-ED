@@ -54,6 +54,13 @@ size_flags_horizontal = 0
 tooltip_text = "启用长期记忆"
 text = "└启用语义检索"
 
+[node name="PreRecallReasoningCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+tooltip_text = "使用AI优化检索查询"
+text = "    └召回前推理"
+
 [node name="RerankCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/VectorContainer"]
 unique_name_in_owner = true
 layout_mode = 2
