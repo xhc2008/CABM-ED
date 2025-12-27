@@ -17,9 +17,19 @@ var current_scene_name: String = ""
 
 # 地图参数
 const MINIMAP_SIZE = Vector2(150, 150)
+const MAP_COMPRESSION_RATIO = 8  # 地图图片的压缩比例（8x8压缩为1px）
 
 # 地图边界（世界坐标）
 var map_bounds: Rect2 = Rect2(0, 0, 1000, 1000)  # 默认边界，后续会根据实际地图调整
+
+# 位置校准值映射表 - 场景ID到校准值的映射，用于修正不同场景的计算偏差
+var position_calibration_map: Dictionary = {
+	"forest": Vector2(-250, 0), 
+	"darkice": Vector2(-365, 0), 
+}
+
+# 当前使用的校准值
+var position_calibration: Vector2 = Vector2(0, 0)
 
 func _ready():
 	pass
@@ -30,11 +40,25 @@ func setup(p_player: Node2D, p_background_layer: TileMapLayer, p_frontground_lay
 	frontground_layer = p_frontground_layer
 	current_scene_name = scene_name
 
+	# 根据场景名称设置校准值
+	if position_calibration_map.has(scene_name):
+		position_calibration = position_calibration_map[scene_name]
+	else:
+		position_calibration = position_calibration_map.get("default", Vector2.ZERO)
+
 	# 加载地图纹理
 	load_map_texture()
 
 	# 计算地图边界
 	calculate_map_bounds()
+	
+	# 调试输出
+	if map_texture:
+		print("=== 地图调试信息 ===")
+		print("场景名称: ", scene_name)
+		print("地图图片尺寸: ", map_texture.get_size())
+		print("世界边界: ", map_bounds)
+		print("使用的校准值: ", position_calibration)
 
 func calculate_map_bounds():
 	"""计算地图的世界边界"""
@@ -56,7 +80,7 @@ func calculate_map_bounds():
 	var combined_used_rect = Rect2i(min_x, min_y, max_x - min_x, max_y - min_y)
 
 	var tile_size = background_layer.tile_set.tile_size
-	# 直接使用瓦片坐标转换为世界坐标，避免map_to_local可能的问题
+
 	var world_position = Vector2(combined_used_rect.position.x * tile_size.x, combined_used_rect.position.y * tile_size.y)
 	var world_size = Vector2(combined_used_rect.size.x * tile_size.x, combined_used_rect.size.y * tile_size.y)
 
@@ -291,7 +315,7 @@ func create_fullmap_ui() -> Control:
 	# 创建地图显示
 	var map_display = TextureRect.new()
 	map_display.name = "MapDisplay"
-	map_display.expand_mode = TextureRect.EXPAND_FIT_WIDTH  # 填充宽度
+	map_display.expand_mode = TextureRect.EXPAND_IGNORE_SIZE  # 忽略尺寸，使用 stretch_mode
 	map_display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED  # 保持宽高比居中
 	map_display.set_anchors_preset(Control.PRESET_FULL_RECT)  # 填充整个区域
 	map_display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -398,34 +422,35 @@ func _on_fullmap_closed():
 
 func update_player_position():
 	"""更新玩家位置指示器"""
-	if not player:
+	if not player or not is_instance_valid(player) or not player.is_inside_tree():
 		return
 
 	# 如果没有地图纹理，不显示玩家指示器
 	if not map_texture:
 		if minimap_ui:
-			var player_indicator = minimap_ui.get_node("Background/SubViewport/PlayerIndicator")
+			var player_indicator = minimap_ui.get_node_or_null("Background/SubViewport/PlayerIndicator")
 			if player_indicator:
 				player_indicator.visible = false
 
 		if fullmap_ui and fullmap_ui.visible:
-			var map_display = fullmap_ui.get_node("MapContainer/MapDisplay")
-			var player_indicator = map_display.get_node("PlayerIndicator")
-			if player_indicator:
-				player_indicator.visible = false
+			var map_display = fullmap_ui.get_node_or_null("MapContainer/MapDisplay")
+			if map_display:
+				var player_indicator = map_display.get_node_or_null("PlayerIndicator")
+				if player_indicator:
+					player_indicator.visible = false
 		return
 
-	# 计算玩家在世界坐标中的相对位置（四个角映射）
-	var player_pos = player.global_position
-	var relative_pos = (player_pos - map_bounds.position) / map_bounds.size
-	var normalized_pos = relative_pos.clamp(Vector2(0, 0), Vector2(1, 1))
+	# 计算玩家在世界坐标中的位置
+	var player_pos = player.global_position + position_calibration  # 应用校准值
 
 	# 获取玩家朝向角度
 	var player_rotation = player.rotation if player else 0.0
 
 	# 更新小地图玩家位置和显示区域
 	if minimap_ui:
-		var player_indicator = minimap_ui.get_node("Background/SubViewport/PlayerIndicator")
+		var player_indicator = minimap_ui.get_node_or_null("Background/SubViewport/PlayerIndicator")
+		if not player_indicator:
+			return
 
 		# 小地图上玩家指示标永远在中心
 		player_indicator.position = MINIMAP_SIZE / 2
@@ -437,26 +462,66 @@ func update_player_position():
 
 	# 更新大地图玩家位置
 	if fullmap_ui and fullmap_ui.visible:
-		var map_container = fullmap_ui.get_node("MapContainer")
-		var map_display = map_container.get_node("MapDisplay")
-		var player_indicator = map_display.get_node("PlayerIndicator")
+		var map_container = fullmap_ui.get_node_or_null("MapContainer")
+		if not map_container:
+			return
+			
+		var map_display = map_container.get_node_or_null("MapDisplay")
+		if not map_display:
+			return
+			
+		var player_indicator = map_display.get_node_or_null("PlayerIndicator")
+		if not player_indicator:
+			return
 
 		if map_texture:
-			# 使用EXPAND_FIT_WIDTH时，地图按比例填充容器
 			var container_size = map_container.size
 			var texture_size = map_texture.get_size()
 
-			# 计算实际显示的缩放比例和位置
-			var scale_x = container_size.x / texture_size.x
-			var scale_y = container_size.y / texture_size.y
-			var scale = min(scale_x, scale_y)
+			# 计算实际显示的缩放比例（保持宽高比）
+			var display_scale_x = container_size.x / texture_size.x
+			var display_scale_y = container_size.y / texture_size.y
+			var display_scale = min(display_scale_x, display_scale_y)
 
-			# 计算地图在容器中的实际显示区域
-			var display_size = texture_size * scale
+			# 计算地图图片在容器中的实际显示区域
+			var display_size = texture_size * display_scale
 			var display_pos = (container_size - display_size) / 2
 
-			# 计算玩家在地图上的位置
-			player_indicator.position = display_pos + normalized_pos * display_size
+			# 地图图片的实际世界尺寸（考虑压缩比例）
+			var actual_image_world_size = texture_size * MAP_COMPRESSION_RATIO
+			
+			# 计算地图图片覆盖的世界区域（居中对齐到 map_bounds）
+			var image_world_offset = (actual_image_world_size - map_bounds.size) / 2.0
+			var image_world_position = map_bounds.position - image_world_offset
+
+			# 计算玩家在地图图片世界区域中的归一化位置
+			var player_normalized = (player_pos - image_world_position) / actual_image_world_size
+			player_normalized = player_normalized.clamp(Vector2(0, 0), Vector2(1, 1))
+
+			# 调试输出
+			if Engine.get_frames_drawn() % 60 == 0:
+				print("=== 大地图位置调试 ===")
+				print("玩家世界位置: ", player_pos - position_calibration)  # 显示原始位置
+				print("应用校准后位置: ", player_pos)
+				print("地图边界(map_bounds): ", map_bounds)
+				print("地图图片尺寸: ", texture_size)
+				print("地图图片宽高比: ", texture_size.x / texture_size.y)
+				print("地图实际世界尺寸: ", actual_image_world_size)
+				print("地图实际世界宽高比: ", actual_image_world_size.x / actual_image_world_size.y)
+				print("图片世界偏移: ", image_world_offset)
+				print("图片世界起始位置: ", image_world_position)
+				print("压缩比例: ", MAP_COMPRESSION_RATIO)
+				print("归一化位置: ", player_normalized)
+				print("容器尺寸: ", container_size)
+				print("容器宽高比: ", container_size.x / container_size.y)
+				print("显示缩放: x=", display_scale_x, " y=", display_scale_y, " 使用=", display_scale)
+				print("显示尺寸: ", display_size)
+				print("显示位置: ", display_pos)
+				print("最终指示器位置: ", display_pos + player_normalized * display_size)
+				print("校准值: ", position_calibration)
+
+			# 计算玩家在显示区域上的最终位置
+			player_indicator.position = display_pos + player_normalized * display_size
 			player_indicator.rotation = player_rotation
 			player_indicator.visible = true
 		else:
@@ -465,77 +530,87 @@ func update_player_position():
 
 func _update_minimap_view():
 	"""更新小地图的显示区域 - 显示玩家周围的局部区域"""
-	if not minimap_ui or not map_texture:
+	if not minimap_ui or not map_texture or not player:
 		return
 
-	var map_display = minimap_ui.get_node("Background/SubViewport/MapDisplay")
-	if not map_texture:
+	var map_display = minimap_ui.get_node_or_null("Background/SubViewport/MapDisplay")
+	if not map_display:
 		return
 
 	# 获取地图图片尺寸
 	var image_size = map_texture.get_size()
+	
+	# 地图图片的实际世界尺寸（考虑压缩比例）
+	var actual_image_world_size = image_size * MAP_COMPRESSION_RATIO
+	
+	# 计算地图图片覆盖的世界区域（居中对齐到 map_bounds）
+	var image_world_offset = (actual_image_world_size - map_bounds.size) / 2.0
+	var image_world_position = map_bounds.position - image_world_offset
 
-	# 调整可视范围
-	var compression_ratio = 1.0
-	var world_to_pixel_ratio = (image_size * compression_ratio) / map_bounds.size
+	# 计算世界坐标到像素的缩放比例
+	var world_to_pixel_scale = image_size.x / actual_image_world_size.x  # 应该等于 1/MAP_COMPRESSION_RATIO
 
 	# 小地图显示区域大小（世界坐标）
-	# 基于小地图150x150像素的显示区域，计算对应的世界区域
-	var minimap_world_size = MINIMAP_SIZE / world_to_pixel_ratio
+	var minimap_world_size = MINIMAP_SIZE / world_to_pixel_scale
 
-	# 计算玩家位置在地图边界中的相对位置（允许超出0-1范围）
-	var player_pos = player.global_position
-	var relative_pos = (player_pos - map_bounds.position) / map_bounds.size
-
+	# 计算玩家位置（应用校准值）
+	var player_pos = player.global_position + position_calibration
+	
 	# 计算要显示的世界区域中心（基于玩家位置）
-	var view_center_world = map_bounds.position + relative_pos * map_bounds.size
-
-	# 计算显示区域的左上角（取消边界限制，让小地图能够显示超出地图边界的内容）
+	var view_center_world = player_pos
 	var view_start_world = view_center_world - minimap_world_size / 2
 
-	var clamped_view_rect = Rect2(view_start_world, minimap_world_size)
+	# 计算在图片坐标系中的区域（使用图片的世界起始位置）
+	var texture_start = (view_start_world - image_world_position) * world_to_pixel_scale
+	var texture_size = minimap_world_size * world_to_pixel_scale
 
-	# 计算在图片坐标系中的区域
-	var texture_start = ((clamped_view_rect.position - map_bounds.position) / map_bounds.size) * image_size
-	var texture_size = (clamped_view_rect.size / map_bounds.size) * image_size
-
-	# 创建一个足够大的动态纹理来容纳显示区域
-	var display_texture_size = MINIMAP_SIZE
-	var dynamic_texture = ImageTexture.create_from_image(Image.create(display_texture_size.x, display_texture_size.y, false, Image.FORMAT_RGBA8))
-
-	# 创建一个新的图像来绘制地图内容
-	var display_image = Image.create(display_texture_size.x, display_texture_size.y, false, Image.FORMAT_RGBA8)
+	# 创建显示图像
+	var display_image = Image.create(int(MINIMAP_SIZE.x), int(MINIMAP_SIZE.y), false, Image.FORMAT_RGBA8)
 	display_image.fill(Color(0, 0, 0, 0))  # 透明填充
 
-	# 计算地图内容在显示纹理中的位置和大小
-	var map_in_display_start = -texture_start * (display_texture_size / texture_size)
-	var map_in_display_size = image_size * (display_texture_size / texture_size)
+	# 计算地图在显示区域中的位置
+	var map_in_display_pos = -texture_start * (MINIMAP_SIZE / texture_size)
+	var map_in_display_size = image_size * (MINIMAP_SIZE / texture_size)
 
-	# 限制在显示区域内
-	var valid_map_rect = Rect2(map_in_display_start, map_in_display_size).intersection(Rect2(Vector2(0, 0), display_texture_size))
-	if valid_map_rect.size.x > 0 and valid_map_rect.size.y > 0:
+	# 计算有效的显示区域
+	var display_rect = Rect2(Vector2.ZERO, MINIMAP_SIZE)
+	var map_rect = Rect2(map_in_display_pos, map_in_display_size)
+	var valid_rect = display_rect.intersection(map_rect)
+
+	if valid_rect.has_area():
 		# 计算对应的源图像区域
-		var source_start = (valid_map_rect.position - map_in_display_start) * (image_size / map_in_display_size)
-		var source_size = valid_map_rect.size * (image_size / map_in_display_size)
+		var source_start = (valid_rect.position - map_in_display_pos) * (image_size / map_in_display_size)
+		var source_size = valid_rect.size * (image_size / map_in_display_size)
 
 		# 确保源区域在图片边界内
-		source_start = source_start.clamp(Vector2(0, 0), image_size - source_size)
-		source_size = source_size.clamp(Vector2(0, 0), image_size - source_start)
+		source_start.x = clamp(source_start.x, 0, image_size.x)
+		source_start.y = clamp(source_start.y, 0, image_size.y)
+		source_size.x = clamp(source_size.x, 0, image_size.x - source_start.x)
+		source_size.y = clamp(source_size.y, 0, image_size.y - source_start.y)
 
-		# 从原地图复制内容到显示图像
-		var source_rect = Rect2(source_start, source_size)
-		var dest_rect = Rect2(valid_map_rect.position, source_size * (valid_map_rect.size / source_size))
+		if source_size.x > 0 and source_size.y > 0:
+			var source_image = map_texture.get_image()
+			# 转换源图像格式以匹配目标图像格式
+			if source_image.get_format() != display_image.get_format():
+				source_image.convert(display_image.get_format())
 
-		display_image.blit_rect(map_texture.get_image(), source_rect, dest_rect.position)
+			# 复制图像区域
+			var source_rect = Rect2i(int(source_start.x), int(source_start.y), int(source_size.x), int(source_size.y))
+			var dest_pos = Vector2i(int(valid_rect.position.x), int(valid_rect.position.y))
+			display_image.blit_rect(source_image, source_rect, dest_pos)
 
 	# 更新纹理
-	dynamic_texture.update(display_image)
-
-	# 设置TextureRect使用动态生成的纹理
+	var dynamic_texture = ImageTexture.create_from_image(display_image)
 	map_display.texture = dynamic_texture
 
 func _process(_delta):
 	"""每帧更新玩家位置"""
+	if not is_inside_tree():
+		return
+		
+	if not player or not is_instance_valid(player) or not player.is_inside_tree():
+		return
+		
 	if map_loaded and (minimap_ui or (fullmap_ui and fullmap_ui.visible)):
 		update_player_position()
 

@@ -42,4 +42,4 @@ def process_image(input_path, output_path):
     return True
 
 if __name__ == "__main__":
-    process_image("darkice.png", "output.png")
+    process_image("input.png", "output.png")

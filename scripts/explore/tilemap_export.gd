@@ -1,6 +1,6 @@
 extends Node
 
-@export var map_scene_path: String = "res://scenes/explore_maps/darkice.tscn"
+@export var map_scene_path: String = "res://scenes/explore_maps/forest.tscn"
 @export var output_filename: String = "forest_rendered.png"
 
 func _ready():
