@@ -110,10 +110,6 @@ func _update_aim_direction():
 		if direction_to_mouse.length() > 0.01:
 			aim_direction = direction_to_mouse
 			rotation = aim_direction.angle()
-			
-			# 调试：打印方向信息
-			#print("Mouse pos: ", mouse_pos, " Player pos: ", global_position)
-			#print("Direction to mouse: ", direction_to_mouse, " Rotation: ", rotation)
 
 func _detect_platform():
 	"""检测平台类型"""

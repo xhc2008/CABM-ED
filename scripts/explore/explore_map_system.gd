@@ -110,26 +110,51 @@ func create_minimap_ui() -> Control:
 	minimap_ui.position = Vector2(20, 20)  # 从屏幕左上角偏移20像素
 
 	# 创建圆形背景
-	var background = ColorRect.new()
+	var background = Panel.new()
 	background.name = "Background"
-	background.color = Color(0, 0, 0, 0.5)
 	background.custom_minimum_size = MINIMAP_SIZE
 	background.size = MINIMAP_SIZE
 
-	# 创建圆形遮罩（使用StyleBox）
-	var style_box = StyleBoxFlat.new()
-	style_box.bg_color = Color(1, 1, 1, 1)
-	style_box.set_corner_radius_all(int(MINIMAP_SIZE.x / 2))
-	style_box.border_width_left = 2
-	style_box.border_width_top = 2
-	style_box.border_width_right = 2
-	style_box.border_width_bottom = 2
-	style_box.border_color = Color(1, 1, 1, 1)  # 白色半透明边框
-	background.add_theme_stylebox_override("panel", style_box)
+	# 创建圆形背景样式
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0, 0, 0, 0.5)  # 半透明黑色背景
+	bg_style.set_corner_radius_all(int(MINIMAP_SIZE.x / 2))  # 圆角半径
+	background.add_theme_stylebox_override("panel", bg_style)
 
 	minimap_ui.add_child(background)
 
-	# 创建地图显示区域
+	# 创建圆形边框
+	var border = Panel.new()
+	border.name = "Border"
+	border.custom_minimum_size = MINIMAP_SIZE + Vector2(4, 4)  # 比背景大4像素
+	border.size = MINIMAP_SIZE + Vector2(4, 4)
+	border.position = Vector2(-2, -2)  # 居中对齐
+
+	# 创建圆形边框样式
+	var border_style = StyleBoxFlat.new()
+	border_style.bg_color = Color(0, 0, 0, 0)  # 透明背景
+	border_style.set_corner_radius_all(int((MINIMAP_SIZE.x + 4) / 2))  # 圆角半径
+	border_style.border_width_left = 2
+	border_style.border_width_top = 2
+	border_style.border_width_right = 2
+	border_style.border_width_bottom = 2
+	border_style.border_color = Color(0.5, 0.5, 0.5, 0.5)  # 灰色边框
+	border.add_theme_stylebox_override("panel", border_style)
+
+	minimap_ui.add_child(border)
+
+	# 创建SubViewport用于圆形裁剪
+	var sub_viewport = SubViewport.new()
+	sub_viewport.name = "SubViewport"
+	sub_viewport.size = MINIMAP_SIZE
+	sub_viewport.transparent_bg = true
+	sub_viewport.disable_3d = true
+	sub_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	background.add_child(sub_viewport)
+
+	# 在SubViewport中创建地图显示区域
 	var map_display = TextureRect.new()
 	map_display.name = "MapDisplay"
 	map_display.expand_mode = TextureRect.EXPAND_FIT_WIDTH
@@ -137,6 +162,43 @@ func create_minimap_ui() -> Control:
 	map_display.custom_minimum_size = MINIMAP_SIZE
 	map_display.size = MINIMAP_SIZE
 	map_display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sub_viewport.add_child(map_display)
+
+	# 创建ViewportTexture显示裁剪结果
+	var viewport_texture = sub_viewport.get_texture()
+	var display_rect = TextureRect.new()
+	display_rect.name = "DisplayRect"
+	display_rect.texture = viewport_texture
+	display_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH
+	display_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	display_rect.custom_minimum_size = MINIMAP_SIZE
+	display_rect.size = MINIMAP_SIZE
+	display_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+	# 应用圆形裁剪Shader
+	var circle_shader = Shader.new()
+	circle_shader.code = """
+	shader_type canvas_item;
+
+	void fragment() {
+		vec2 center = vec2(0.5, 0.5);
+		float radius = 0.5;
+		vec2 pos = UV - center;
+		float dist = length(pos);
+
+		if (dist > radius) {
+			COLOR = vec4(0.0, 0.0, 0.0, 0.0); // 透明
+		} else {
+			COLOR = texture(TEXTURE, UV); // 显示纹理
+		}
+	}
+	"""
+
+	var circle_material = ShaderMaterial.new()
+	circle_material.shader = circle_shader
+	display_rect.material = circle_material
+
+	background.add_child(display_rect)
 
 	# 小地图初始状态：如果没有地图，显示NO SIGNAL；有地图时会动态更新局部区域
 	if not map_texture:
@@ -150,9 +212,8 @@ func create_minimap_ui() -> Control:
 		no_signal_label.add_theme_font_size_override("font_size", 16)
 		no_signal_label.custom_minimum_size = MINIMAP_SIZE
 		no_signal_label.size = MINIMAP_SIZE
-		map_display.add_child(no_signal_label)
 
-	minimap_ui.add_child(map_display)
+		sub_viewport.add_child(no_signal_label)
 
 	# 创建玩家位置指示器（箭头形状）
 	var player_indicator = Polygon2D.new()
@@ -161,14 +222,14 @@ func create_minimap_ui() -> Control:
 
 	# 创建箭头形状（指向右侧）
 	var arrow_points = PackedVector2Array([
-		Vector2(-6, -4),  # 左上
-		Vector2(6, 0),    # 右中
-		Vector2(-6, 4),   # 左下
-		Vector2(-2, 0)    # 左中（箭尾）
+		Vector2(-8, -6),  # 左上
+		Vector2(8, 0),    # 右中
+		Vector2(-8, 6),   # 左下
+		Vector2(-3, 0)    # 左中（箭尾）
 	])
 	player_indicator.polygon = arrow_points
 	player_indicator.position = MINIMAP_SIZE / 2  # 居中
-	map_display.add_child(player_indicator)
+	sub_viewport.add_child(player_indicator)
 
 	# 创建方向标识
 	_create_direction_labels(minimap_ui)
@@ -342,8 +403,7 @@ func update_player_position():
 	# 如果没有地图纹理，不显示玩家指示器
 	if not map_texture:
 		if minimap_ui:
-			var map_display = minimap_ui.get_node("MapDisplay")
-			var player_indicator = map_display.get_node("PlayerIndicator")
+			var player_indicator = minimap_ui.get_node("Background/SubViewport/PlayerIndicator")
 			if player_indicator:
 				player_indicator.visible = false
 
@@ -364,8 +424,7 @@ func update_player_position():
 
 	# 更新小地图玩家位置和显示区域
 	if minimap_ui:
-		var map_display = minimap_ui.get_node("MapDisplay")
-		var player_indicator = map_display.get_node("PlayerIndicator")
+		var player_indicator = minimap_ui.get_node("Background/SubViewport/PlayerIndicator")
 
 		# 小地图上玩家指示标永远在中心
 		player_indicator.position = MINIMAP_SIZE / 2
@@ -408,7 +467,7 @@ func _update_minimap_view():
 	if not minimap_ui or not map_texture:
 		return
 
-	var map_display = minimap_ui.get_node("MapDisplay")
+	var map_display = minimap_ui.get_node("Background/SubViewport/MapDisplay")
 	if not map_texture:
 		return
 

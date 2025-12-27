@@ -673,10 +673,10 @@ func _create_health_ui():
 
 	# 设置边距（距离底部20像素，水平居中）
 	player_health_bar.offset_left = -200  # 宽度的一半
-	player_health_bar.offset_top = -70    # 距离底部50像素
+	player_health_bar.offset_top = -80    # 距离底部80像素
 	player_health_bar.offset_right = 200  # 宽度的一半
-	player_health_bar.offset_bottom = -40 # 距离底部20像素
-
+	player_health_bar.offset_bottom = -50 # 距离底部50像素
+	player_health_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE # 内容区域忽略鼠标事件
 	ui_root.add_child(player_health_bar)
 	if player:
 		player.health_changed.connect(_on_player_health_changed)
@@ -955,8 +955,8 @@ func _is_click_on_ui(click_position: Vector2) -> bool:
 			# 排除武器UI（WeaponUI），不将其视为UI
 			if child.name == "WeaponUI":
 				continue
-			# 排除玩家生命条（PlayerHealthBar），不将其视为UI
-			if child.name == "PlayerHealthBar":
+			# 排除玩家生命条（player_health_bar），不将其视为UI
+			if child.name == "player_health_bar":
 				continue
 			if child.mouse_filter != Control.MOUSE_FILTER_STOP:
 				continue
@@ -1113,10 +1113,14 @@ func _hide_combat_ui():
 	# 隐藏武器UI
 	if weapon_ui:
 		weapon_ui.visible = false
-	
+
 	# 隐藏移动端UI
 	if mobile_ui:
 		mobile_ui.visible = false
+
+	# 隐藏小地图
+	if map_system and map_system.minimap_ui:
+		map_system.minimap_ui.visible = false
 
 func _show_combat_ui():
 	"""显示战斗相关UI（关闭背包时）"""
@@ -1124,7 +1128,11 @@ func _show_combat_ui():
 	# 显示武器UI
 	if weapon_ui:
 		weapon_ui.visible = true
-	
+
+	# 显示小地图
+	if map_system and map_system.minimap_ui:
+		map_system.minimap_ui.visible = true
+
 	# 显示移动端UI（仅移动端）
 	if mobile_ui:
 		mobile_ui.visible = PlatformManager.is_mobile_platform()
@@ -1280,6 +1288,10 @@ func _on_fullmap_opened():
 	if interaction_prompt:
 		interaction_prompt.hide_interactions()
 
+	# 隐藏小地图
+	if map_system and map_system.minimap_ui:
+		map_system.minimap_ui.visible = false
+
 func _on_fullmap_closed():
 	"""大地图关闭时的回调"""
 	print("大地图已关闭，恢复玩家控制")
@@ -1289,3 +1301,7 @@ func _on_fullmap_closed():
 	# 恢复其他UI元素
 	if inventory_button:
 		inventory_button.visible = true
+
+	# 显示小地图
+	if map_system and map_system.minimap_ui:
+		map_system.minimap_ui.visible = true
