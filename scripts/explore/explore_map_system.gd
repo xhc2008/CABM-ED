@@ -56,12 +56,13 @@ func calculate_map_bounds():
 	var combined_used_rect = Rect2i(min_x, min_y, max_x - min_x, max_y - min_y)
 
 	var tile_size = background_layer.tile_set.tile_size
-	map_bounds = Rect2(
-		background_layer.map_to_local(combined_used_rect.position),
-		Vector2(combined_used_rect.size.x * tile_size.x, combined_used_rect.size.y * tile_size.y)
-	)
+	# 直接使用瓦片坐标转换为世界坐标，避免map_to_local可能的问题
+	var world_position = Vector2(combined_used_rect.position.x * tile_size.x, combined_used_rect.position.y * tile_size.y)
+	var world_size = Vector2(combined_used_rect.size.x * tile_size.x, combined_used_rect.size.y * tile_size.y)
 
-	print("计算地图边界: ", map_bounds)
+	map_bounds = Rect2(world_position, world_size)
+
+	print("计算地图边界: ", map_bounds, " 瓦片大小: ", tile_size)
 
 func load_map_texture() -> bool:
 	"""加载地图纹理 - 直接从assets/images/map/目录加载图片"""
@@ -471,28 +472,35 @@ func _update_minimap_view():
 	if not map_texture:
 		return
 
-	# 小地图显示玩家周围的区域（比如15个瓦片的半径）
-	var minimap_view_radius_tiles = 60.0
-	var view_radius_world = minimap_view_radius_tiles * (background_layer.tile_set.tile_size.x if background_layer else 64)
-	var view_size_world = Vector2(view_radius_world * 2, view_radius_world * 2)
+	# 获取地图图片尺寸
+	var image_size = map_texture.get_size()
 
-	# 计算玩家位置在地图边界中的相对位置
+	# 调整可视范围
+	var compression_ratio = 1.0
+	var world_to_pixel_ratio = (image_size * compression_ratio) / map_bounds.size
+
+	# 小地图显示区域大小（世界坐标）
+	# 基于小地图150x150像素的显示区域，计算对应的世界区域
+	var minimap_world_size = MINIMAP_SIZE / world_to_pixel_ratio
+
+	# 计算玩家位置在地图边界中的相对位置（0-1范围）
 	var player_pos = player.global_position
 	var relative_pos = (player_pos - map_bounds.position) / map_bounds.size
 	relative_pos = relative_pos.clamp(Vector2(0, 0), Vector2(1, 1))
 
-	# 计算要显示的世界区域
+	# 计算要显示的世界区域中心（基于玩家位置）
 	var view_center_world = map_bounds.position + relative_pos * map_bounds.size
-	var view_start_world = view_center_world - view_size_world / 2
 
-	# 确保显示区域不超出地图边界
-	view_start_world.x = clamp(view_start_world.x, map_bounds.position.x, map_bounds.position.x + map_bounds.size.x - view_size_world.x)
-	view_start_world.y = clamp(view_start_world.y, map_bounds.position.y, map_bounds.position.y + map_bounds.size.y - view_size_world.y)
+	# 计算显示区域的左上角，确保不超出地图边界
+	var view_start_world = view_center_world - minimap_world_size / 2
 
-	var clamped_view_rect = Rect2(view_start_world, view_size_world)
+	# 边界限制
+	view_start_world.x = clamp(view_start_world.x, map_bounds.position.x, map_bounds.position.x + map_bounds.size.x - minimap_world_size.x)
+	view_start_world.y = clamp(view_start_world.y, map_bounds.position.y, map_bounds.position.y + map_bounds.size.y - minimap_world_size.y)
+
+	var clamped_view_rect = Rect2(view_start_world, minimap_world_size)
 
 	# 计算在图片坐标系中的区域
-	var image_size = map_texture.get_size()
 	var texture_start = ((clamped_view_rect.position - map_bounds.position) / map_bounds.size) * image_size
 	var texture_size = (clamped_view_rect.size / map_bounds.size) * image_size
 
