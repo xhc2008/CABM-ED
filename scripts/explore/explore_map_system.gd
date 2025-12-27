@@ -229,9 +229,9 @@ func create_fullmap_ui() -> Control:
 	# 创建地图显示
 	var map_display = TextureRect.new()
 	map_display.name = "MapDisplay"
-	map_display.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map_display.expand_mode = TextureRect.EXPAND_FIT_WIDTH  # 填充宽度
 	map_display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED  # 保持宽高比居中
-	map_display.set_anchors_preset(Control.PRESET_CENTER)  # 居中而不是填充整个区域
+	map_display.set_anchors_preset(Control.PRESET_FULL_RECT)  # 填充整个区域
 	map_display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	# 如果有地图纹理，设置纹理；否则显示NO SIGNAL
@@ -321,17 +321,14 @@ func _update_fullmap_display():
 		return
 
 	var texture_size = map_texture.get_size()
-	var viewport_size = get_viewport().get_visible_rect().size
-	var container_size = Vector2(viewport_size.x - 200, viewport_size.y - 160)  # 减去边距
+	var container = fullmap_ui.get_node("MapContainer")
+	var container_size = container.size
 
-	var scale_x = container_size.x / texture_size.x
-	var scale_y = container_size.y / texture_size.y
-	var scale = min(scale_x, scale_y) * 0.9  # 使用90%的可用空间
+	# 使用EXPAND_FIT_WIDTH时，TextureRect会自动按比例缩放填充容器
+	# 这里不需要手动设置缩放，直接设置纹理即可
+	map_display.texture = map_texture
 
-	map_display.scale = Vector2(scale, scale)
-	map_display.position = (container_size - texture_size * scale) / 2 + Vector2(100, 80)  # 加上边距偏移
-
-	print("大地图显示更新 - 纹理尺寸: ", texture_size, " 容器尺寸: ", container_size, " 缩放: ", scale)
+	print("大地图显示更新 - 纹理尺寸: ", texture_size, " 容器尺寸: ", container_size)
 
 func _on_fullmap_closed():
 	"""大地图关闭事件"""
@@ -385,16 +382,16 @@ func update_player_position():
 		var player_indicator = map_display.get_node("PlayerIndicator")
 
 		if map_texture:
-			# 计算地图在容器中的实际显示区域
+			# 使用EXPAND_FIT_WIDTH时，地图按比例填充容器
 			var container_size = map_container.size
 			var texture_size = map_texture.get_size()
 
-			# 计算缩放比例
+			# 计算实际显示的缩放比例和位置
 			var scale_x = container_size.x / texture_size.x
 			var scale_y = container_size.y / texture_size.y
-			var scale = min(scale_x, scale_y) * 0.9  # 使用90%的可用空间
+			var scale = min(scale_x, scale_y)
 
-			# 计算地图的实际显示大小和位置
+			# 计算地图在容器中的实际显示区域
 			var display_size = texture_size * scale
 			var display_pos = (container_size - display_size) / 2
 

@@ -304,6 +304,10 @@ func _process(delta):
 		# 更新区块加载
 		if chunk_manager:
 			chunk_manager.update_loaded_chunks()
+
+		# 更新敌人分区加载
+		if enemy_manager:
+			enemy_manager.update_active_enemies()
 	
 	# 自动射击检查（仅在活跃状态，且未打开背包/聊天）
 	var is_inventory_open := inventory_ui and inventory_ui.visible
@@ -628,6 +632,15 @@ func _input(event: InputEvent):
 			if chat_and_info_manager and not chat_and_info_manager.is_in_chat_mode:
 				chat_and_info_manager.enter_chat_mode()
 				get_viewport().set_input_as_handled()
+
+		# M键打开/关闭大地图
+		if event.pressed and event.keycode == KEY_M:
+			if map_system:
+				if map_system.fullmap_ui and map_system.fullmap_ui.visible:
+					map_system.hide_fullmap()
+				else:
+					map_system.show_fullmap()
+				get_viewport().set_input_as_handled()
 	
 	# 鼠标左键射击（仅PC端）
 	if event is InputEventMouseButton:
@@ -938,6 +951,12 @@ func _is_click_on_ui(click_position: Vector2) -> bool:
 		if child is Control and child.visible:
 			# 排除信息播报区域（InfoFeed），不将其视为UI
 			if child.name == "InfoFeed":
+				continue
+			# 排除武器UI（WeaponUI），不将其视为UI
+			if child.name == "WeaponUI":
+				continue
+			# 排除玩家生命条（PlayerHealthBar），不将其视为UI
+			if child.name == "PlayerHealthBar":
 				continue
 			if child.mouse_filter != Control.MOUSE_FILTER_STOP:
 				continue

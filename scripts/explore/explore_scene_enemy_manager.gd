@@ -15,12 +15,85 @@ var drop_system: Node
 var enemy_layer: TileMapLayer
 var scene_root: Node2D
 
+# 敌人分区加载参数
+var enemy_chunk_size: int = 64  # 区块大小（瓦片单位）
+var active_enemy_radius_chunks: int = 3  # 活动敌人区块半径
+var last_player_enemy_chunk := Vector2i(2147483647, 2147483647)
+
 func setup(player_node: Node2D, drop_sys: Node, enemy_layer_node: TileMapLayer, root: Node2D):
 	"""初始化敌人管理器"""
 	player = player_node
 	drop_system = drop_sys
 	enemy_layer = enemy_layer_node
 	scene_root = root
+
+func update_active_enemies():
+	"""更新活动敌人状态（分区加载）"""
+	if not player:
+		return
+
+	var current_chunk = _get_player_enemy_chunk()
+	if current_chunk == last_player_enemy_chunk:
+		return
+
+	last_player_enemy_chunk = current_chunk
+
+	# 计算需要激活的区块范围
+	var active_chunks := {}
+	for dx in range(-active_enemy_radius_chunks, active_enemy_radius_chunks + 1):
+		for dy in range(-active_enemy_radius_chunks, active_enemy_radius_chunks + 1):
+			active_chunks[Vector2i(current_chunk.x + dx, current_chunk.y + dy)] = true
+
+	# 激活/停用敌人
+	for enemy in active_enemies:
+		if not is_instance_valid(enemy):
+			continue
+
+		var enemy_chunk = _get_enemy_chunk(enemy.global_position)
+		var should_be_active = active_chunks.has(enemy_chunk)
+
+		# 根据距离激活或停用敌人
+		var enemy_is_active = enemy.get("is_active") if enemy.has_meta("is_active") or "is_active" in enemy else true
+		if should_be_active and not enemy_is_active:
+			_activate_enemy(enemy)
+		elif not should_be_active and enemy_is_active:
+			_deactivate_enemy(enemy)
+
+func _get_player_enemy_chunk() -> Vector2i:
+	"""获取玩家当前所在的敌人区块"""
+	if player == null or enemy_layer == null:
+		return last_player_enemy_chunk
+
+	var tile_pos = enemy_layer.local_to_map(enemy_layer.to_local(player.global_position))
+	return Vector2i(
+		int(floor(tile_pos.x / float(enemy_chunk_size))),
+		int(floor(tile_pos.y / float(enemy_chunk_size)))
+	)
+
+func _get_enemy_chunk(enemy_pos: Vector2) -> Vector2i:
+	"""获取敌人所在的区块"""
+	if enemy_layer == null:
+		return Vector2i.ZERO
+
+	var tile_pos = enemy_layer.local_to_map(enemy_layer.to_local(enemy_pos))
+	return Vector2i(
+		int(floor(tile_pos.x / float(enemy_chunk_size))),
+		int(floor(tile_pos.y / float(enemy_chunk_size)))
+	)
+
+func _activate_enemy(enemy: Node):
+	"""激活敌人"""
+	if enemy and enemy.has_method("set_active"):
+		enemy.set_active(true)
+		if "is_active" in enemy:
+			enemy.is_active = true
+
+func _deactivate_enemy(enemy: Node):
+	"""停用敌人"""
+	if enemy and enemy.has_method("set_active"):
+		enemy.set_active(false)
+		if "is_active" in enemy:
+			enemy.is_active = false
 
 func set_explore_id(explore_id: String):
 	"""设置当前探索场景ID"""
