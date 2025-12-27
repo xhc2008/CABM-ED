@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c4bt6x14odepj"]
+
+[ext_resource type="Script" uid="uid://biqt3phgxxrun" path="res://scripts/explore/tilemap_export.gd" id="1_37kl0"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_37kl0")

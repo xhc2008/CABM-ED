@@ -1,0 +1,45 @@
+from PIL import Image
+import numpy as np
+
+BLOCK_SIZE = 8
+TARGET_COLOR = (0x4D, 0x4D, 0x4D)
+
+def process_image(input_path, output_path):
+    """
+    处理图片：NxN压缩为1px，并将特定颜色变为透明
+    """
+    img = Image.open(input_path).convert('RGBA')
+    img_array = np.array(img)
+    
+    # 将特定颜色变为透明
+    target_mask = (
+        (img_array[:, :, 0] == TARGET_COLOR[0]) &
+        (img_array[:, :, 1] == TARGET_COLOR[1]) &
+        (img_array[:, :, 2] == TARGET_COLOR[2])
+    )
+    img_array[target_mask] = [0, 0, 0, 0]
+    
+    # NxN压缩为1px
+    height, width = img_array.shape[:2]
+    new_height = height // BLOCK_SIZE
+    new_width = width // BLOCK_SIZE
+    
+    compressed_array = np.zeros((new_height, new_width, 4), dtype=np.uint8)
+    
+    for i in range(new_height):
+        for j in range(new_width):
+            block = img_array[i*BLOCK_SIZE:(i+1)*BLOCK_SIZE, 
+                              j*BLOCK_SIZE:(j+1)*BLOCK_SIZE]
+            
+            non_transparent = block[block[:, :, 3] > 0]
+            
+            if len(non_transparent) > 0:
+                compressed_array[i, j] = np.mean(non_transparent, axis=0).astype(np.uint8)
+            else:
+                compressed_array[i, j] = [0, 0, 0, 0]
+    
+    Image.fromarray(compressed_array, 'RGBA').save(output_path)
+    return True
+
+if __name__ == "__main__":
+    process_image("darkice.png", "output.png")
