@@ -13,14 +13,18 @@ var stream_host: String = ""
 var stream_port: int = 443
 var stream_use_tls: bool = true
 var request_start_time: float = 0.0
-var request_timeout: float = 30.0
+var connection_timeout: float = 15.0  # 连接超时时间（较短）
+var response_timeout: float = 30.0   # 响应超时时间（正常超时）
+var last_chunk_time: float = 0.0     # 最后接收数据块的时间
 
 func _ready():
     http_client = HTTPClient.new()
 
 func start_stream_request(url: String, headers: Array, json_body: String, timeout: float = 30.0):
     """启动流式HTTP请求"""
-    request_timeout = timeout
+    # 设置连接超时（较短）和响应超时（正常）
+    connection_timeout = min(timeout * 0.5, 15.0)  # 连接超时不超过15秒
+    response_timeout = timeout  # 响应超时使用传入的超时时间
 
     # 解析URL
     var base_url = url.split("/chat/completions")[0]
@@ -54,13 +58,29 @@ func _process(_delta):
         return
 
     # 检查超时
-    var elapsed = (Time.get_ticks_msec() / 1000.0) - request_start_time
-    if elapsed > request_timeout:
-        print("请求超时（%.1f秒）" % elapsed)
-        is_streaming = false
-        http_client.close()
-        stream_error.emit("响应超时")
-        return
+    var current_time = Time.get_ticks_msec() / 1000.0
+    var elapsed_since_start = current_time - request_start_time
+
+    # 根据当前状态检查不同的超时
+    var stream_state = get_meta("stream_state", "")
+
+    if stream_state == "connecting":
+        # 连接阶段：检查连接超时
+        if elapsed_since_start > connection_timeout:
+            print("连接超时（%.1f秒）" % elapsed_since_start)
+            is_streaming = false
+            http_client.close()
+            stream_error.emit("连接超时")
+            return
+    elif is_streaming and last_chunk_time > 0:
+        # 响应阶段：检查响应超时（从最后接收数据的时间开始计算）
+        var elapsed_since_last_chunk = current_time - last_chunk_time
+        if elapsed_since_last_chunk > response_timeout:
+            print("响应超时（%.1f秒未收到数据）" % elapsed_since_last_chunk)
+            is_streaming = false
+            http_client.close()
+            stream_error.emit("响应超时")
+            return
 
     http_client.poll()
     var status = http_client.get_status()
@@ -102,6 +122,8 @@ func _send_stream_request():
         return
 
     set_meta("stream_state", "requesting")
+    # 初始化最后数据块时间为请求开始时间
+    last_chunk_time = request_start_time
 func get_http_error_text(response_code: int) -> String:
     """根据HTTP响应码返回对应的错误信息文本"""
     match response_code:
@@ -160,6 +182,8 @@ func _receive_stream_chunk():
 
         var chunk = http_client.read_response_body_chunk()
         if chunk.size() > 0:
+            # 接收到数据时重置响应超时计时器
+            last_chunk_time = Time.get_ticks_msec() / 1000.0
             var text = chunk.get_string_from_utf8()
             stream_chunk_received.emit(text)
 
