@@ -22,6 +22,7 @@ var attack_cooldown: float = 1.2
 var last_attack_time: float = -999.0
 var facing: Vector2 = Vector2.RIGHT
 var drop_table: Array = []
+var is_active: bool = true  # 是否处于活动状态（分区加载用）
 
 # 新增的游荡逻辑变量
 var idle_timer: float = 0.0
@@ -33,10 +34,10 @@ var idle_move_time: float = 0.0
 
 func _ready():
 	_load_config()
-	
+
 	# 设置图层在前景之上
 	z_index = 1
-	
+
 	var shape = CircleShape2D.new()
 	shape.radius = 18.0
 	var cs = CollisionShape2D.new()
@@ -53,13 +54,13 @@ func _ready():
 		sprite.texture = load(tex_path)
 		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(sprite)
-	
+
 	# 创建自定义血条节点
 	health_bar = ColorRect.new()
 	health_bar.size = Vector2(40, 4)
 	health_bar.position = Vector2(-20, -28)
 	health_bar.color = Color(1, 0, 0)  # 红色
-	
+
 	# 添加背景
 	var health_bg = ColorRect.new()
 	health_bg.size = Vector2(40, 4)
@@ -67,8 +68,24 @@ func _ready():
 	health_bg.color = Color(0.3, 0.3, 0.3)  # 深灰色背景
 	add_child(health_bg)
 	add_child(health_bar)
-	
+
 	randomize()
+
+func set_active(active: bool):
+	"""设置敌人是否处于活动状态"""
+	is_active = active
+	set_physics_process(active)
+	set_process(active)
+
+	# 隐藏/显示血条
+	if health_bar:
+		health_bar.visible = active
+	if health_bar and health_bar.get_parent() and health_bar.get_parent().has_method("get_child"):
+		# 找到血条背景并同步显示
+		for child in get_children():
+			if child is ColorRect and child != health_bar and child.color == Color(0.3, 0.3, 0.3):
+				child.visible = active
+				break
 
 func set_player(p: ExplorePlayer):
 	player = p
