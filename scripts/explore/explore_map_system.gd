@@ -483,20 +483,15 @@ func _update_minimap_view():
 	# 基于小地图150x150像素的显示区域，计算对应的世界区域
 	var minimap_world_size = MINIMAP_SIZE / world_to_pixel_ratio
 
-	# 计算玩家位置在地图边界中的相对位置（0-1范围）
+	# 计算玩家位置在地图边界中的相对位置（允许超出0-1范围）
 	var player_pos = player.global_position
 	var relative_pos = (player_pos - map_bounds.position) / map_bounds.size
-	relative_pos = relative_pos.clamp(Vector2(0, 0), Vector2(1, 1))
 
 	# 计算要显示的世界区域中心（基于玩家位置）
 	var view_center_world = map_bounds.position + relative_pos * map_bounds.size
 
-	# 计算显示区域的左上角，确保不超出地图边界
+	# 计算显示区域的左上角（取消边界限制，让小地图能够显示超出地图边界的内容）
 	var view_start_world = view_center_world - minimap_world_size / 2
-
-	# 边界限制
-	view_start_world.x = clamp(view_start_world.x, map_bounds.position.x, map_bounds.position.x + map_bounds.size.x - minimap_world_size.x)
-	view_start_world.y = clamp(view_start_world.y, map_bounds.position.y, map_bounds.position.y + map_bounds.size.y - minimap_world_size.y)
 
 	var clamped_view_rect = Rect2(view_start_world, minimap_world_size)
 
@@ -504,17 +499,40 @@ func _update_minimap_view():
 	var texture_start = ((clamped_view_rect.position - map_bounds.position) / map_bounds.size) * image_size
 	var texture_size = (clamped_view_rect.size / map_bounds.size) * image_size
 
-	# 确保纹理区域不超出图片边界
-	texture_start = texture_start.clamp(Vector2(0, 0), image_size - texture_size)
-	texture_size = texture_size.clamp(Vector2(0, 0), image_size - texture_start)
+	# 创建一个足够大的动态纹理来容纳显示区域
+	var display_texture_size = MINIMAP_SIZE
+	var dynamic_texture = ImageTexture.create_from_image(Image.create(display_texture_size.x, display_texture_size.y, false, Image.FORMAT_RGBA8))
 
-	# 创建AtlasTexture来显示局部区域
-	var atlas_texture = AtlasTexture.new()
-	atlas_texture.atlas = map_texture
-	atlas_texture.region = Rect2(texture_start, texture_size)
+	# 创建一个新的图像来绘制地图内容
+	var display_image = Image.create(display_texture_size.x, display_texture_size.y, false, Image.FORMAT_RGBA8)
+	display_image.fill(Color(0, 0, 0, 0))  # 透明填充
 
-	# 设置TextureRect使用局部纹理
-	map_display.texture = atlas_texture
+	# 计算地图内容在显示纹理中的位置和大小
+	var map_in_display_start = -texture_start * (display_texture_size / texture_size)
+	var map_in_display_size = image_size * (display_texture_size / texture_size)
+
+	# 限制在显示区域内
+	var valid_map_rect = Rect2(map_in_display_start, map_in_display_size).intersection(Rect2(Vector2(0, 0), display_texture_size))
+	if valid_map_rect.size.x > 0 and valid_map_rect.size.y > 0:
+		# 计算对应的源图像区域
+		var source_start = (valid_map_rect.position - map_in_display_start) * (image_size / map_in_display_size)
+		var source_size = valid_map_rect.size * (image_size / map_in_display_size)
+
+		# 确保源区域在图片边界内
+		source_start = source_start.clamp(Vector2(0, 0), image_size - source_size)
+		source_size = source_size.clamp(Vector2(0, 0), image_size - source_start)
+
+		# 从原地图复制内容到显示图像
+		var source_rect = Rect2(source_start, source_size)
+		var dest_rect = Rect2(valid_map_rect.position, source_size * (valid_map_rect.size / source_size))
+
+		display_image.blit_rect(map_texture.get_image(), source_rect, dest_rect.position)
+
+	# 更新纹理
+	dynamic_texture.update(display_image)
+
+	# 设置TextureRect使用动态生成的纹理
+	map_display.texture = dynamic_texture
 
 func _process(_delta):
 	"""每帧更新玩家位置"""
