@@ -10,7 +10,7 @@
       "max_stack": 1,
       "damage": 46,
       "ammo_type": "5.8mm",
-      "magazine_size": 30,
+      "magazine_size": 42,
       "fire_rate": 0.09,
       "reload_time":3.7,
       "special_tags":["绑定"]
@@ -27,6 +27,20 @@
       "ammo_type": ".45",
       "magazine_size": 25,
       "fire_rate": 0.06,
+      "reload_time":3.0
+    },
+    "Snow_Fox_L": {
+      "name": "雪狐",
+      "type": "武器",
+      "subtype": "远程",
+      "description": "你这是哪个雪狐？",
+      "icon": "Snow_Fox_L.png",
+      "weight": 2.8,
+      "max_stack": 1,
+      "damage": 40,
+      "ammo_type": "5.8mm",
+      "magazine_size": 35,
+      "fire_rate": 0.07,
       "reload_time":3.0
     },
     "VSS-SF": {
