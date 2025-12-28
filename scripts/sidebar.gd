@@ -486,6 +486,10 @@ func _load_mood_config() -> Dictionary:
 		return {}
 	
 	var file = FileAccess.open(mood_config_path, FileAccess.READ)
+	if file == null:
+		print("错误: 无法打开心情配置文件: ", mood_config_path)
+		return {}
+	
 	var json_string = file.get_as_text()
 	file.close()
 	

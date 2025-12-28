@@ -89,7 +89,7 @@ func calculate_map_bounds():
 	print("计算地图边界: ", map_bounds, " 瓦片大小: ", tile_size)
 
 func load_map_texture() -> bool:
-	"""加载地图纹理 - 直接从assets/images/map/目录加载图片"""
+	"""加载地图纹理 - 使用load()加载已import的图片资源"""
 	if map_loaded:
 		return map_texture != null
 
@@ -98,28 +98,16 @@ func load_map_texture() -> bool:
 
 	print("尝试加载地图图片: ", map_path)
 
-	# 检查文件是否存在
-	if not FileAccess.file_exists(map_path):
-		print("地图图片不存在: ", map_path, " - 将显示NO SIGNAL")
-		map_texture = null
+	# 使用load()加载已import的纹理资源
+	map_texture = load(map_path) as Texture2D
+
+	if not map_texture:
+		print("地图图片不存在或加载失败: ", map_path, " - 将显示NO SIGNAL")
 		map_loaded = true
 		return false
 
-	# 加载图片
-	var image = Image.new()
-	var load_result = image.load(map_path)
-
-	if load_result != OK:
-		print("加载地图图片失败: ", load_result, " 路径: ", map_path)
-		map_texture = null
-		map_loaded = true
-		return false
-
-	# 创建纹理
-	map_texture = ImageTexture.create_from_image(image)
+	print("地图图片加载成功: ", map_path, " 尺寸: ", map_texture.get_size())
 	map_loaded = true
-
-	print("地图图片加载成功: ", map_path, " 尺寸: ", image.get_size())
 	return true
 
 
