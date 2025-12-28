@@ -25,8 +25,11 @@ var navigation_initialized: bool = false
 var items_config: Dictionary = {}
 const BULLET_SCENE = preload("res://scenes/bullet.tscn")
 var current_enemy_target: Node2D = null
-var shoot_player: AudioStreamPlayer2D
+# 射击音效池
+const SHOOT_SOUND_POOL_SIZE: int = 16  # 与weapon_system.gd保持一致
+var shoot_sound_players: Array = []
 var current_weapon_id: String = ""
+var next_sound_player_index: int = 0  # 轮询使用的播放器索引
 
 # 雪狐的背包存储
 const STORAGE_SIZE = 12
@@ -67,9 +70,13 @@ func _ready():
 	call_deferred("_setup_navigation")
 	delayed_target_position = global_position
 	target_position = global_position
-	shoot_player = AudioStreamPlayer2D.new()
-	shoot_player.bus = "SFX"
-	add_child(shoot_player)
+
+	# 创建射击音效池
+	for i in range(SHOOT_SOUND_POOL_SIZE):
+		var sound_player = AudioStreamPlayer2D.new()
+		sound_player.bus = "SFX"
+		add_child(sound_player)
+		shoot_sound_players.append(sound_player)
 	# 设置雪狐的碰撞层与掩码：自身层为3，掩码与地形(1)与敌人(2)交互
 	set_collision_layer(0)
 	set_collision_layer_value(3, true)
@@ -441,11 +448,10 @@ func _try_auto_attack():
 		get_tree().current_scene.add_child(bullet)
 		bullet.z_index = 3
 		bullet.setup(global_position, dir, rotation, cfg, self)
-		
+
 	_ensure_weapon_sound()
-	if shoot_player and shoot_player.stream:
-		shoot_player.play()
-		
+	_play_shoot_sound()
+
 	last_attack_time = now
 
 func _ensure_weapon_sound():
@@ -457,8 +463,26 @@ func _ensure_weapon_sound():
 	if wid != current_weapon_id:
 		var path := "res://assets/audio/explore/%s_shot.mp3" % wid
 		if ResourceLoader.exists(path):
-			shoot_player.stream = load(path)
+			var stream = load(path)
+			# 为所有音效播放器设置相同的音效
+			for sound_player in shoot_sound_players:
+				sound_player.stream = stream
 		current_weapon_id = wid
+
+func _play_shoot_sound():
+	"""使用音效池播放射击音效"""
+	if shoot_sound_players.is_empty():
+		return
+
+	# 使用轮询方式选择播放器，确保均匀使用并允许音效重叠
+	var sound_player = shoot_sound_players[next_sound_player_index]
+
+	# 播放音效
+	sound_player.global_position = global_position
+	sound_player.play()
+
+	# 更新下一个要使用的播放器索引
+	next_sound_player_index = (next_sound_player_index + 1) % shoot_sound_players.size()
 
 func _update_auto_pickup():
 	var space_state = get_world_2d().direct_space_state

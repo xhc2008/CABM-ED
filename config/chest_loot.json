@@ -12,8 +12,8 @@
         {
           "item_id": ".45_ammo",
           "min_count": 10,
-          "max_count": 25,
-          "probability": 0.35
+          "max_count": 64,
+          "probability": 0.5
         },
         {
           "item_id": "9mm_ammo",
@@ -78,7 +78,7 @@
           "item_id": "UMP45",
           "min_count": 1,
           "max_count": 1,
-          "probability": 0.15
+          "probability": 0.1
         },
         {
           "item_id": "5.8mm_ammo",
@@ -88,9 +88,9 @@
         },
         {
           "item_id": ".45_ammo",
-          "min_count": 25,
+          "min_count": 30,
           "max_count": 64,
-          "probability": 0.45
+          "probability": 0.6
         },
         {
           "item_id": "9mm_ammo",
