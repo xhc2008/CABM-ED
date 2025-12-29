@@ -1,0 +1,89 @@
+[gd_scene load_steps=3 format=3 uid="uid://djusalwha663y"]
+
+[ext_resource type="Script" uid="uid://bahxpua6bjp0r" path="res://scripts/api_help.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://cxl5ur7ityk7" path="res://assets/images/index2.png" id="2_yxhmr"]
+
+[node name="APIHelp" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_yxhmr")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Container" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -329.0
+offset_top = -309.0
+offset_right = 329.0
+offset_bottom = 334.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="Container"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 28
+text = "                            API密钥获取教程"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Container"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Content" type="VBoxContainer" parent="Container/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="TutorialText" type="RichTextLabel" parent="Container/ScrollContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_colors/default_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/normal_font_size = 20
+bbcode_enabled = true
+text = "[b]从硅基流动获取密钥：[/b]
+1. 访问[url=https://cloud.siliconflow.cn/i/mVqMyTZk]硅基流动官网[/url]
+2. 使用手机号注册账号
+3. 手机：点击右上角三个横杠，然后点击\"API 密钥\"
+    电脑：点击左下角的\"API 密钥\"
+4. 点击上方的\"新建 API 密钥\"
+5. 点击\"新建密钥\"
+6. 在下面的列表中点击密钥进行复制（不是长按）
+[b]密钥相当于账户密码，请妥善保存[/b]
+
+[b]常见问题[/b]
+1. 免费吗？
+- 注册送14元。后续也可以在某宝某鱼等低价买代金券
+2.还是说密钥不正确？
+- 确保你是点击复制而不是长按复制。你可以先粘贴到其他地方看是否复制了一堆*号
+3. 可以使用其他平台吗？
+- OpenAI协议的应该都支持"
+fit_content = true
+
+[node name="BackButton" type="Button" parent="Container"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 20
+text = "返回"

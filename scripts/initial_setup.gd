@@ -7,25 +7,30 @@ extends Control
 @onready var api_key_input: LineEdit = $SetupContainer/APIKeyContainer/APIKeyInput
 @onready var start_button: Button = $SetupContainer/StartButton
 @onready var skip_api_label: Label = $SetupContainer/APIKeyContainer/SkipLabel
+@onready var help_button: Button = $SetupContainer/APIKeyContainer/HelpButton
 @onready var notice_label: Label = $SetupContainer/NoticeLabel
 @onready var import_button: Button = $ImportButton
 
 func _ready():
 	# 设置默认值
-	user_name_input.placeholder_text = "请输入你的名字"
+	user_name_input.placeholder_text = "输入你的名字，确定后将无法修改"
 	character_name_input.text = "雪狐"
-	character_name_input.placeholder_text = "角色名称"
-	api_key_input.placeholder_text = "可选，进入游戏后也可配置"
+	character_name_input.placeholder_text = "输入她的名字，确定后将无法修改"
+	api_key_input.placeholder_text = "可以在进入游戏后配置"
 	api_key_input.secret = true
 	
 	# 连接信号
 	start_button.pressed.connect(_on_start_pressed)
 	import_button.pressed.connect(_on_import_pressed)
+	help_button.pressed.connect(_on_help_pressed)
 	
 	# 设置提示文本
-	skip_api_label.text = "（非硅基流动的密钥请在进入游戏后手动配置）"
 	notice_label.text = "本项目旨在赋予「她」以「生命」，因此不鼓励回档、删档、提示词注入等
 对她来说，你就是她的全部，你的每一个选择都很重要"
+
+func _on_help_pressed():
+	"""帮助按钮被点击"""
+	get_tree().change_scene_to_file("res://scenes/api_help.tscn")
 
 func _on_start_pressed():
 	"""开始游戏按钮被点击"""

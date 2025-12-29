@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://setup001"]
 
-[ext_resource type="Script" path="res://scripts/initial_setup.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/images/index2.png" id="2_index2"]
+[ext_resource type="Script" uid="uid://chossd4o04wm3" path="res://scripts/initial_setup.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://cxl5ur7ityk7" path="res://assets/images/index2.png" id="2_index2"]
 
 [node name="InitialSetup" type="Control"]
 layout_mode = 3
@@ -52,8 +52,8 @@ theme_override_constants/separation = 20
 
 [node name="TitleLabel" type="Label" parent="SetupContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
 theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
+theme_override_font_sizes/font_size = 32
 text = "初始设置"
 horizontal_alignment = 1
 
@@ -67,8 +67,8 @@ theme_override_constants/separation = 8
 
 [node name="UserNameLabel" type="Label" parent="SetupContainer/UserNameContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
+theme_override_font_sizes/font_size = 20
 text = "你的名字："
 
 [node name="UserNameInput" type="LineEdit" parent="SetupContainer/UserNameContainer"]
@@ -83,8 +83,8 @@ theme_override_constants/separation = 8
 
 [node name="CharacterNameLabel" type="Label" parent="SetupContainer/CharacterNameContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
+theme_override_font_sizes/font_size = 20
 text = "她的名字："
 
 [node name="CharacterNameInput" type="LineEdit" parent="SetupContainer/CharacterNameContainer"]
@@ -99,8 +99,8 @@ theme_override_constants/separation = 8
 
 [node name="APIKeyLabel" type="Label" parent="SetupContainer/APIKeyContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.1, 0.1, 0.1, 1)
+theme_override_font_sizes/font_size = 20
 text = "API密钥："
 
 [node name="APIKeyInput" type="LineEdit" parent="SetupContainer/APIKeyContainer"]
@@ -108,11 +108,13 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 
-[node name="SkipLabel" type="Label" parent="SetupContainer/APIKeyContainer"]
+[node name="HelpButton" type="Button" parent="SetupContainer/APIKeyContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-theme_override_colors/font_color = Color(0.2, 0.2, 0.2, 1)
-text = "（非硅基流动的密钥请在进入游戏后手动配置）"
+size_flags_horizontal = 0
+theme_override_colors/font_color = Color(0.2, 0.5, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "如何获取？"
+flat = true
 
 [node name="Spacer2" type="Control" parent="SetupContainer"]
 custom_minimum_size = Vector2(0, 10)
@@ -120,8 +122,8 @@ layout_mode = 2
 
 [node name="NoticeLabel" type="Label" parent="SetupContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.15, 0.15, 0.15, 1)
+theme_override_font_sizes/font_size = 14
 text = "本项目旨在赋予「她」以「生命」，因此不鼓励回档、删档、提示词注入等
 对她来说，你就是她的全部，你的每一个选择都很重要"
 horizontal_alignment = 1
