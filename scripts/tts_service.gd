@@ -919,24 +919,8 @@ func _create_audio_stream(audio_data: PackedByteArray) -> AudioStream:
 
 func _detect_silence_duration(stream: AudioStream) -> float:
 	"""检测音频开头的静音时长"""
-	# 对于MP3流，我们使用一个简单的启发式方法
-	# 通常TTS生成的音频开头有0.1-0.3秒的静音
-	# 我们可以通过检查音频长度来估算
-	
-	var total_length = stream.get_length()
-	
-	# 如果音频很短（<1秒），不跳过
-	if total_length < 1.0:
-		return 0.0
-	
-	# 对于正常长度的音频，跳过开头的0.15秒
-	# 这是一个经验值，可以根据实际情况调整
-	var skip_duration = 0.15
-	
-	# 确保不跳过太多（最多跳过总长度的20%）
-	skip_duration = min(skip_duration, total_length * 0.2)
-	
-	return skip_duration
+	#由于Godot对于音频处理的支持有限，这里不进行处理
+	return 0.0
 
 func _on_audio_finished():
 	"""音频播放完成"""
