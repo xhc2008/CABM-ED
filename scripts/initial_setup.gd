@@ -157,7 +157,10 @@ func _create_initial_save(user_name: String, character_name: String):
 		"content": "%s刚刚从街边把昏迷、失去记忆的%s捡回了家并收养。%s对%s还不太熟悉，所以有些警惕和害怕，也只会直呼其名。对自己的过去和未来也有些迷茫。" % [user_name, character_name, character_name, user_name]
 	}
 	save_mgr.save_data.ai_data.relationship_history = [initial_relationship]
-	
+
+	# 设置初始角色场景为客厅（livingroom）
+	save_mgr.set_character_scene("livingroom")
+
 	# 标记初始设置已完成，允许后续保存
 	save_mgr.is_initial_setup_completed = true
 	

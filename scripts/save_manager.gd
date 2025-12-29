@@ -90,6 +90,11 @@ func _notification(what):
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		if not is_resources_ready() or not initialized:
 			return
+		# 只有在初始设置完成后才允许自动保存
+		if not is_initial_setup_completed:
+			print("初始设置未完成，跳过自动保存")
+			get_tree().quit()
+			return
 		print("检测到窗口关闭，正在保存游戏...")
 		capture_checkpoint_on_save = true
 		save_game(current_slot)
