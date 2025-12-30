@@ -13,6 +13,14 @@ func _should_save_knowledge_graph() -> bool:
 		return memory_config.get("save_knowledge_graph", true)
 	return true  # 默认启用
 
+func _should_enable_knowledge_forgetting() -> bool:
+	"""检查是否应该启用知识遗忘"""
+	var ai_config_mgr = get_node_or_null("/root/AIConfigManager")
+	if ai_config_mgr:
+		var memory_config = ai_config_mgr.load_memory_config()
+		return memory_config.get("enable_knowledge_forgetting", true)
+	return true  # 默认启用
+
 func call_tuple_model(summary_text: String, conversation_text: String, custom_timestamp = null):
 	if not owner_service:
 		push_error("TupleManager: owner_service not set")
@@ -63,7 +71,10 @@ func call_tuple_model(summary_text: String, conversation_text: String, custom_ti
 	if logger:
 		logger.log_api_request("TUPLE_REQUEST", body, json_body)
 
-	_apply_forgetting_to_graph()
+	# 检查配置：是否应该启用知识遗忘
+	var should_enable_forgetting = _should_enable_knowledge_forgetting()
+	if should_enable_forgetting:
+		_apply_forgetting_to_graph()
 
 	var tuple_request = HTTPRequest.new()
 	add_child(tuple_request)

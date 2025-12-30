@@ -9,6 +9,7 @@ extends MarginContainer
 @onready var pre_recall_reasoning_checkbox: CheckBox = $ScrollContainer/VBoxContainer/VectorContainer/PreRecallReasoningCheckBox
 @onready var save_kg_checkbox: CheckBox = $ScrollContainer/VBoxContainer/KGContainer/SaveKGCheckBox
 @onready var kg_search_checkbox: CheckBox = $ScrollContainer/VBoxContainer/KGContainer/KGSearchCheckBox
+@onready var enable_forgetting_checkbox: CheckBox = $ScrollContainer/VBoxContainer/KGContainer/EnableForgettingCheckBox
 
 var config_manager: Node
 
@@ -20,6 +21,7 @@ func _ready():
 	pre_recall_reasoning_checkbox.toggled.connect(_on_pre_recall_reasoning_toggled)
 	save_kg_checkbox.toggled.connect(_on_save_kg_toggled)
 	kg_search_checkbox.toggled.connect(_on_kg_search_toggled)
+	enable_forgetting_checkbox.toggled.connect(_on_enable_forgetting_toggled)
 
 func initialize(config_mgr: Node):
 	"""初始化记忆系统配置管理器"""
@@ -75,9 +77,11 @@ func _on_save_kg_toggled(enabled: bool):
 	if not enabled:
 		# 父节点关闭时，子节点也关闭
 		kg_search_checkbox.button_pressed = false
+		enable_forgetting_checkbox.button_pressed = false
 
 	# 更新子节点可用性
 	kg_search_checkbox.disabled = not enabled
+	enable_forgetting_checkbox.disabled = not enabled
 
 	# 自动保存配置
 	_auto_save_config()
@@ -85,6 +89,11 @@ func _on_save_kg_toggled(enabled: bool):
 func _on_kg_search_toggled(enabled: bool):
 	"""图谱检索勾选框状态改变"""
 	# 图谱检索没有子节点，不需要特殊处理
+	_auto_save_config()
+
+func _on_enable_forgetting_toggled(enabled: bool):
+	"""启用知识遗忘勾选框状态改变"""
+	# 知识遗忘没有子节点，不需要特殊处理
 	_auto_save_config()
 
 func _auto_save_config():
@@ -100,7 +109,8 @@ func collect_memory_config() -> Dictionary:
 		"enable_reranking": rerank_checkbox.button_pressed,
 		"enable_pre_recall_reasoning": pre_recall_reasoning_checkbox.button_pressed,
 		"save_knowledge_graph": save_kg_checkbox.button_pressed,
-		"enable_kg_search": kg_search_checkbox.button_pressed
+		"enable_kg_search": kg_search_checkbox.button_pressed,
+		"enable_knowledge_forgetting": enable_forgetting_checkbox.button_pressed
 	}
 
 func load_memory_config():
@@ -114,9 +124,11 @@ func load_memory_config():
 	pre_recall_reasoning_checkbox.button_pressed = config.get("enable_pre_recall_reasoning", false)
 	save_kg_checkbox.button_pressed = config.get("save_knowledge_graph", true)
 	kg_search_checkbox.button_pressed = config.get("enable_kg_search", true)
+	enable_forgetting_checkbox.button_pressed = config.get("enable_knowledge_forgetting", true)
 
 	# 设置初始的禁用状态
 	semantic_search_checkbox.disabled = not save_vector_checkbox.button_pressed
 	rerank_checkbox.disabled = not (save_vector_checkbox.button_pressed and semantic_search_checkbox.button_pressed)
 	pre_recall_reasoning_checkbox.disabled = not (save_vector_checkbox.button_pressed and semantic_search_checkbox.button_pressed)
 	kg_search_checkbox.disabled = not save_kg_checkbox.button_pressed
+	enable_forgetting_checkbox.disabled = not save_kg_checkbox.button_pressed

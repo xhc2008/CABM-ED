@@ -92,4 +92,11 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 0
 tooltip_text = "使用学习到的知识"
-text = "└启用图谱检索"
+text = "├启用图谱检索"
+
+[node name="EnableForgettingCheckBox" type="CheckBox" parent="ScrollContainer/VBoxContainer/KGContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+tooltip_text = "遗忘掉过时的知识"
+text = "└启用知识遗忘"
