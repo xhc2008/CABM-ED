@@ -88,7 +88,7 @@
     "bandage": {
       "name": "绷带",
       "type": "药品",
-      "description": "恢复10点生命值",
+      "description": "厕纸（buhsi）",
       "icon": "bandage.png",
       "weight": 0.2,
       "max_stack": 64,
@@ -98,7 +98,7 @@
     "medkit": {
       "name": "医疗箱",
       "type": "药品",
-      "description": "恢复50点生命值",
+      "description": "∵绷带∈医疗箱 ∴医疗箱>绷带",
       "icon": "medkit.png",
       "weight": 1.5,
       "max_stack": 16,
@@ -108,7 +108,7 @@
     "note": {
       "name": "开发者注",
       "type": "特殊",
-      "description": "背包及相关功能尚未实现，敬请期待",
+      "description": "你居然还留着？",
       "icon": "note.png",
       "weight": 0,
       "max_stack": 1
@@ -206,7 +206,7 @@
     "potato": {
       "name": "土豆",
       "type": "食材",
-      "description": "可烹饪的土豆",
+      "description": "硅基流动的服务器",
       "icon": "potato.png",
       "weight": 0.3,
       "max_stack": 64,
@@ -259,7 +259,7 @@
     "credit": {
       "name": "信用点",
       "type": "货币",
-      "description": "另一个世界的通用货币，但也被这个世界认可",
+      "description": "公司都开拓到这儿了？",
       "icon": "credit.png",
       "weight": 0,
       "max_stack": 1024
