@@ -1,0 +1,132 @@
+[gd_scene load_steps=4 format=3 uid="uid://story_mode_panel"]
+
+[ext_resource type="Script" path="res://scripts/story_mode_panel.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://b7ks8d5vccxcy" path="res://assets/images/story_background.png" id="2"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.1, 0.2, 0.4, 0.9)
+border_color = Color(0.8, 0.8, 1.0, 1.0)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 8
+
+[node name="StoryModePanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.3)
+
+[node name="Panel" type="Panel" parent="."]
+custom_minimum_size = Vector2(1200, 800)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -600.0
+offset_top = -400.0
+offset_right = 600.0
+offset_bottom = 400.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="TitleLabel" type="Label" parent="Panel/VBoxContainer/TitleBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "故事模式"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="CloseButton" type="Button" parent="Panel/VBoxContainer/TitleBar"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "关闭"
+
+[node name="HSplitContainer" type="HSplitContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 300
+
+[node name="StoryListPanel" type="Panel" parent="Panel/VBoxContainer/HSplitContainer"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="StoryListLabel" type="Label" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+text = "故事列表"
+theme_override_font_sizes/font_size = 18
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="StoryListContainer" type="VBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="TreeViewPanel" type="Panel" parent="Panel/VBoxContainer/HSplitContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="TreeViewLabel" type="Label" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+text = "故事树状图"
+theme_override_font_sizes/font_size = 18
+
+[node name="TreeViewContainer" type="Control" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+clip_contents = true

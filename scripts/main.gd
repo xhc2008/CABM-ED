@@ -242,6 +242,8 @@ func _connect_dynamic_elements_signals():
 			element.action_triggered.connect(_on_shop_action_triggered)
 		elif element_id == "farming_button" and element.has_signal("action_triggered"):
 			element.action_triggered.connect(_on_farming_action_triggered)
+		elif element_id == "story_mode_button" and element.has_signal("action_triggered"):
+			element.action_triggered.connect(_on_story_mode_action_triggered)
 		
 		# 可以根据需要添加其他元素的信号连接
 
@@ -830,6 +832,37 @@ func _on_diary_action_triggered(action: String):
 			if has_node("/root/UIManager"):
 				get_node("/root/UIManager").disable_all()
 			character_diary_viewer.show_diary()
+
+func _on_story_mode_action_triggered(action: String):
+	"""故事模式按钮动作触发"""
+	if action == "story_mode":
+		_open_story_mode()
+
+func _open_story_mode():
+	"""打开故事模式界面"""
+	# 检查是否已存在故事模式面板
+	var story_panel = get_node_or_null("StoryModePanel")
+	if story_panel:
+		story_panel.show_panel()
+		return
+
+	# 创建新的故事模式面板
+	var story_mode_scene = load("res://scenes/story_mode_panel.tscn")
+	if story_mode_scene:
+		var panel = story_mode_scene.instantiate()
+		add_child(panel)
+		# 显示故事模式前禁用其他UI交互
+		if has_node("/root/UIManager"):
+			get_node("/root/UIManager").disable_all()
+		# 连接关闭信号
+		panel.story_mode_closed.connect(_on_story_mode_closed)
+		panel.show_panel()
+
+func _on_story_mode_closed():
+	"""故事模式关闭事件"""
+	# 重新启用UI交互
+	if has_node("/root/UIManager"):
+		get_node("/root/UIManager").enable_all()
 
 func _on_character_diary_closed():
 	"""角色日记查看器关闭事件"""
