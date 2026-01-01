@@ -28,9 +28,13 @@ var next_translate_id: int = 0
 
 # 句子跟踪系统（使用哈希作为句子唯一ID）
 var sentence_audio: Dictionary = {} # {sentence_hash: audio_data 或 null}
-var sentence_state: Dictionary = {} # {sentence_hash: "pending"|"ready"|"abandoned"|"playing"}
+var sentence_state: Dictionary = {} # {sentence_hash: "pending"|"ready"|"playing"}
 var current_sentence_hash: String = "" # 当前正在显示/应播放的句子哈希
 var playing_sentence_hash: String = "" # 正在播放的句子哈希
+
+# 重试管理
+var retry_count: Dictionary = {} # {sentence_hash: retry_count}
+const MAX_RETRY_COUNT: int = 3
 
 var current_player: AudioStreamPlayer
 var is_playing: bool = false
@@ -524,14 +528,8 @@ func synthesize_speech(text: String, lang: String = ""):
 
 func _on_translation_ready(sentence_hash: String, text: String, lang: String):
 	"""翻译完成或无需翻译时触发"""
-	# 如果该哈希已被标记为放弃，忽略
-	if sentence_state.get(sentence_hash, "") == "abandoned":
-		print("句子 hash:%s 已被放弃（翻译后），忽略" % _short_hash(sentence_hash))
-		return
-
 	if text.strip_edges().is_empty():
-		print("句子 hash:%s 翻译后为空，标记为已放弃" % _short_hash(sentence_hash))
-		sentence_state[sentence_hash] = "abandoned"
+		print("句子 hash:%s 翻译后为空，跳过" % _short_hash(sentence_hash))
 		return
 
 	print("句子 hash:%s 已准备翻译，开始合成语音" % _short_hash(sentence_hash))
@@ -629,25 +627,19 @@ func _on_translate_completed(result: int, response_code: int, _headers: PackedSt
 
 func _synthesize_with_voice(sentence_hash: String, text: String, lang: String):
 	"""发送TTS请求
-	
+
 	参数:
-	- sentence_id: 句子ID（用于追踪和跳过被遗弃的句子）
+	- sentence_id: 句子ID（用于追踪句子）
 	- text: 要合成的文本
 	- lang: 目标语言
 	"""
 	if api_key.is_empty():
 		push_error("TTS API密钥未配置")
-		sentence_state[sentence_hash] = "abandoned"
 		return
 
 	var voice_for_lang = voice_uri_map.get(lang, "")
 	if voice_for_lang.is_empty():
 		push_error("声音URI(%s)未准备好，跳过 hash:%s" % [lang, _short_hash(sentence_hash)])
-		sentence_state[sentence_hash] = "abandoned"
-		return
-
-	if sentence_state.get(sentence_hash, "") == "abandoned":
-		print("句子 hash:%s 已被放弃（合成前），忽略" % _short_hash(sentence_hash))
 		return
 
 	print("=== 开始TTS请求 hash:%s (%s) ===" % [_short_hash(sentence_hash), lang])
@@ -658,13 +650,13 @@ func _synthesize_with_voice(sentence_hash: String, text: String, lang: String):
 
 	http_request.set_meta("sentence_hash", sentence_hash)
 	http_request.set_meta("text", text)
+	http_request.set_meta("lang", lang)
 
 	http_request.request_completed.connect(_on_tts_completed.bind(sentence_hash, http_request))
 	tts_requests[sentence_hash] = http_request
 
 	if tts_base_url.is_empty() or tts_model.is_empty():
 		push_error("TTS配置不完整（model或base_url未配置）")
-		sentence_state[sentence_hash] = "abandoned"
 		tts_requests.erase(sentence_hash)
 		http_request.queue_free()
 		return
@@ -685,7 +677,6 @@ func _synthesize_with_voice(sentence_hash: String, text: String, lang: String):
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 	if error != OK:
 		push_error("TTS请求 hash:%s 发送失败: %s" % [_short_hash(sentence_hash), str(error)])
-		sentence_state[sentence_hash] = "abandoned"
 		tts_requests.erase(sentence_hash)
 		http_request.queue_free()
 	else:
@@ -694,6 +685,7 @@ func _synthesize_with_voice(sentence_hash: String, text: String, lang: String):
 func _on_tts_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, sentence_hash: String, http_request: HTTPRequest):
 	"""TTS请求完成回调"""
 	var text = http_request.get_meta("text", "")
+	var lang = http_request.get_meta("lang", "")
 	print("=== TTS请求 hash:%s 完成 ===" % _short_hash(sentence_hash))
 	print("文本: ", text)
 	print("result: %d, response_code: %d, body_size: %d" % [result, response_code, body.size()])
@@ -702,53 +694,70 @@ func _on_tts_completed(result: int, response_code: int, _headers: PackedStringAr
 	tts_requests.erase(sentence_hash)
 	http_request.queue_free()
 
-	# 检查句子是否已被放弃
-	if sentence_state.get(sentence_hash, "") == "abandoned":
-		print("句子 hash:%s 已被放弃（TTS回调），忽略音频数据" % _short_hash(sentence_hash))
-		return
+	# 初始化重试计数器
+	if not retry_count.has(sentence_hash):
+		retry_count[sentence_hash] = 0
 
-	var request_failed = false
+	# 检查是否应该重试
+	var should_retry = false
+	var error_msg = ""
 
+	# 超时不重试，只有响应错误才重试
 	if result != HTTPRequest.RESULT_SUCCESS:
-		var error_msg = "TTS请求 hash:%s 失败: %s" % [_short_hash(sentence_hash), str(result)]
+		error_msg = "TTS请求 hash:%s 超时失败: %s" % [_short_hash(sentence_hash), str(result)]
 		print(error_msg)
 		tts_error.emit(error_msg)
-		request_failed = true
-	elif response_code != 200:
-		var error_text = body.get_string_from_utf8()
-		var error_msg = "TTS请求 hash:%s 错误 (%d): %s" % [_short_hash(sentence_hash), response_code, error_text]
-		print(error_msg)
-		tts_error.emit(error_msg)
-		request_failed = true
+		# 超时不重试
+	elif response_code >= 400 and response_code < 600:  # 4xx, 5xx 错误
+		var current_retry = retry_count.get(sentence_hash, 0)
+		if current_retry < MAX_RETRY_COUNT:
+			should_retry = true
+			error_msg = "TTS请求 hash:%s 服务器错误 (%d)，准备重试 (%d/%d)" % [_short_hash(sentence_hash), response_code, current_retry + 1, MAX_RETRY_COUNT]
+			print(error_msg)
+			tts_error.emit(error_msg)
+		else:
+			error_msg = "TTS请求 hash:%s 服务器错误 (%d)，已达到最大重试次数 (%d)" % [_short_hash(sentence_hash), response_code, MAX_RETRY_COUNT]
+			print(error_msg)
+			tts_error.emit(error_msg)
 	elif body.size() == 0:
-		print("错误: TTS请求 hash:%s 接收到的音频数据为空" % _short_hash(sentence_hash))
-		request_failed = true
+		error_msg = "TTS请求 hash:%s 接收到的音频数据为空" % _short_hash(sentence_hash)
+		print(error_msg)
+		tts_error.emit(error_msg)
 
-	if request_failed:
-		print("句子 hash:%s 标记为已放弃（请求失败）" % _short_hash(sentence_hash))
-		sentence_state[sentence_hash] = "abandoned"
+	# 如果需要重试
+	if should_retry:
+		var current_retry = retry_count.get(sentence_hash, 0) + 1
+		retry_count[sentence_hash] = current_retry
+		print("开始第 %d 次重试句子 hash:%s" % [current_retry, _short_hash(sentence_hash)])
+		_synthesize_with_voice(sentence_hash, text, lang)
 		return
 
-	print("句子 hash:%s 接收到音频数据: %d 字节" % [_short_hash(sentence_hash), body.size()])
+	# 如果有有效的音频数据，保存并标记为ready
+	if body.size() > 0 and result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
+		print("句子 hash:%s 接收到音频数据: %d 字节" % [_short_hash(sentence_hash), body.size()])
 
-	# 保存音频文件到永久存储
-	_save_audio_to_file(sentence_hash, body)
+		# 保存音频文件到永久存储
+		_save_audio_to_file(sentence_hash, body)
 
-	# 存储音频数据
-	sentence_audio[sentence_hash] = body
-	sentence_state[sentence_hash] = "ready"
+		# 存储音频数据
+		sentence_audio[sentence_hash] = body
+		sentence_state[sentence_hash] = "ready"
 
-	audio_chunk_ready.emit(body)
-	var cur_disp = "(none)"
-	if current_sentence_hash != "":
-		cur_disp = _short_hash(current_sentence_hash)
-	print("句子 hash:%s 状态更新为 ready，当前应播放 hash:%s" % [_short_hash(sentence_hash), cur_disp])
+		audio_chunk_ready.emit(body)
+		var cur_disp = "(none)"
+		if current_sentence_hash != "":
+			cur_disp = _short_hash(current_sentence_hash)
+		print("句子 hash:%s 状态更新为 ready，当前应播放 hash:%s" % [_short_hash(sentence_hash), cur_disp])
 
-	# 只有当这个句子是当前应该播放的句子时，才尝试播放
-	if sentence_hash == current_sentence_hash:
-		_try_play_sentence()
+		# 只有当这个句子是当前应该播放的句子时，才尝试播放
+		if sentence_hash == current_sentence_hash:
+			_try_play_sentence()
+		else:
+			print("句子 hash:%s 不是当前应播放的句子（当前 hash:%s），暂不播放" % [_short_hash(sentence_hash), _short_hash(current_sentence_hash)])
 	else:
-		print("句子 hash:%s 不是当前应播放的句子（当前 hash:%s），暂不播放" % [_short_hash(sentence_hash), _short_hash(current_sentence_hash)])
+		# 没有有效音频数据，但仍然保存空的音频数据以避免重复请求
+		sentence_audio[sentence_hash] = PackedByteArray()
+		print("句子 hash:%s 没有有效的音频数据，标记为空" % _short_hash(sentence_hash))
 
 func _save_audio_to_file(sentence_hash: String, audio_data: PackedByteArray) -> bool:
 	"""保存音频数据到 user://speech/ 目录，使用哈希作为文件名
@@ -803,22 +812,6 @@ func on_new_sentence_displayed(sentence_hash: String):
 	# 将当前期望播放的句子设置为该哈希
 	current_sentence_hash = sentence_hash
 
-	# # 取消所有与当前句子不同的进行中TTS请求（只保留当前句子的请求）
-	# var keys_to_cancel = []
-	# for hash_key in tts_requests.keys():
-	# 	if hash_key != sentence_hash:
-	# 		keys_to_cancel.append(hash_key)
-
-	# for hash_key in keys_to_cancel:
-	# 	var http_request = tts_requests.get(hash_key, null)
-	# 	if http_request:
-	# 		print("取消其他句子 hash:%s 的TTS请求（当前显示 hash:%s）" % [_short_hash(hash_key), _short_hash(sentence_hash)])
-	# 		http_request.cancel_request()
-	# 		http_request.queue_free()
-	# 		tts_requests.erase(hash_key)
-	# 		# 只标记被取消的句子为abandoned，不影响其他句子
-	# 		if sentence_state.has(hash_key):
-	# 			sentence_state[hash_key] = "abandoned"
 
 	# 确保当前哈希有初始化的状态条目
 	if not sentence_state.has(sentence_hash):
@@ -848,10 +841,6 @@ func _try_play_sentence():
 	# 检查当前句子的状态
 	var current_state = sentence_state.get(cur_hash, "")
 
-	if current_state == "abandoned":
-		print("句子 hash:%s 已被放弃，不播放" % _short_hash(cur_hash))
-		return
-
 	if current_state != "ready":
 		print("句子 hash:%s 状态为 %s，等待..." % [_short_hash(cur_hash), current_state])
 		return
@@ -859,8 +848,7 @@ func _try_play_sentence():
 	# 开始播放
 	var audio_data = sentence_audio.get(cur_hash)
 	if audio_data == null or audio_data.size() == 0:
-		print("错误：句子 hash:%s 的音频数据为空或null" % _short_hash(cur_hash))
-		sentence_state[cur_hash] = "abandoned"
+		print("错误：句子 hash:%s 的音频数据为空或null，跳过播放" % _short_hash(cur_hash))
 		return
 
 	print("=== 开始播放句子 hash:%s ===" % _short_hash(cur_hash))
@@ -917,7 +905,7 @@ func _create_audio_stream(audio_data: PackedByteArray) -> AudioStream:
 	print("音频流创建成功，长度: %.2f 秒" % length)
 	return stream
 
-func _detect_silence_duration(stream: AudioStream) -> float:
+func _detect_silence_duration(_stream: AudioStream) -> float:
 	"""检测音频开头的静音时长"""
 	#由于Godot对于音频处理的支持有限，这里不进行处理
 	return 0.0
@@ -983,6 +971,7 @@ func clear_queue():
 	# 清空句子相关数据
 	sentence_audio.clear()
 	sentence_state.clear()
+	retry_count.clear()
 
 	# 停止播放
 	if current_player.playing:
@@ -992,8 +981,8 @@ func clear_queue():
 
 	# 重置当前句子哈希
 	current_sentence_hash = ""
-	
-	print("所有队列和缓冲已清空（TTS请求 + 句子数据）")
+
+	print("所有队列和缓冲已清空（TTS请求 + 句子数据 + 重试计数器）")
 
 func set_enabled(enabled: bool):
 	"""设置是否启用TTS"""
