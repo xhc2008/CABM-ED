@@ -1,17 +1,16 @@
-[gd_scene load_steps=4 format=3 uid="uid://story_mode_panel"]
+[gd_scene load_steps=6 format=3 uid="uid://dtmqem8v5cr7m"]
 
-[ext_resource type="Script" path="res://scripts/story_mode_panel.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://b7ks8d5vccxcy" path="res://assets/images/story_background.png" id="2"]
+[ext_resource type="Script" uid="uid://oumaobjth63w" path="res://scripts/story/story_mode_panel.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://ciav2n21hexqb" path="res://assets/images/story_background.png" id="2"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
-bg_color = Color(0.1, 0.2, 0.4, 0.9)
-border_color = Color(0.8, 0.8, 1.0, 1.0)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-shadow_color = Color(0, 0, 0, 0.5)
-shadow_size = 8
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pkgs8"]
+bg_color = Color(0, 0, 0, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ama4m"]
+bg_color = Color(0.76037765, 0.90648043, 1, 0.3529412)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ay0wa"]
+bg_color = Color(0, 0, 0, 0.16470589)
 
 [node name="StoryModePanel" type="Control"]
 layout_mode = 3
@@ -37,18 +36,13 @@ anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.3)
 
 [node name="Panel" type="Panel" parent="."]
-custom_minimum_size = Vector2(1200, 800)
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -600.0
-offset_top = -400.0
-offset_right = 600.0
-offset_bottom = 400.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_pkgs8")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
 layout_mode = 0
@@ -66,9 +60,9 @@ size_flags_vertical = 0
 [node name="TitleLabel" type="Label" parent="Panel/VBoxContainer/TitleBar"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
 text = "故事模式"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 24
 
 [node name="CloseButton" type="Button" parent="Panel/VBoxContainer/TitleBar"]
 layout_mode = 2
@@ -83,6 +77,7 @@ split_offset = 300
 [node name="StoryListPanel" type="Panel" parent="Panel/VBoxContainer/HSplitContainer"]
 custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ama4m")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel"]
 layout_mode = 0
@@ -96,8 +91,8 @@ offset_bottom = -10.0
 [node name="StoryListLabel" type="Label" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 0
-text = "故事列表"
 theme_override_font_sizes/font_size = 18
+text = "故事列表"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer"]
 layout_mode = 2
@@ -110,6 +105,7 @@ theme_override_constants/separation = 10
 
 [node name="TreeViewPanel" type="Panel" parent="Panel/VBoxContainer/HSplitContainer"]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ay0wa")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel"]
 layout_mode = 0
@@ -123,10 +119,10 @@ offset_bottom = -10.0
 [node name="TreeViewLabel" type="Label" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 0
-text = "故事树状图"
 theme_override_font_sizes/font_size = 18
+text = "故事树状图"
 
 [node name="TreeViewContainer" type="Control" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
+clip_contents = true
 layout_mode = 2
 size_flags_vertical = 3
-clip_contents = true
