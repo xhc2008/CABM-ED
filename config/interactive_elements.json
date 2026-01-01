@@ -48,8 +48,8 @@
         }
       ]
     },
-    "music_button": {
-      "name": "音乐播放器入口",
+    "story_mode_button": {
+      "name": "故事模式入口",
       "type": "click_area",
       "size": {
         "width": 200,
@@ -66,8 +66,8 @@
       "enabled": true,
       "options": [
         {
-          "text": "🎵 音乐播放器",
-          "action": "music_player",
+          "text": "📖 故事模式",
+          "action": "story_mode",
           "signal": null
         }
       ]

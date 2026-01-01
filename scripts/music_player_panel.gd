@@ -75,6 +75,8 @@ func show_panel():
 	"""显示面板"""
 	var viewport_size = get_viewport_rect().size
 	position = (viewport_size - size) / 2.0
+	# 整体右移100像素
+	position.x += 150
 
 	# 设置鼠标过滤，阻止鼠标事件穿透到下面的元素
 	mouse_filter = Control.MOUSE_FILTER_STOP

@@ -526,20 +526,26 @@ var api_key_status: Label
 
 func _setup_ai_settings(container: VBoxContainer):
 	"""设置 AI 配置区域"""
-	# AI 配置按钮
-	var ai_config_button = Button.new()
-	ai_config_button.text = "配置选项"
-	ai_config_button.pressed.connect(_on_ai_config_pressed)
-	container.add_child(ai_config_button)
-	
 	# 配置状态标签
 	api_key_status = Label.new()
 	api_key_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	api_key_status.add_theme_font_size_override("font_size", 11)
 	container.add_child(api_key_status)
-	
+
 	# 加载并显示配置状态
 	_load_api_key_display()
+
+	# AI 配置按钮
+	var ai_config_button = Button.new()
+	ai_config_button.text = "配置选项"
+	ai_config_button.pressed.connect(_on_ai_config_pressed)
+	container.add_child(ai_config_button)
+
+	# 音乐设置按钮
+	var music_settings_button = Button.new()
+	music_settings_button.text = "音乐设置"
+	music_settings_button.pressed.connect(_on_music_settings_pressed)
+	container.add_child(music_settings_button)
 	
 	# 分隔线
 	var separator3 = HSeparator.new()
@@ -687,9 +693,27 @@ func _get_character_name() -> String:
 	"""获取角色名称"""
 	if not has_node("/root/SaveManager"):
 		return "角色"
-	
+
 	var save_mgr = get_node("/root/SaveManager")
 	return save_mgr.get_character_name()
+
+func _on_music_settings_pressed():
+	"""打开音乐设置面板"""
+	# 检查是否已经存在音乐播放器面板
+	for child in get_tree().root.get_children():
+		if child is Panel and child.name == "MusicPlayerPanel":
+			# 如果已存在，直接显示并返回
+			child.show_panel()
+			child.move_to_front()  # 确保显示在最前面
+			return
+
+	# 如果不存在，创建新面板
+	var music_panel_scene = load("res://scenes/music_player_panel.tscn")
+	if music_panel_scene:
+		var music_panel = music_panel_scene.instantiate()
+		music_panel.name = "MusicPlayerPanel"  # 设置一个固定的名称便于识别
+		get_tree().root.add_child(music_panel)
+		music_panel.show_panel()
 
 func _setup_experimental_section():
 	"""设置实验性玩法部分"""

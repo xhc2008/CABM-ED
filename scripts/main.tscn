@@ -302,9 +302,9 @@ layout_mode = 0
 [node name="InventoryButton" parent="." instance=ExtResource("12_o6pr8")]
 layout_mode = 1
 
-[node name="MusicButton" parent="." instance=ExtResource("11_interactive")]
+[node name="StoryModeButton" parent="." instance=ExtResource("11_interactive")]
 layout_mode = 0
-element_id = "music_button"
+element_id = "story_mode_button"
 
 [node name="MusicPlayerPanel" parent="." instance=ExtResource("15_music_panel")]
 layout_mode = 0
