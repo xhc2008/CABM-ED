@@ -10,6 +10,7 @@ extends Panel
 # 快速配置引用
 @onready var quick_template_free = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer/FreeButton
 @onready var quick_template_standard = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer/StandardButton
+@onready var quick_template_alternate = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer/AlternateButton
 @onready var quick_description_label = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/DescriptionLabel
 @onready var quick_key_input = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/KeyInput
 @onready var quick_apply_button = $MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/ApplyButton
@@ -85,6 +86,7 @@ func _ready():
 	template_handler = load("res://scripts/ai_chat/ai_template_handler.gd").new(config_manager)
 	template_handler.quick_template_free = quick_template_free
 	template_handler.quick_template_standard = quick_template_standard
+	template_handler.quick_template_alternate = quick_template_alternate
 	template_handler.quick_description_label = quick_description_label
 	add_child(template_handler)
 	
@@ -138,6 +140,7 @@ func _ready():
 	close_button.pressed.connect(_on_close_pressed)
 	quick_template_free.pressed.connect(_on_template_selected.bind("free"))
 	quick_template_standard.pressed.connect(_on_template_selected.bind("standard"))
+	quick_template_alternate.pressed.connect(_on_template_selected.bind("alternate"))
 	quick_apply_button.pressed.connect(_on_quick_apply_pressed)
 	detail_save_button.pressed.connect(_on_detail_save_pressed)
 	chat_model_input.text_changed.connect(_on_detail_field_changed)

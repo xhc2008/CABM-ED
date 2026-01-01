@@ -95,10 +95,15 @@ button_pressed = true
 button_group = SubResource("ButtonGroup_template")
 text = "标准"
 
+[node name="AlternateButton" type="CheckBox" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer/TemplateContainer"]
+layout_mode = 2
+button_group = SubResource("ButtonGroup_template")
+text = "备用"
+
 [node name="DescriptionLabel" type="Label" parent="MarginContainer/VBoxContainer/TabContainer/快速配置/ScrollContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-text = "性能优秀，价格合理。推荐使用。"
+text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3

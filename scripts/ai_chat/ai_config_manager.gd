@@ -71,6 +71,38 @@ const CONFIG_TEMPLATES = {
             "model": "BAAI/bge-reranker-v2-m3",
             "base_url": "https://api.siliconflow.cn/v1"
         }
+    },
+    "alternate": {
+        "name": "备用",
+        "description": "比标准效果稍差，但更稳定一些",
+        "chat_model": {
+            "model": "deepseek-ai/DeepSeek-V3",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "summary_model": {
+            "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "tts_model": {
+            "model": "FunAudioLLM/CosyVoice2-0.5B",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "embedding_model": {
+            "model": "BAAI/bge-m3",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "view_model": {
+            "model": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "stt_model": {
+            "model": "FunAudioLLM/SenseVoiceSmall",
+            "base_url": "https://api.siliconflow.cn/v1"
+        },
+        "rerank_model": {
+            "model": "BAAI/bge-reranker-v2-m3",
+            "base_url": "https://api.siliconflow.cn/v1"
+        }
     }
 }
 
