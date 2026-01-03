@@ -324,14 +324,6 @@ func _refresh_story_list():
 		var button = Button.new()
 		var is_selected = (story_id == selected_story_id)
 
-		# 根据选中状态设置高度
-		if is_selected:
-			button.custom_minimum_size = Vector2(0, 80)  # 选中时设置最小高度
-			button.size_flags_vertical = Control.SIZE_EXPAND_FILL  # 选中时允许扩展以适应内容
-		else:
-			button.custom_minimum_size = Vector2(0, 80)  # 默认固定高度
-			button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
 		button.size_flags_horizontal = Control.SIZE_FILL
 
 		# 设置按钮文本 - 使用RichTextLabel来支持BBCode
@@ -381,6 +373,7 @@ func _refresh_story_list():
 
 		button.add_child(rich_text)
 		button.add_theme_font_size_override("font_size", 14)
+
 		# 设置按钮对齐
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
@@ -431,16 +424,45 @@ func _refresh_story_list():
 		button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
 		button.add_theme_color_override("font_pressed_color", Color(0.9, 0.9, 1.0, 1.0))
 
+		# 先添加按钮到容器，让其正确计算尺寸
+		story_list_container.add_child(button)
+		story_buttons.append(button)
+
+		# 然后根据是否选中设置高度
+		if is_selected:
+			# 选中时，让RichTextLabel计算内容高度，然后设置按钮的最小高度
+			rich_text.fit_content = true
+			# 延迟一帧来获取正确的尺寸
+			call_deferred("_adjust_button_height", button, rich_text)
+		else:
+			button.custom_minimum_size = Vector2(0, 80)  # 默认固定高度
+
 		# 连接信号
 		button.pressed.connect(_on_story_selected.bind(story_id))
 
-		story_list_container.add_child(button)
-		story_buttons.append(button)
+func _adjust_button_height(button: Button, rich_text: RichTextLabel):
+	"""调整按钮高度以适应内容"""
+	# 强制更新RichTextLabel的布局
+	rich_text.fit_content = true
+	rich_text.queue_redraw()
+	
+	# 获取RichTextLabel的实际内容高度
+	var content_height = rich_text.get_content_height()
+	# 添加一些内边距
+	var padding = 16
+	var final_height = max(80, content_height + padding)  # 确保至少有80像素高
+	
+	button.custom_minimum_size = Vector2(0, final_height)
+	
+	# 重新设置size_flags_vertical以确保按钮可以扩展
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 func _on_story_selected(story_id: String):
 	"""故事被选中"""
 	# 处理故事选中状态切换
-	if selected_story_id == story_id:
+	var was_selected = (selected_story_id == story_id)
+	
+	if was_selected:
 		# 再次点击已选中的故事，取消选中
 		selected_story_id = ""
 	else:
@@ -448,6 +470,11 @@ func _on_story_selected(story_id: String):
 
 	current_story_id = story_id
 	_clear_node_selection()  # 清除之前的选中状态
+
+	# 切换故事时重置视角和缩放
+	zoom_level = 1.0
+	pan_offset = Vector2.ZERO
+
 	_refresh_story_list()  # 刷新故事列表显示
 	_render_story_tree()
 
@@ -553,18 +580,18 @@ func _draw_nodes():
 
 		var label = Label.new()
 		var full_text = node_data.get("display_text", "")
-		
+
 		# 设置Label属性
 		label.text = full_text
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER  # 水平居中
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER  # 垂直居中 - 这是关键！
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER  # 垂直居中
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.size_flags_horizontal = Control.SIZE_FILL
 		label.size_flags_vertical = Control.SIZE_FILL
 		label.clip_text = false
 		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		label.max_lines_visible = 3  # 限制最多3行
-		
+
 		# 设置Label填充整个Panel
 		label.anchor_left = 0
 		label.anchor_top = 0
@@ -574,8 +601,8 @@ func _draw_nodes():
 		label.offset_top = 5
 		label.offset_right = -5
 		label.offset_bottom = -5
-		
-		label.add_theme_font_size_override("font_size", 12)
+
+		label.add_theme_font_size_override("font_size", 14)
 
 		node_panel.add_child(label)
 		
@@ -733,3 +760,13 @@ func _truncate_text(text: String, max_length: int) -> String:
 	if text.length() <= max_length:
 		return text
 	return text.substr(0, max_length - 3) + "..."
+
+func _estimate_text_height(text: String, font_size: int, max_width: float) -> float:
+	"""估算文本高度"""
+	if text.is_empty():
+		return 0.0
+
+	# 简单估算：假设每行大约有50个字符，行高为font_size * 1.2
+	var chars_per_line = max_width / (font_size * 0.6)  # 估算每行字符数
+	var line_count = ceil(text.length() / chars_per_line)
+	return line_count * font_size * 1.2
