@@ -120,7 +120,7 @@ offset_bottom = -10.0
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_font_sizes/font_size = 18
-text = "故事树状图"
+text = "命路歧图"
 
 [node name="OperationBar" type="HBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
 custom_minimum_size = Vector2(0, 40)

@@ -392,6 +392,10 @@ func _refresh_story_list():
 		style_normal.border_width_bottom = 1
 		style_normal.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
 		style_normal.shadow_size = 2
+		style_normal.corner_radius_top_left = 6
+		style_normal.corner_radius_top_right = 6
+		style_normal.corner_radius_bottom_left = 6
+		style_normal.corner_radius_bottom_right = 6
 
 		var style_hover = StyleBoxFlat.new()
 		if is_selected:
@@ -406,6 +410,10 @@ func _refresh_story_list():
 		style_hover.border_width_bottom = 1
 		style_hover.shadow_color = Color(0.0, 0.0, 0.0, 0.3)
 		style_hover.shadow_size = 3
+		style_hover.corner_radius_top_left = 6
+		style_hover.corner_radius_top_right = 6
+		style_hover.corner_radius_bottom_left = 6
+		style_hover.corner_radius_bottom_right = 6
 
 		var style_pressed = StyleBoxFlat.new()
 		style_pressed.bg_color = Color(0.2, 0.4, 0.8, 0.9)
@@ -416,6 +424,10 @@ func _refresh_story_list():
 		style_pressed.border_width_bottom = 1
 		style_pressed.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
 		style_pressed.shadow_size = 1
+		style_pressed.corner_radius_top_left = 6
+		style_pressed.corner_radius_top_right = 6
+		style_pressed.corner_radius_bottom_left = 6
+		style_pressed.corner_radius_bottom_right = 6
 
 		button.add_theme_stylebox_override("normal", style_normal)
 		button.add_theme_stylebox_override("hover", style_hover)
@@ -621,6 +633,10 @@ func _draw_nodes():
 		style_box.border_width_bottom = 2
 		style_box.shadow_color = Color(0.0, 0.0, 0.0, 0.3)  # 添加阴影
 		style_box.shadow_size = 4
+		style_box.corner_radius_top_left = 8
+		style_box.corner_radius_top_right = 8
+		style_box.corner_radius_bottom_left = 8
+		style_box.corner_radius_bottom_right = 8
 		node_panel.add_theme_stylebox_override("panel", style_box)
 
 		# 设置标签颜色
