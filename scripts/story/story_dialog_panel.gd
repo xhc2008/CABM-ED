@@ -130,8 +130,12 @@ func _initialize_tree_view():
 	# 禁用节点选中功能（只能查看，不能选择）
 	tree_view.set_selection_disabled(true)
 
-	# 默认选中新建的"……"节点
-	tree_view.select_node(new_node_id)
+	# 延迟一帧后选中新建的"……"节点，确保渲染完成后再进行平滑移动
+	call_deferred("_select_new_node", new_node_id)
+
+func _select_new_node(node_id: String):
+	"""延迟选中新节点"""
+	tree_view.select_node(node_id)
 
 func _initialize_dialog():
 	"""初始化对话"""

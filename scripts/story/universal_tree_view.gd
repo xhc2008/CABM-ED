@@ -171,11 +171,11 @@ func _calculate_target_view_position(node_id: String) -> Vector2:
 		return pan_offset
 
 	var container_size = tree_view_container.size
-	var node_pos = node_positions[node_id] + NODE_SIZE / 2  # 节点中心点
+	var node_pos = node_positions[node_id] + NODE_SIZE / 2  # 节点中心点（世界坐标）
 
 	# 计算目标位置：节点中心点位于容器中心
-	var target_world_pos = node_pos
-	var target_pan_offset = container_size / 2 - target_world_pos * zoom_level
+	# target_pan_offset = container_center - node_world_pos * zoom_level
+	var target_pan_offset = container_size / 2 - node_pos * zoom_level
 
 	return target_pan_offset
 
@@ -254,13 +254,47 @@ func _calculate_node_positions(node_id: String, nodes: Dictionary, node_position
 	# 设置节点位置
 	node_positions[node_id] = node_position
 
-	# 处理子节点
+	# 处理子节点 - 考虑每个子节点及其子树的空间需求
 	var child_nodes = node_data.get("child_nodes", [])
 	if child_nodes.size() > 0:
-		var child_y = node_position.y - (child_nodes.size() - 1) * NODE_SPACING_Y / 2.0
+		# 计算每个子节点及其子树需要的垂直空间
+		var child_spaces = []
+		var total_space = 0.0
+
 		for child_id in child_nodes:
-			_calculate_node_positions(child_id, nodes, Vector2(node_position.x + NODE_SPACING_X, child_y), depth + 1)
-			child_y += NODE_SPACING_Y
+			var space = _calculate_node_vertical_space(child_id, nodes, depth + 1)
+			child_spaces.append(space)
+			total_space += space
+
+		# 计算起始位置，使所有子节点居中分布
+		var start_y = node_position.y - total_space / 2.0
+		var current_y = start_y
+
+		for i in range(child_nodes.size()):
+			var child_id = child_nodes[i]
+			var child_space = child_spaces[i]
+			var child_center_y = current_y + child_space / 2.0
+
+			_calculate_node_positions(child_id, nodes, Vector2(node_position.x + NODE_SPACING_X, child_center_y), depth + 1)
+			current_y += child_space
+
+func _calculate_node_vertical_space(node_id: String, nodes: Dictionary, depth: int) -> float:
+	"""计算节点及其子树需要的垂直空间"""
+	if not nodes.has(node_id):
+		return NODE_SIZE.y + NODE_SPACING_Y
+
+	var node_data = nodes[node_id]
+	var child_nodes = node_data.get("child_nodes", [])
+
+	if child_nodes.is_empty():
+		return NODE_SIZE.y + NODE_SPACING_Y
+
+	# 计算所有子节点的空间
+	var total_child_space = 0.0
+	for child_id in child_nodes:
+		total_child_space += _calculate_node_vertical_space(child_id, nodes, depth + 1)
+
+	return max(total_child_space, NODE_SIZE.y + NODE_SPACING_Y)
 
 func _redraw_tree():
 	"""重绘树状图"""
