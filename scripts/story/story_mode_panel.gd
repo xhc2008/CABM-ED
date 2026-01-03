@@ -7,15 +7,19 @@ extends Control
 @onready var story_list_container: VBoxContainer = $Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer/StoryListContainer
 @onready var tree_view_container: Control = $Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/TreeViewContainer
 
+# 操作栏相关
+@onready var operation_bar: HBoxContainer = $Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar
+@onready var node_text_label: Label = $Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar/NodeTextLabel
+@onready var start_from_button: Button = $Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar/StartFromButton
+
 # 故事数据
 var stories_data: Dictionary = {}
 var current_story_id: String = ""
+var selected_story_id: String = ""
 var story_buttons: Array[Button] = []
 
 # 选中节点相关
 var selected_node_id: String = ""
-var operation_bar: HBoxContainer = null
-var start_from_button: Button = null
 
 # 平滑移动相关
 var view_tween: Tween = null
@@ -44,7 +48,7 @@ signal story_mode_closed
 
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
-	_create_operation_bar()
+	start_from_button.pressed.connect(_on_start_from_pressed)
 	_create_tween()
 	_load_stories()
 	_refresh_story_list()
@@ -137,39 +141,6 @@ func _on_close_pressed():
 	hide_panel()
 	story_mode_closed.emit()
 
-func _create_operation_bar():
-	"""创建操作栏"""
-	# 获取树状图面板的VBoxContainer
-	var tree_panel_vbox = tree_view_container.get_parent()
-
-	# 创建操作栏
-	operation_bar = HBoxContainer.new()
-	operation_bar.custom_minimum_size = Vector2(0, 40)
-	operation_bar.size_flags_horizontal = Control.SIZE_FILL
-	operation_bar.add_theme_constant_override("separation", 10)
-
-	# 添加左侧占位空间
-	var spacer_left = Control.new()
-	spacer_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	operation_bar.add_child(spacer_left)
-
-	# 创建"从此开始"按钮
-	start_from_button = Button.new()
-	start_from_button.text = "从此开始"
-	start_from_button.custom_minimum_size = Vector2(120, 30)
-	start_from_button.visible = false  # 默认隐藏
-	start_from_button.pressed.connect(_on_start_from_pressed)
-
-	operation_bar.add_child(start_from_button)
-
-	# 添加右侧占位空间
-	var spacer_right = Control.new()
-	spacer_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	operation_bar.add_child(spacer_right)
-
-	# 将操作栏插入到VBoxContainer的顶部
-	tree_panel_vbox.add_child(operation_bar)
-	tree_panel_vbox.move_child(operation_bar, 0)  # 移到最顶端
 
 func _create_tween():
 	"""创建Tween用于平滑移动"""
@@ -181,6 +152,9 @@ func _clear_node_selection():
 	selected_node_id = ""
 	if start_from_button:
 		start_from_button.visible = false
+	if node_text_label:
+		node_text_label.text = ""
+		node_text_label.visible = false
 	_redraw_tree()
 
 	# 停止当前的视图动画
@@ -348,7 +322,16 @@ func _refresh_story_list():
 	for story_id in stories_data:
 		var story_data = stories_data[story_id]
 		var button = Button.new()
-		button.custom_minimum_size = Vector2(0, 80)
+		var is_selected = (story_id == selected_story_id)
+
+		# 根据选中状态设置高度
+		if is_selected:
+			button.custom_minimum_size = Vector2(0, 80)  # 选中时设置最小高度
+			button.size_flags_vertical = Control.SIZE_EXPAND_FILL  # 选中时允许扩展以适应内容
+		else:
+			button.custom_minimum_size = Vector2(0, 80)  # 默认固定高度
+			button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+
 		button.size_flags_horizontal = Control.SIZE_FILL
 
 		# 设置按钮文本 - 使用RichTextLabel来支持BBCode
@@ -383,7 +366,17 @@ func _refresh_story_list():
 		rich_text.add_theme_font_size_override("italics_font_size", 12)
 		rich_text.add_theme_color_override("default_color", Color(1.0, 1.0, 1.0, 1.0))
 
-		var button_text = "[b]%s[/b]\n%s\n[i]最后游玩: %s[/i]" % [title, summary, last_played]
+		var button_text = ""
+		if is_selected:
+			# 选中时显示完整文本
+			button_text = "[b]%s[/b]\n%s\n[i]最后游玩: %s[/i]" % [title, summary, last_played]
+		else:
+			# 默认状态下只截断故事内容，标题和最后游玩时间保持完整
+			var safe_title = title if title else ""
+			var safe_summary = summary if summary else ""
+			var safe_last_played = last_played if last_played else ""
+			var truncated_summary = _truncate_text(safe_summary, 40)
+			button_text = "[b]%s[/b]\n%s\n[i]最后游玩: %s[/i]" % [safe_title, truncated_summary, safe_last_played]
 		rich_text.text = button_text
 
 		button.add_child(rich_text)
@@ -392,10 +385,14 @@ func _refresh_story_list():
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 
-		# 设置按钮样式
+		# 根据选中状态设置按钮样式
 		var style_normal = StyleBoxFlat.new()
-		style_normal.bg_color = Color(0.3, 0.5, 0.9, 0.8)
-		style_normal.border_color = Color(0.8, 0.8, 1.0, 1.0)
+		if is_selected:
+			style_normal.bg_color = Color(0.5, 0.7, 1.0, 0.9)  # 选中时更亮的背景
+			style_normal.border_color = Color(1.0, 1.0, 0.5, 1.0)  # 选中时金色边框
+		else:
+			style_normal.bg_color = Color(0.3, 0.5, 0.9, 0.8)
+			style_normal.border_color = Color(0.8, 0.8, 1.0, 1.0)
 		style_normal.border_width_left = 1
 		style_normal.border_width_right = 1
 		style_normal.border_width_top = 1
@@ -404,8 +401,12 @@ func _refresh_story_list():
 		style_normal.shadow_size = 2
 
 		var style_hover = StyleBoxFlat.new()
-		style_hover.bg_color = Color(0.4, 0.6, 1.0, 0.9)
-		style_hover.border_color = Color(1.0, 1.0, 1.0, 1.0)
+		if is_selected:
+			style_hover.bg_color = Color(0.6, 0.8, 1.0, 1.0)  # 选中时悬停更亮
+			style_hover.border_color = Color(1.0, 1.0, 0.8, 1.0)
+		else:
+			style_hover.bg_color = Color(0.4, 0.6, 1.0, 0.9)
+			style_hover.border_color = Color(1.0, 1.0, 1.0, 1.0)
 		style_hover.border_width_left = 1
 		style_hover.border_width_right = 1
 		style_hover.border_width_top = 1
@@ -438,8 +439,16 @@ func _refresh_story_list():
 
 func _on_story_selected(story_id: String):
 	"""故事被选中"""
+	# 处理故事选中状态切换
+	if selected_story_id == story_id:
+		# 再次点击已选中的故事，取消选中
+		selected_story_id = ""
+	else:
+		selected_story_id = story_id
+
 	current_story_id = story_id
 	_clear_node_selection()  # 清除之前的选中状态
+	_refresh_story_list()  # 刷新故事列表显示
 	_render_story_tree()
 
 func _render_story_tree():
@@ -464,7 +473,7 @@ func _render_story_tree():
 	# 重绘树状图
 	_redraw_tree()
 
-func _calculate_node_positions(node_id: String, nodes: Dictionary, position: Vector2, depth: int = 0):
+func _calculate_node_positions(node_id: String, nodes: Dictionary, node_position: Vector2, depth: int = 0):
 	"""计算节点位置"""
 	if not nodes.has(node_id):
 		return
@@ -473,14 +482,14 @@ func _calculate_node_positions(node_id: String, nodes: Dictionary, position: Vec
 	tree_nodes.append({"id": node_id, "data": node_data, "depth": depth})
 
 	# 设置节点位置
-	node_positions[node_id] = position
+	node_positions[node_id] = node_position
 
 	# 处理子节点
 	var child_nodes = node_data.get("child_nodes", [])
 	if child_nodes.size() > 0:
-		var child_y = position.y - (child_nodes.size() - 1) * NODE_SPACING_Y / 2.0
+		var child_y = node_position.y - (child_nodes.size() - 1) * NODE_SPACING_Y / 2.0
 		for child_id in child_nodes:
-			_calculate_node_positions(child_id, nodes, Vector2(position.x + NODE_SPACING_X, child_y), depth + 1)
+			_calculate_node_positions(child_id, nodes, Vector2(node_position.x + NODE_SPACING_X, child_y), depth + 1)
 			child_y += NODE_SPACING_Y
 
 func _redraw_tree():
@@ -535,15 +544,17 @@ func _draw_nodes():
 	for node_info in tree_nodes:
 		var node_id = node_info.id
 		var node_data = node_info.data
-		var position = node_positions[node_id]
+		var node_position = node_positions[node_id]
 
 		var node_panel = Panel.new()
 		node_panel.custom_minimum_size = NODE_SIZE
-		node_panel.position = position
-		node_panel.set_meta("original_position", position)  # 保存原始位置
+		node_panel.position = node_position
+		node_panel.set_meta("original_position", node_position)  # 保存原始位置
 
 		var label = Label.new()
-		label.text = node_data.get("display_text", "")
+		var full_text = node_data.get("display_text", "")
+		# 节点卡片始终显示截断文本（完整文本在操作栏显示）
+		label.text = _truncate_text(full_text, 30)  # 限制显示长度，减少到30个字符
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -687,6 +698,17 @@ func _on_node_clicked(event: InputEvent, node_id: String):
 			# 选中新节点
 			selected_node_id = node_id
 			start_from_button.visible = true
+
+			# 在操作栏显示完整节点文本
+			if node_text_label and current_story_id and stories_data.has(current_story_id):
+				var story_data = stories_data[current_story_id]
+				var nodes = story_data.get("nodes", {})
+				if nodes.has(node_id):
+					var node_data = nodes[node_id]
+					var full_text = node_data.get("full_text", node_data.get("display_text", ""))
+					node_text_label.text = full_text
+					node_text_label.visible = true
+
 			_redraw_tree()
 
 			# 平滑移动到选中节点
@@ -702,3 +724,9 @@ func _on_start_from_pressed():
 	print("从节点开始故事: ", selected_node_id)
 	# TODO: 实现从指定节点开始故事的逻辑
 	# 这里可以发射信号或者调用其他函数来开始故事
+
+func _truncate_text(text: String, max_length: int) -> String:
+	"""截断文本并添加省略号"""
+	if text.length() <= max_length:
+		return text
+	return text.substr(0, max_length - 3) + "..."

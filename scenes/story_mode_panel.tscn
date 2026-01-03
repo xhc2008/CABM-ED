@@ -122,6 +122,26 @@ size_flags_vertical = 0
 theme_override_font_sizes/font_size = 18
 text = "故事树状图"
 
+[node name="OperationBar" type="HBoxContainer" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="NodeTextLabel" type="Label" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 1
+clip_text = true
+
+[node name="StartFromButton" type="Button" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar"]
+custom_minimum_size = Vector2(120, 30)
+layout_mode = 2
+size_flags_horizontal = 0
+text = "从此开始"
+
 [node name="TreeViewContainer" type="Control" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer"]
 clip_contents = true
 layout_mode = 2
