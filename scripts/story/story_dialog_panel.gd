@@ -8,6 +8,7 @@ signal dialog_closed
 @onready var story_info_label: TextEdit = $Panel/HBoxContainer/LeftPanel/InfoBar/InfoHBox/StoryInfoLabel
 @onready var create_checkpoint_button: Button = $Panel/HBoxContainer/LeftPanel/InfoBar/InfoHBox/CreateCheckpointButton
 @onready var tree_view: Control = $Panel/HBoxContainer/LeftPanel/TreeView
+@onready var back_button: Button = $Panel/HBoxContainer/LeftPanel/BackButton
 @onready var message_container: VBoxContainer = $Panel/HBoxContainer/RightPanel/DialogPanel/ScrollContainer/MessageContainer
 @onready var message_input: TextEdit = $Panel/HBoxContainer/RightPanel/MessageInputPanel/HBoxContainer/MessageInput
 @onready var send_button: Button = $Panel/HBoxContainer/RightPanel/MessageInputPanel/HBoxContainer/SendButton
@@ -25,6 +26,7 @@ func _ready():
 	"""初始化"""
 	create_checkpoint_button.pressed.connect(_on_create_checkpoint_pressed)
 	send_button.pressed.connect(_on_send_message_pressed)
+	back_button.pressed.connect(_on_back_button_pressed)
 	message_input.text_changed.connect(_on_message_input_changed)
 
 	# 连接树状图信号
@@ -158,6 +160,9 @@ func _add_system_message(text: String):
 	message_container.add_child(message_item)
 	messages.append({"type": "system", "text": text})
 
+	# 调整气泡大小
+	call_deferred("_adjust_bubble_size", message_item)
+
 	# 自动滚动到底部
 	call_deferred("_scroll_to_bottom")
 
@@ -167,6 +172,9 @@ func _add_user_message(text: String):
 	message_container.add_child(message_item)
 	messages.append({"type": "user", "text": text})
 
+	# 调整气泡大小
+	call_deferred("_adjust_bubble_size", message_item)
+
 	call_deferred("_scroll_to_bottom")
 
 func _add_ai_message(text: String):
@@ -174,6 +182,9 @@ func _add_ai_message(text: String):
 	var message_item = _create_message_item(text, "ai")
 	message_container.add_child(message_item)
 	messages.append({"type": "ai", "text": text})
+
+	# 调整气泡大小
+	call_deferred("_adjust_bubble_size", message_item)
 
 	call_deferred("_scroll_to_bottom")
 
@@ -224,7 +235,7 @@ func _create_message_item(text: String, type: String) -> Control:
 	var label = Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_FILL
+	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 	match type:
@@ -247,17 +258,61 @@ func _create_message_item(text: String, type: String) -> Control:
 
 	panel.add_child(margin_container)
 
-	# 设置Panel大小
-	var label_size = label.get_minimum_size()
-	margin_container.custom_minimum_size = Vector2(min(label_size.x + 24, 400), label_size.y + 16)  # 最大宽度400
-	# 设置最小宽度，确保气泡有合适的宽度
-	var min_width = max(label_size.x + 24, 80)  # 最小宽度80像素
-	var final_width = min(min_width, 400)  # 最大宽度400像素
-	panel.custom_minimum_size = Vector2(final_width, label_size.y + 16)
+	# 设置Panel的基本属性，让其根据内容自动调整大小
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if type == "ai" else Control.SIZE_SHRINK_END
+	if type == "system":
+		panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 
 	container.add_child(panel)
 
 	return container
+
+func _adjust_bubble_size(message_item: Control):
+	"""调整气泡大小"""
+	if not message_item or message_item.get_child_count() == 0:
+		return
+
+	var panel = message_item.get_child(0) as Panel
+	if not panel or panel.get_child_count() == 0:
+		return
+
+	var margin_container = panel.get_child(0) as MarginContainer
+	if not margin_container or margin_container.get_child_count() == 0:
+		return
+
+	var label = margin_container.get_child(0) as Label
+	if not label:
+		return
+
+	# 等待一帧让布局计算完成
+	await get_tree().process_frame
+
+	# 设置最大宽度为对话面板宽度的一定比例
+	var dialog_panel = message_container.get_parent().get_parent() as Panel
+	var max_width = 400  # 默认最大宽度
+	if dialog_panel:
+		max_width = dialog_panel.size.x * 0.7  # 使用对话面板宽度的70%
+
+	# 设置Label的最大宽度，强制换行
+	label.custom_minimum_size.x = max_width - 24  # 减去左右内边距
+	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+	# 再次等待一帧，让Label重新计算大小
+	await get_tree().process_frame
+
+	# 获取Label的新大小（包含换行后的高度）
+	var label_size = label.get_minimum_size()
+
+	# 计算最终宽度（考虑换行后的实际宽度）
+	var final_width = min(label_size.x + 24, max_width)  # 加上左右内边距
+	final_width = max(final_width, 80)  # 最小宽度
+
+	# 设置Panel的自定义最小大小
+	panel.custom_minimum_size = Vector2(final_width, label_size.y + 16)  # 加上上下内边距
+
+	# 强制更新布局
+	message_item.queue_redraw()
 
 func _scroll_to_bottom():
 	"""滚动到底部"""
@@ -269,6 +324,10 @@ func _on_create_checkpoint_pressed():
 	"""创建存档点按钮点击"""
 	print("创建存档点功能（待实现）")
 	# TODO: 实现创建存档点功能
+
+func _on_back_button_pressed():
+	"""返回按钮点击"""
+	hide_panel()
 
 func _on_send_message_pressed():
 	"""发送消息按钮点击"""
