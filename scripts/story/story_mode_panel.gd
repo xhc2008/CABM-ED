@@ -12,6 +12,14 @@ var stories_data: Dictionary = {}
 var current_story_id: String = ""
 var story_buttons: Array[Button] = []
 
+# 选中节点相关
+var selected_node_id: String = ""
+var operation_bar: HBoxContainer = null
+var start_from_button: Button = null
+
+# 平滑移动相关
+var view_tween: Tween = null
+
 # 树状图相关
 var tree_nodes: Array = []
 var node_positions: Dictionary = {}
@@ -36,6 +44,8 @@ signal story_mode_closed
 
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
+	_create_operation_bar()
+	_create_tween()
 	_load_stories()
 	_refresh_story_list()
 
@@ -117,11 +127,171 @@ func show_panel():
 func hide_panel():
 	"""隐藏故事模式面板"""
 	visible = false
+	# 停止所有动画
+	if view_tween and view_tween.is_valid():
+		view_tween.kill()
+		view_tween = null
 
 func _on_close_pressed():
 	"""关闭按钮点击"""
 	hide_panel()
 	story_mode_closed.emit()
+
+func _create_operation_bar():
+	"""创建操作栏"""
+	# 获取树状图面板的VBoxContainer
+	var tree_panel_vbox = tree_view_container.get_parent()
+
+	# 创建操作栏
+	operation_bar = HBoxContainer.new()
+	operation_bar.custom_minimum_size = Vector2(0, 40)
+	operation_bar.size_flags_horizontal = Control.SIZE_FILL
+	operation_bar.add_theme_constant_override("separation", 10)
+
+	# 添加左侧占位空间
+	var spacer_left = Control.new()
+	spacer_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	operation_bar.add_child(spacer_left)
+
+	# 创建"从此开始"按钮
+	start_from_button = Button.new()
+	start_from_button.text = "从此开始"
+	start_from_button.custom_minimum_size = Vector2(120, 30)
+	start_from_button.visible = false  # 默认隐藏
+	start_from_button.pressed.connect(_on_start_from_pressed)
+
+	operation_bar.add_child(start_from_button)
+
+	# 添加右侧占位空间
+	var spacer_right = Control.new()
+	spacer_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	operation_bar.add_child(spacer_right)
+
+	# 将操作栏插入到VBoxContainer的顶部
+	tree_panel_vbox.add_child(operation_bar)
+	tree_panel_vbox.move_child(operation_bar, 0)  # 移到最顶端
+
+func _create_tween():
+	"""创建Tween用于平滑移动"""
+	# 只在需要时创建Tween，避免空Tween被启动
+	pass
+
+func _clear_node_selection():
+	"""清除节点选中状态"""
+	selected_node_id = ""
+	if start_from_button:
+		start_from_button.visible = false
+	_redraw_tree()
+
+	# 停止当前的视图动画
+	if view_tween and view_tween.is_valid():
+		view_tween.kill()
+		view_tween = null
+
+func _get_all_parent_nodes(node_id: String, nodes: Dictionary) -> Array:
+	"""获取指定节点的所有父节点ID"""
+	var parent_nodes = []
+
+	# 遍历所有节点，查找包含此节点作为子节点的节点
+	for potential_parent_id in nodes:
+		var node_data = nodes[potential_parent_id]
+		var child_nodes = node_data.get("child_nodes", [])
+		if node_id in child_nodes:
+			parent_nodes.append(potential_parent_id)
+			# 递归获取父节点的父节点
+			parent_nodes.append_array(_get_all_parent_nodes(potential_parent_id, nodes))
+
+	return parent_nodes
+
+func _is_node_highlighted(node_id: String) -> bool:
+	"""判断节点是否需要高亮"""
+	if selected_node_id.is_empty():
+		return false
+
+	# 如果是选中的节点
+	if node_id == selected_node_id:
+		return true
+
+	# 如果是选中节点的所有父节点
+	var story_data = stories_data.get(current_story_id, {})
+	var nodes = story_data.get("nodes", {})
+	var parent_nodes = _get_all_parent_nodes(selected_node_id, nodes)
+	return node_id in parent_nodes
+
+func _is_connection_highlighted(start_node_id: String, end_node_id: String) -> bool:
+	"""判断连线是否需要高亮"""
+	if selected_node_id.is_empty():
+		return false
+
+	# 如果连线的终点是选中节点或其父节点之一
+	if _is_node_highlighted(end_node_id):
+		# 并且连线的起点也是选中节点或其父节点之一
+		if _is_node_highlighted(start_node_id):
+			return true
+
+	return false
+
+func _calculate_target_view_position(node_id: String) -> Vector2:
+	"""计算将指定节点置于视图中心所需的偏移量"""
+	if not node_positions.has(node_id):
+		return pan_offset
+
+	var container_size = tree_view_container.size
+	var node_pos = node_positions[node_id] + NODE_SIZE / 2  # 节点中心点
+
+	# 计算目标位置：节点中心点位于容器中心
+	var target_world_pos = node_pos
+	var target_pan_offset = container_size / 2 - target_world_pos * zoom_level
+
+	return target_pan_offset
+
+func _smooth_move_to_node(node_id: String):
+	"""平滑移动到指定节点"""
+	if not node_positions.has(node_id):
+		return
+
+	var target_offset = _calculate_target_view_position(node_id)
+	var current_offset = pan_offset
+	var distance = (target_offset - current_offset).length()
+
+	# 如果距离太小，不需要动画
+	if distance < 1.0:
+		return
+
+	# 根据距离计算移动时长（距离越远，时间越长）
+	var move_duration = clamp(distance / 500.0, 0.3, 1.5)  # 0.3-1.5秒
+
+	# 停止当前动画
+	if view_tween and view_tween.is_valid():
+		view_tween.kill()
+		view_tween = null
+
+	# 创建新的平滑移动动画
+	view_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if view_tween == null:
+		print("Failed to create tween")
+		return
+
+	# 使用tween_method来平滑地更新pan_offset
+	var start_offset = current_offset
+	var tween_result = view_tween.tween_method(_update_pan_offset, start_offset, target_offset, move_duration)
+	if tween_result == null:
+		print("Failed to add tween method")
+		return
+
+	# 连接完成信号
+	view_tween.finished.connect(_on_view_tween_finished)
+
+func _update_pan_offset(new_offset: Vector2):
+	"""更新pan_offset并重新应用变换"""
+	pan_offset = new_offset
+	_apply_transform()
+
+func _on_view_tween_finished():
+	"""视图Tween动画完成回调"""
+	_apply_transform()
+	if view_tween:
+		view_tween = null
 
 func _load_stories():
 	"""加载所有故事文件"""
@@ -269,6 +439,7 @@ func _refresh_story_list():
 func _on_story_selected(story_id: String):
 	"""故事被选中"""
 	current_story_id = story_id
+	_clear_node_selection()  # 清除之前的选中状态
 	_render_story_tree()
 
 func _render_story_tree():
@@ -341,14 +512,21 @@ func _draw_connections():
 		for child_id in child_nodes:
 			if node_positions.has(child_id):
 				var end_pos = node_positions[child_id] + NODE_SIZE / 2
-				_draw_line(start_pos, end_pos)
+				_draw_line(start_pos, end_pos, node_id, child_id)
 
-func _draw_line(start_pos: Vector2, end_pos: Vector2):
+func _draw_line(start_pos: Vector2, end_pos: Vector2, start_node_id: String = "", end_node_id: String = ""):
 	"""绘制一条连线"""
 	var line = Line2D.new()
 	line.points = [start_pos, end_pos]
 	line.width = 3.0  # 稍微加粗
-	line.default_color = Color(0.9, 0.9, 1.0, 0.9)  # 更亮的颜色
+
+	# 根据是否高亮设置颜色
+	var is_highlighted = _is_connection_highlighted(start_node_id, end_node_id)
+	if is_highlighted:
+		line.default_color = Color(1.0, 1.0, 0.0, 0.9)  # 黄色高亮
+	else:
+		line.default_color = Color(0.9, 0.9, 1.0, 0.9)  # 普通颜色
+
 	line.set_meta("original_points", [start_pos, end_pos])  # 保存原始点
 	tree_view_container.add_child(line)
 
@@ -387,10 +565,15 @@ func _draw_nodes():
 
 		node_panel.add_child(label)
 
-		# 设置样式 - 使用更明亮的颜色
+		# 设置样式 - 根据是否高亮使用不同颜色
 		var style_box = StyleBoxFlat.new()
-		style_box.bg_color = Color(0.4, 0.6, 1.0, 0.6)  # 更亮的蓝色背景
-		style_box.border_color = Color(1.0, 1.0, 1.0, 1.0)  # 白色边框
+		var is_highlighted = _is_node_highlighted(node_id)
+		if is_highlighted:
+			style_box.bg_color = Color(1.0, 1.0, 0.0, 0.8)  # 黄色高亮背景
+			style_box.border_color = Color(1.0, 0.8, 0.0, 1.0)  # 金色边框
+		else:
+			style_box.bg_color = Color(0.4, 0.6, 1.0, 0.6)  # 普通蓝色背景
+			style_box.border_color = Color(1.0, 1.0, 1.0, 1.0)  # 白色边框
 		style_box.border_width_left = 2
 		style_box.border_width_right = 2
 		style_box.border_width_top = 2
@@ -400,7 +583,10 @@ func _draw_nodes():
 		node_panel.add_theme_stylebox_override("panel", style_box)
 
 		# 设置标签颜色
-		label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1.0))  # 深色文字
+		if is_highlighted:
+			label.add_theme_color_override("font_color", Color(0.2, 0.2, 0.0, 1.0))  # 高亮时深黄色文字
+		else:
+			label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1.0))  # 普通时深色文字
 
 		# 添加点击事件（暂时不显示详细内容）
 		node_panel.gui_input.connect(_on_node_clicked.bind(node_id))
@@ -491,7 +677,28 @@ func _handle_drag_event(event: InputEventScreenDrag):
 		_redraw_tree()
 
 func _on_node_clicked(event: InputEvent, node_id: String):
-	"""节点点击事件处理（暂时不显示详细内容）"""
+	"""节点点击事件处理"""
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		print("节点被点击: ", node_id)
-		# 暂时只打印信息，未来可以显示详细内容
+		# 处理节点选中/取消选中
+		if selected_node_id == node_id:
+			# 再次点击已选中的节点，取消选中
+			_clear_node_selection()
+		else:
+			# 选中新节点
+			selected_node_id = node_id
+			start_from_button.visible = true
+			_redraw_tree()
+
+			# 平滑移动到选中节点
+			_smooth_move_to_node(node_id)
+
+		print("节点被点击: ", node_id, "(取消选中)" if selected_node_id.is_empty() else "(选中)")
+
+func _on_start_from_pressed():
+	"""从此开始按钮点击处理"""
+	if selected_node_id.is_empty():
+		return
+
+	print("从节点开始故事: ", selected_node_id)
+	# TODO: 实现从指定节点开始故事的逻辑
+	# 这里可以发射信号或者调用其他函数来开始故事
