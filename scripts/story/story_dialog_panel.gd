@@ -12,6 +12,7 @@ signal dialog_closed
 @onready var message_container: VBoxContainer = $Panel/HBoxContainer/RightPanel/DialogPanel/ScrollContainer/MessageContainer
 @onready var message_input: TextEdit = $Panel/HBoxContainer/RightPanel/MessageInputPanel/HBoxContainer/MessageInput
 @onready var send_button: Button = $Panel/HBoxContainer/RightPanel/MessageInputPanel/HBoxContainer/SendButton
+@onready var toggle_size_button: Button = $Panel/HBoxContainer/RightPanel/MessageInputPanel/HBoxContainer/ToggleSizeButton
 
 # 故事数据
 var current_story_id: String = ""
@@ -22,16 +23,27 @@ var nodes_data: Dictionary = {}
 # 消息数据
 var messages: Array = []
 
+# 输入框模式
+var is_multi_line_mode: bool = false  # false = 单行模式，true = 多行模式
+
 func _ready():
 	"""初始化"""
 	create_checkpoint_button.pressed.connect(_on_create_checkpoint_pressed)
 	send_button.pressed.connect(_on_send_message_pressed)
 	back_button.pressed.connect(_on_back_button_pressed)
 	message_input.text_changed.connect(_on_message_input_changed)
+	message_input.gui_input.connect(_on_message_input_gui_input)
+	toggle_size_button.pressed.connect(_on_toggle_size_pressed)
 
 	# 连接树状图信号
 	tree_view.node_selected.connect(_on_tree_node_selected)
 	tree_view.node_deselected.connect(_on_tree_node_deselected)
+
+	# 初始化发送按钮样式
+	_update_send_button_style()
+
+	# 初始化输入框为单行模式
+	_set_input_mode(false)
 
 func initialize(story_id: String, node_id: String):
 	"""初始化对话面板"""
@@ -159,6 +171,8 @@ func _clear_messages():
 
 func _add_system_message(text: String):
 	"""添加系统消息"""
+	var should_scroll = _is_near_bottom()
+
 	var message_item = _create_message_item(text, "system")
 	message_container.add_child(message_item)
 	messages.append({"type": "system", "text": text})
@@ -166,11 +180,14 @@ func _add_system_message(text: String):
 	# 调整气泡大小
 	call_deferred("_adjust_bubble_size", message_item)
 
-	# 自动滚动到底部
-	call_deferred("_scroll_to_bottom")
+	# 如果之前接近底部，则在气泡创建后平滑滚动到底部
+	if should_scroll:
+		call_deferred("_smooth_scroll_to_bottom")
 
 func _add_user_message(text: String):
 	"""添加用户消息"""
+	var should_scroll = _is_near_bottom()
+
 	var message_item = _create_message_item(text, "user")
 	message_container.add_child(message_item)
 	messages.append({"type": "user", "text": text})
@@ -178,10 +195,14 @@ func _add_user_message(text: String):
 	# 调整气泡大小
 	call_deferred("_adjust_bubble_size", message_item)
 
-	call_deferred("_scroll_to_bottom")
+	# 如果之前接近底部，则在气泡创建后平滑滚动到底部
+	if should_scroll or true: #用户发送消息每次都滚动到底部
+		call_deferred("_smooth_scroll_to_bottom")
 
 func _add_ai_message(text: String):
 	"""添加AI消息"""
+	var should_scroll = _is_near_bottom()
+
 	var message_item = _create_message_item(text, "ai")
 	message_container.add_child(message_item)
 	messages.append({"type": "ai", "text": text})
@@ -189,7 +210,9 @@ func _add_ai_message(text: String):
 	# 调整气泡大小
 	call_deferred("_adjust_bubble_size", message_item)
 
-	call_deferred("_scroll_to_bottom")
+	# 如果之前接近底部，则在气泡创建后平滑滚动到底部
+	if should_scroll:
+		call_deferred("_smooth_scroll_to_bottom")
 
 func _create_message_item(text: String, type: String) -> Control:
 	"""创建消息项"""
@@ -217,11 +240,32 @@ func _adjust_bubble_size(_message_item: Control):
 	# 这里不需要额外的处理，Godot会自动处理
 	pass
 
-func _scroll_to_bottom():
-	"""滚动到底部"""
-	var scroll_container = message_container.get_parent().get_parent() as ScrollContainer
-	if scroll_container:
-		scroll_container.scroll_vertical = scroll_container.get_v_scroll_bar().max_value
+func _is_near_bottom() -> bool:
+	"""检查是否接近底部"""
+	var scroll_container = message_container.get_parent() as ScrollContainer
+	if not scroll_container:
+		return false
+
+	var v_scroll_bar = scroll_container.get_v_scroll_bar()
+	var current_scroll = scroll_container.scroll_vertical
+	var max_scroll = v_scroll_bar.max_value
+	var page_size = v_scroll_bar.page
+	# 如果剩余可滚动距离小于等于页面大小的1.2倍，认为接近底部
+	# 这样可以给用户更多的容忍空间，同时避免过于频繁的自动滚动
+	return (max_scroll - current_scroll) <= (page_size * 1.2)
+
+func _smooth_scroll_to_bottom():
+	"""平滑滚动到底部"""
+	var scroll_container = message_container.get_parent() as ScrollContainer
+	if not scroll_container:
+		return
+
+	var tween = create_tween()
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+
+	var target_scroll = scroll_container.get_v_scroll_bar().max_value
+	tween.tween_property(scroll_container, "scroll_vertical", target_scroll, 0.3)
 
 func _on_create_checkpoint_pressed():
 	"""创建存档点按钮点击"""
@@ -244,6 +288,8 @@ func _on_send_message_pressed():
 	# 清空输入框
 	message_input.text = ""
 
+	# 更新发送按钮样式（现在输入框为空）
+	_update_send_button_style()
 	# TODO: 发送消息到AI并等待回复
 	# 暂时添加一个占位回复
 	call_deferred("_add_ai_placeholder_response", message_text)
@@ -256,21 +302,62 @@ func _add_ai_placeholder_response(user_message: String):
 
 func _on_message_input_changed():
 	"""消息输入改变"""
-	# 根据文本行数自动调整输入框高度
-	var line_count = message_input.get_line_count()
-	var base_height = 40  # 基础高度
-	var line_height = 20  # 每行高度
-	var max_height = 120  # 最大高度
+	# 只更新发送按钮样式，不再自动调整高度
+	_update_send_button_style()
 
-	var new_height = min(base_height + (line_count - 1) * line_height, max_height)
+func _update_send_button_style():
+	"""更新发送按钮样式"""
+	var has_content = not message_input.text.strip_edges().is_empty()
 
-	# 获取消息输入面板并调整其高度
+	if has_content:
+		# 有内容时：激活状态，绿色背景
+		send_button.modulate = Color(0.2, 0.8, 0.2)  # 绿色
+		send_button.disabled = false
+	else:
+		# 无内容时：禁用状态，灰色背景
+		send_button.modulate = Color(0.5, 0.5, 0.5)  # 灰色
+		send_button.disabled = true
+
+func _set_input_mode(multi_line: bool):
+	"""设置输入框模式"""
+	is_multi_line_mode = multi_line
+
+	# 获取消息输入面板
 	var message_input_panel = message_input.get_parent().get_parent() as Panel
-	if message_input_panel:
-		message_input_panel.custom_minimum_size.y = new_height + 20  # 加上内边距
+	if not message_input_panel:
+		return
+
+	if multi_line:
+		# 多行模式：最大高度，不显示发送按钮
+		message_input_panel.custom_minimum_size.y = 140  # 120 + 20内边距
+		toggle_size_button.text = "↓"
+		send_button.visible = false
+	else:
+		# 单行模式：基础高度，显示发送按钮
+		message_input_panel.custom_minimum_size.y = 60  # 40 + 20内边距
+		toggle_size_button.text = "↑"
+		send_button.visible = true
 
 	# 强制更新布局
 	message_input_panel.queue_redraw()
+
+func _on_toggle_size_pressed():
+	"""切换输入框大小按钮点击"""
+	_set_input_mode(!is_multi_line_mode)
+
+func _on_message_input_gui_input(event: InputEvent):
+	"""处理消息输入框的GUI输入事件"""
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ENTER:
+			# 检查是否有修饰键
+			var has_modifier = event.ctrl_pressed or event.shift_pressed or event.alt_pressed
+
+			if not has_modifier:
+				# 普通回车：发送消息
+				_on_send_message_pressed()
+				# 阻止默认行为（换行）
+				get_viewport().set_input_as_handled()
+			# 如果有修饰键，则允许默认行为（换行）
 
 func _on_tree_node_selected(node_id: String):
 	"""树状图节点选中"""
