@@ -137,6 +137,7 @@ autowrap_mode = 1
 clip_text = true
 
 [node name="StartFromButton" type="Button" parent="Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/OperationBar"]
+visible = false
 custom_minimum_size = Vector2(120, 30)
 layout_mode = 2
 size_flags_horizontal = 0
