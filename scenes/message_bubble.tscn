@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://dpk7vyqpiy2yc"]
+
+[ext_resource type="Script" uid="uid://doa82w6af1lna" path="res://scripts/message_bubble.gd" id="1_message_bubble"]
+
+[node name="MessageBubble" type="RichTextLabel"]
+custom_minimum_size = Vector2(100, 30)
+offset_right = 200.0
+offset_bottom = 30.0
+size_flags_horizontal = 3
+size_flags_vertical = 0
+focus_mode = 2
+theme_override_colors/default_color = Color(0.1728327, 0.17283267, 0.17283267, 1)
+theme_override_font_sizes/normal_font_size = 20
+bbcode_enabled = true
+text = "消息内容"
+fit_content = true
+scroll_active = false
+autowrap_mode = 1
+selection_enabled = true
+script = ExtResource("1_message_bubble")

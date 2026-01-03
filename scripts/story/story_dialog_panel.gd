@@ -143,6 +143,9 @@ func _initialize_dialog():
 	"""初始化对话"""
 	_clear_messages()
 
+	# 延迟到下一帧，确保UI完全初始化
+	await get_tree().process_frame
+
 	# 添加初始系统消息
 	_add_system_message("故事开始于节点：" + current_node_id)
 
@@ -190,129 +193,29 @@ func _add_ai_message(text: String):
 
 func _create_message_item(text: String, type: String) -> Control:
 	"""创建消息项"""
-	var container = HBoxContainer.new()
-	container.size_flags_horizontal = Control.SIZE_FILL
+	# 加载气泡场景
+	var bubble_scene = load("res://scenes/message_bubble.tscn")
+	if not bubble_scene:
+		print("无法加载气泡场景: res://scenes/message_bubble.tscn")
+		return null
 
-	var panel = Panel.new()
-	var style_box = StyleBoxFlat.new()
+	# 实例化气泡
+	var bubble_instance = bubble_scene.instantiate()
+	if not bubble_instance:
+		print("无法实例化气泡场景")
+		return null
 
-	match type:
-		"user":
-			# 用户消息样式（蓝色气泡，右对齐）
-			style_box.bg_color = Color(0.2, 0.6, 1.0, 0.9)  # 蓝色背景
-			style_box.border_color = Color(0.1, 0.5, 0.9, 1.0)
-			container.alignment = BoxContainer.ALIGNMENT_END
-			style_box.corner_radius_top_left = 12
-			style_box.corner_radius_top_right = 12
-			style_box.corner_radius_bottom_left = 12
-			style_box.corner_radius_bottom_right = 4
-		"ai":
-			# AI消息样式（白色气泡，左对齐）
-			style_box.bg_color = Color(1.0, 1.0, 1.0, 0.9)  # 白色背景
-			style_box.border_color = Color(0.8, 0.8, 0.8, 1.0)
-			container.alignment = BoxContainer.ALIGNMENT_BEGIN
-			style_box.corner_radius_top_left = 12
-			style_box.corner_radius_top_right = 12
-			style_box.corner_radius_bottom_left = 4
-			style_box.corner_radius_bottom_right = 12
-		"system":
-			# 系统消息样式（灰色，居中）
-			style_box.bg_color = Color(0.7, 0.7, 0.7, 0.8)  # 灰色背景
-			style_box.border_color = Color(0.6, 0.6, 0.6, 1.0)
-			container.alignment = BoxContainer.ALIGNMENT_CENTER
-			style_box.corner_radius_top_left = 8
-			style_box.corner_radius_top_right = 8
-			style_box.corner_radius_bottom_left = 8
-			style_box.corner_radius_bottom_right = 8
+	# 设置消息内容和类型
+	if bubble_instance.has_method("set_message"):
+		bubble_instance.set_message(text, type)
 
-	style_box.border_width_left = 1
-	style_box.border_width_right = 1
-	style_box.border_width_top = 1
-	style_box.border_width_bottom = 1
+	return bubble_instance
 
-	panel.add_theme_stylebox_override("panel", style_box)
-
-	var label = Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-
-	match type:
-		"user":
-			label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))  # 白色文字
-		"ai":
-			label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1.0))  # 黑色文字
-		"system":
-			label.add_theme_color_override("font_color", Color(0.3, 0.3, 0.3, 1.0))  # 灰色文字
-
-	label.add_theme_font_size_override("font_size", 14)
-
-	# 设置合适的内边距
-	var margin_container = MarginContainer.new()
-	margin_container.add_theme_constant_override("margin_left", 12)
-	margin_container.add_theme_constant_override("margin_right", 12)
-	margin_container.add_theme_constant_override("margin_top", 8)
-	margin_container.add_theme_constant_override("margin_bottom", 8)
-	margin_container.add_child(label)
-
-	panel.add_child(margin_container)
-
-	# 设置Panel的基本属性，让其根据内容自动调整大小
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if type == "ai" else Control.SIZE_SHRINK_END
-	if type == "system":
-		panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
-	container.add_child(panel)
-
-	return container
-
-func _adjust_bubble_size(message_item: Control):
+func _adjust_bubble_size(_message_item: Control):
 	"""调整气泡大小"""
-	if not message_item or message_item.get_child_count() == 0:
-		return
-
-	var panel = message_item.get_child(0) as Panel
-	if not panel or panel.get_child_count() == 0:
-		return
-
-	var margin_container = panel.get_child(0) as MarginContainer
-	if not margin_container or margin_container.get_child_count() == 0:
-		return
-
-	var label = margin_container.get_child(0) as Label
-	if not label:
-		return
-
-	# 等待一帧让布局计算完成
-	await get_tree().process_frame
-
-	# 设置最大宽度为对话面板宽度的一定比例
-	var dialog_panel = message_container.get_parent().get_parent() as Panel
-	var max_width = 400  # 默认最大宽度
-	if dialog_panel:
-		max_width = dialog_panel.size.x * 0.7  # 使用对话面板宽度的70%
-
-	# 设置Label的最大宽度，强制换行
-	label.custom_minimum_size.x = max_width - 24  # 减去左右内边距
-	label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-
-	# 再次等待一帧，让Label重新计算大小
-	await get_tree().process_frame
-
-	# 获取Label的新大小（包含换行后的高度）
-	var label_size = label.get_minimum_size()
-
-	# 计算最终宽度（考虑换行后的实际宽度）
-	var final_width = min(label_size.x + 24, max_width)  # 加上左右内边距
-	final_width = max(final_width, 80)  # 最小宽度
-
-	# 设置Panel的自定义最小大小
-	panel.custom_minimum_size = Vector2(final_width, label_size.y + 16)  # 加上上下内边距
-
-	# 强制更新布局
-	message_item.queue_redraw()
+	# 气泡现在使用RichTextLabel的fit_content自动调整大小
+	# 这里不需要额外的处理，Godot会自动处理
+	pass
 
 func _scroll_to_bottom():
 	"""滚动到底部"""
