@@ -549,33 +549,36 @@ func _draw_nodes():
 		var node_panel = Panel.new()
 		node_panel.custom_minimum_size = NODE_SIZE
 		node_panel.position = node_position
-		node_panel.set_meta("original_position", node_position)  # 保存原始位置
+		node_panel.set_meta("original_position", node_position)
 
 		var label = Label.new()
 		var full_text = node_data.get("display_text", "")
-		# 节点卡片始终显示截断文本（完整文本在操作栏显示）
-		label.text = _truncate_text(full_text, 30)  # 限制显示长度，减少到30个字符
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		
+		# 设置Label属性
+		label.text = full_text
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER  # 水平居中
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER  # 垂直居中 - 这是关键！
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.size_flags_horizontal = Control.SIZE_FILL
 		label.size_flags_vertical = Control.SIZE_FILL
-		label.custom_minimum_size = NODE_SIZE - Vector2(10, 10)  # 调整边距确保文本居中
-		label.add_theme_font_size_override("font_size", 14)
-		label.clip_text = false  # 允许文本超出边界以便换行
-
-		# 设置标签在Panel中的居中位置
-		label.anchor_left = 0.5
-		label.anchor_top = 0.5
-		label.anchor_right = 0.5
-		label.anchor_bottom = 0.5
-		label.offset_left = -NODE_SIZE.x / 2 + 5
-		label.offset_top = -NODE_SIZE.y / 2 + 5
-		label.offset_right = NODE_SIZE.x / 2 - 5
-		label.offset_bottom = NODE_SIZE.y / 2 - 5
+		label.clip_text = false
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.max_lines_visible = 3  # 限制最多3行
+		
+		# 设置Label填充整个Panel
+		label.anchor_left = 0
+		label.anchor_top = 0
+		label.anchor_right = 1
+		label.anchor_bottom = 1
+		label.offset_left = 5
+		label.offset_top = 5
+		label.offset_right = -5
+		label.offset_bottom = -5
+		
+		label.add_theme_font_size_override("font_size", 12)
 
 		node_panel.add_child(label)
-
+		
 		# 设置样式 - 根据是否高亮使用不同颜色
 		var style_box = StyleBoxFlat.new()
 		var is_highlighted = _is_node_highlighted(node_id)
