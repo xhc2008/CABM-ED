@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://dtmqem8v5cr7m"]
+[gd_scene load_steps=9 format=3 uid="uid://dtmqem8v5cr7m"]
 
 [ext_resource type="Script" uid="uid://oumaobjth63w" path="res://scripts/story/story_mode_panel.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://ciav2n21hexqb" path="res://assets/images/story_background.png" id="2"]
@@ -8,6 +8,48 @@ bg_color = Color(0, 0, 0, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ama4m"]
 bg_color = Color(0.76037765, 0.90648043, 1, 0.3529412)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_plus_normal"]
+bg_color = Color(0.31061712, 0.31061712, 0.31061706, 0.77254903)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.8, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.2)
+shadow_size = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_plus_pressed"]
+bg_color = Color(0.55265665, 0.99999994, 0.6313455, 0.90588236)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.6, 0.6, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_size = 1
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_plus_hover"]
+bg_color = Color(0, 0.92941177, 0.38431373, 0.90588236)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 3
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ay0wa"]
 bg_color = Color(0, 0, 0, 0.16470589)
@@ -102,6 +144,16 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
+
+[node name="PlusButton" type="Button" parent="Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer/StoryListContainer"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 32
+theme_override_styles/normal = SubResource("StyleBoxFlat_plus_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_plus_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_plus_hover")
+text = "+"
 
 [node name="TreeViewPanel" type="Panel" parent="Panel/VBoxContainer/HSplitContainer"]
 layout_mode = 2

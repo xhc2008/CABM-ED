@@ -8,6 +8,7 @@ const StoryDialogPanel = preload("res://scenes/story_dialog_panel.tscn")
 const StoryCreationPanel = preload("res://scenes/story_creation_panel.tscn")
 
 @onready var close_button: Button = $Panel/VBoxContainer/TitleBar/CloseButton
+@onready var plus_button: Button = $Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer/StoryListContainer/PlusButton
 @onready var story_list_container: VBoxContainer = $Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer/StoryListContainer
 @onready var tree_view_container: Control = $Panel/VBoxContainer/HSplitContainer/TreeViewPanel/VBoxContainer/TreeViewContainer
 
@@ -58,6 +59,7 @@ signal story_mode_closed
 
 func _ready():
 	close_button.pressed.connect(_on_close_pressed)
+	plus_button.pressed.connect(_on_plus_button_pressed)
 	start_from_button.pressed.connect(_on_start_from_pressed)
 	_create_tween()
 	_load_stories()
@@ -328,73 +330,13 @@ func _load_story_file(file_name: String) -> Dictionary:
 
 func _refresh_story_list():
 	"""刷新故事列表"""
-	# 清空现有按钮
+	# 清空现有按钮（除了"+"按钮）
 	for button in story_buttons:
-		button.queue_free()
+		if button != plus_button:
+			button.queue_free()
 	story_buttons.clear()
 
-	# 创建"+"按钮（置顶）
-	var plus_button = Button.new()
-	plus_button.size_flags_horizontal = Control.SIZE_FILL
-	plus_button.text = "+"
-	plus_button.custom_minimum_size = Vector2(0, 60)
-
-	# 设置"+"按钮样式
-	var plus_style_normal = StyleBoxFlat.new()
-	plus_style_normal.bg_color = Color(0.2, 0.4, 0.8, 0.8)
-	plus_style_normal.border_color = Color(0.8, 0.8, 1.0, 1.0)
-	plus_style_normal.border_width_left = 1
-	plus_style_normal.border_width_right = 1
-	plus_style_normal.border_width_top = 1
-	plus_style_normal.border_width_bottom = 1
-	plus_style_normal.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
-	plus_style_normal.shadow_size = 2
-	plus_style_normal.corner_radius_top_left = 6
-	plus_style_normal.corner_radius_top_right = 6
-	plus_style_normal.corner_radius_bottom_left = 6
-	plus_style_normal.corner_radius_bottom_right = 6
-
-	var plus_style_hover = StyleBoxFlat.new()
-	plus_style_hover.bg_color = Color(0.3, 0.5, 0.9, 0.9)
-	plus_style_hover.border_color = Color(1.0, 1.0, 1.0, 1.0)
-	plus_style_hover.border_width_left = 1
-	plus_style_hover.border_width_right = 1
-	plus_style_hover.border_width_top = 1
-	plus_style_hover.border_width_bottom = 1
-	plus_style_hover.shadow_color = Color(0.0, 0.0, 0.0, 0.3)
-	plus_style_hover.shadow_size = 3
-	plus_style_hover.corner_radius_top_left = 6
-	plus_style_hover.corner_radius_top_right = 6
-	plus_style_hover.corner_radius_bottom_left = 6
-	plus_style_hover.corner_radius_bottom_right = 6
-
-	var plus_style_pressed = StyleBoxFlat.new()
-	plus_style_pressed.bg_color = Color(0.1, 0.3, 0.7, 0.9)
-	plus_style_pressed.border_color = Color(0.6, 0.6, 1.0, 1.0)
-	plus_style_pressed.border_width_left = 1
-	plus_style_pressed.border_width_right = 1
-	plus_style_pressed.border_width_top = 1
-	plus_style_pressed.border_width_bottom = 1
-	plus_style_pressed.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
-	plus_style_pressed.shadow_size = 1
-	plus_style_pressed.corner_radius_top_left = 6
-	plus_style_pressed.corner_radius_top_right = 6
-	plus_style_pressed.corner_radius_bottom_left = 6
-	plus_style_pressed.corner_radius_bottom_right = 6
-
-	plus_button.add_theme_stylebox_override("normal", plus_style_normal)
-	plus_button.add_theme_stylebox_override("hover", plus_style_hover)
-	plus_button.add_theme_stylebox_override("pressed", plus_style_pressed)
-	plus_button.add_theme_font_size_override("font_size", 32)
-	plus_button.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
-	plus_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
-	plus_button.add_theme_color_override("font_pressed_color", Color(0.9, 0.9, 1.0, 1.0))
-
-	# 连接信号
-	plus_button.pressed.connect(_on_plus_button_pressed)
-
-	# 添加到容器
-	story_list_container.add_child(plus_button)
+	# "+"按钮已经在tscn中，不需要重新添加，只需要添加到数组中
 	story_buttons.append(plus_button)
 
 	# 创建故事按钮
