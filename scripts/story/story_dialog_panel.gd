@@ -36,6 +36,8 @@ var accumulated_streaming_text: String = ""   # 累积的流式文本
 # 输入框模式
 var is_multi_line_mode: bool = false  # false = 单行模式，true = 多行模式
 
+# AI响应状态
+var is_ai_responding: bool = false  # 跟踪AI是否正在响应
 func _ready():
 	"""初始化"""
 	create_checkpoint_button.pressed.connect(_on_create_checkpoint_pressed)
@@ -320,14 +322,28 @@ func _update_send_button_style():
 	"""更新发送按钮样式"""
 	var has_content = not message_input.text.strip_edges().is_empty()
 
-	if has_content:
-		# 有内容时：激活状态，绿色背景
+	if has_content and not is_ai_responding:
+		# 有内容且AI未响应时：激活状态，绿色背景
 		send_button.modulate = Color(0.2, 0.8, 0.2)  # 绿色
 		send_button.disabled = false
 	else:
-		# 无内容时：禁用状态，灰色背景
+		# 无内容或AI正在响应时：禁用状态，灰色背景
 		send_button.modulate = Color(0.5, 0.5, 0.5)  # 灰色
 		send_button.disabled = true
+
+func _disable_input_during_ai_response():
+	"""在AI响应期间禁用输入控件"""
+	is_ai_responding = true
+	message_input.editable = false
+	message_input.modulate = Color(0.7, 0.7, 0.7)  # 变暗表示禁用
+	_update_send_button_style()
+
+func _enable_input_after_ai_response():
+	"""AI响应完成后启用输入控件"""
+	is_ai_responding = false
+	message_input.editable = true
+	message_input.modulate = Color(1, 1, 1)  # 恢复正常颜色
+	_update_send_button_style()
 
 func _set_input_mode(multi_line: bool):
 	"""设置输入框模式"""
@@ -446,6 +462,9 @@ func _on_streaming_completed():
 	current_streaming_bubble = null
 	accumulated_streaming_text = ""
 
+	# 启用输入控件
+	_enable_input_after_ai_response()
+
 func _on_streaming_interrupted(error_message: String, partial_content: String):
 	"""处理流式响应中断"""
 	print("StoryAI流式响应中断: ", error_message)
@@ -469,6 +488,9 @@ func _on_streaming_interrupted(error_message: String, partial_content: String):
 	# 清理流式输出状态
 	current_streaming_bubble = null
 	accumulated_streaming_text = ""
+
+	# 启用输入控件
+	_enable_input_after_ai_response()
 
 func _on_request_error_occurred(error_message: String):
 	"""处理请求级别错误（撤回用户输入）"""
@@ -496,6 +518,9 @@ func _on_request_error_occurred(error_message: String):
 	current_streaming_bubble = null
 	accumulated_streaming_text = ""
 
+	# 启用输入控件
+	_enable_input_after_ai_response()
+
 func _on_ai_error_occurred(error_message: String):
 	"""处理通用AI错误（保持兼容性）"""
 	print("StoryAI通用错误: ", error_message)
@@ -511,6 +536,9 @@ func _send_message_to_ai(message_text: String):
 	if not story_ai:
 		print("StoryAI未初始化")
 		return
+
+	# 禁用输入控件
+	_disable_input_during_ai_response()
 
 	# 构建故事上下文
 	var story_context = _build_story_context()
