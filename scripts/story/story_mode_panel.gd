@@ -3,8 +3,9 @@ extends Control
 # 故事模式面板
 # 管理故事列表和树状图显示
 
-# 预加载故事对话面板
+# 预加载面板
 const StoryDialogPanel = preload("res://scenes/story_dialog_panel.tscn")
+const StoryCreationPanel = preload("res://scenes/story_creation_panel.tscn")
 
 @onready var close_button: Button = $Panel/VBoxContainer/TitleBar/CloseButton
 @onready var story_list_container: VBoxContainer = $Panel/VBoxContainer/HSplitContainer/StoryListPanel/VBoxContainer/ScrollContainer/StoryListContainer
@@ -26,6 +27,9 @@ var selected_node_id: String = ""
 
 # 故事对话面板相关
 var story_dialog_panel: Control = null
+
+# 故事创建面板相关
+var story_creation_panel: Control = null
 
 # 平滑移动相关
 var view_tween: Tween = null
@@ -277,6 +281,11 @@ func _load_stories():
 	"""加载所有故事文件"""
 	stories_data.clear()
 
+	# 确保故事目录存在
+	var user_dir = DirAccess.open("user://")
+	if not user_dir.dir_exists("story"):
+		user_dir.make_dir("story")
+
 	var story_dir = DirAccess.open("user://story")
 	if not story_dir:
 		print("无法打开故事目录: user://story")
@@ -323,6 +332,70 @@ func _refresh_story_list():
 	for button in story_buttons:
 		button.queue_free()
 	story_buttons.clear()
+
+	# 创建"+"按钮（置顶）
+	var plus_button = Button.new()
+	plus_button.size_flags_horizontal = Control.SIZE_FILL
+	plus_button.text = "+"
+	plus_button.custom_minimum_size = Vector2(0, 60)
+
+	# 设置"+"按钮样式
+	var plus_style_normal = StyleBoxFlat.new()
+	plus_style_normal.bg_color = Color(0.2, 0.4, 0.8, 0.8)
+	plus_style_normal.border_color = Color(0.8, 0.8, 1.0, 1.0)
+	plus_style_normal.border_width_left = 1
+	plus_style_normal.border_width_right = 1
+	plus_style_normal.border_width_top = 1
+	plus_style_normal.border_width_bottom = 1
+	plus_style_normal.shadow_color = Color(0.0, 0.0, 0.0, 0.2)
+	plus_style_normal.shadow_size = 2
+	plus_style_normal.corner_radius_top_left = 6
+	plus_style_normal.corner_radius_top_right = 6
+	plus_style_normal.corner_radius_bottom_left = 6
+	plus_style_normal.corner_radius_bottom_right = 6
+
+	var plus_style_hover = StyleBoxFlat.new()
+	plus_style_hover.bg_color = Color(0.3, 0.5, 0.9, 0.9)
+	plus_style_hover.border_color = Color(1.0, 1.0, 1.0, 1.0)
+	plus_style_hover.border_width_left = 1
+	plus_style_hover.border_width_right = 1
+	plus_style_hover.border_width_top = 1
+	plus_style_hover.border_width_bottom = 1
+	plus_style_hover.shadow_color = Color(0.0, 0.0, 0.0, 0.3)
+	plus_style_hover.shadow_size = 3
+	plus_style_hover.corner_radius_top_left = 6
+	plus_style_hover.corner_radius_top_right = 6
+	plus_style_hover.corner_radius_bottom_left = 6
+	plus_style_hover.corner_radius_bottom_right = 6
+
+	var plus_style_pressed = StyleBoxFlat.new()
+	plus_style_pressed.bg_color = Color(0.1, 0.3, 0.7, 0.9)
+	plus_style_pressed.border_color = Color(0.6, 0.6, 1.0, 1.0)
+	plus_style_pressed.border_width_left = 1
+	plus_style_pressed.border_width_right = 1
+	plus_style_pressed.border_width_top = 1
+	plus_style_pressed.border_width_bottom = 1
+	plus_style_pressed.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
+	plus_style_pressed.shadow_size = 1
+	plus_style_pressed.corner_radius_top_left = 6
+	plus_style_pressed.corner_radius_top_right = 6
+	plus_style_pressed.corner_radius_bottom_left = 6
+	plus_style_pressed.corner_radius_bottom_right = 6
+
+	plus_button.add_theme_stylebox_override("normal", plus_style_normal)
+	plus_button.add_theme_stylebox_override("hover", plus_style_hover)
+	plus_button.add_theme_stylebox_override("pressed", plus_style_pressed)
+	plus_button.add_theme_font_size_override("font_size", 32)
+	plus_button.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	plus_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+	plus_button.add_theme_color_override("font_pressed_color", Color(0.9, 0.9, 1.0, 1.0))
+
+	# 连接信号
+	plus_button.pressed.connect(_on_plus_button_pressed)
+
+	# 添加到容器
+	story_list_container.add_child(plus_button)
+	story_buttons.append(plus_button)
 
 	# 创建故事按钮
 	for story_id in stories_data:
@@ -475,11 +548,15 @@ func _adjust_button_height(button: Button, rich_text: RichTextLabel):
 	# 重新设置size_flags_vertical以确保按钮可以扩展
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
+func _on_plus_button_pressed():
+	"""+按钮点击处理"""
+	_create_story_creation_panel()
+
 func _on_story_selected(story_id: String):
 	"""故事被选中"""
 	# 处理故事选中状态切换
 	var was_selected = (selected_story_id == story_id)
-	
+
 	if was_selected:
 		# 再次点击已选中的故事，取消选中
 		selected_story_id = ""
@@ -778,6 +855,24 @@ func _on_start_from_pressed():
 	# 创建故事对话面板
 	_create_story_dialog_panel()
 
+func _create_story_creation_panel():
+	"""创建故事创建面板"""
+	if story_creation_panel:
+		story_creation_panel.queue_free()
+
+	story_creation_panel = StoryCreationPanel.instantiate()
+	get_parent().add_child(story_creation_panel)
+
+	# 连接信号
+	story_creation_panel.story_created.connect(_on_story_created)
+	story_creation_panel.creation_cancelled.connect(_on_creation_cancelled)
+
+	# 显示创建面板
+	story_creation_panel.show_panel()
+
+	# 隐藏故事模式面板
+	hide_panel()
+
 func _create_story_dialog_panel():
 	"""创建故事对话面板"""
 	if story_dialog_panel:
@@ -797,6 +892,28 @@ func _create_story_dialog_panel():
 
 	# 隐藏故事模式面板
 	hide_panel()
+
+func _on_story_created():
+	"""故事创建完成处理"""
+	if story_creation_panel:
+		story_creation_panel.queue_free()
+		story_creation_panel = null
+
+	# 重新加载故事列表
+	_load_stories()
+	_refresh_story_list()
+
+	# 重新显示故事模式面板
+	show_panel()
+
+func _on_creation_cancelled():
+	"""故事创建取消处理"""
+	if story_creation_panel:
+		story_creation_panel.queue_free()
+		story_creation_panel = null
+
+	# 重新显示故事模式面板
+	show_panel()
 
 func _on_dialog_closed():
 	"""对话面板关闭处理"""
