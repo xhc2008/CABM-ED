@@ -525,44 +525,13 @@ func _send_message_to_ai(message_text: String):
 
 func _build_story_context() -> Dictionary:
 	"""构建故事上下文"""
-	var context = {}
-
-	# 故事简介
-	if story_data.has("summary"):
-		context["story_summary"] = story_data.summary
-
-	# 人物设定（暂时使用默认设定）
-	var _save_mgr = get_node("/root/SaveManager")
-	var prompt_builder = get_node("/root/PromptBuilder")
-	if prompt_builder and prompt_builder.has_method("_load_character_preset"):
-		var character_preset = prompt_builder._load_character_preset()
-		context["character_preset"] = character_preset.get("prompt", "")
-
-	# 经历的故事章节和节点（使用缓存的经历节点）
-	var experienced_chapters = []
-	var experienced_nodes = _get_experienced_nodes()
-
-	# 为AI系统提示词提供经历的节点
-	context["experienced_nodes"] = experienced_nodes
-
-	# 为故事上下文提供经历的章节
-	for node in experienced_nodes:
-		experienced_chapters.append({
-			"title": node.get("display_text", "无标题"),
-			"summary": node.get("display_text", "").substr(0, 100) + "..."  # 摘要前100字符
-		})
-	context["experienced_chapters"] = experienced_chapters
-
-	# 当前节点内容
-	if nodes_data.has(current_node_id):
-		context["current_node_content"] = nodes_data[current_node_id].get("content", "")
-
-	# 故事ID和节点ID
-	context["story_id"] = current_story_id
-	context["node_id"] = current_node_id
-
-	return context
-
+	# 直接返回完整的故事数据，让AI系统自己处理
+	return {
+		"story_data": story_data,           # 完整的故事JSON数据
+		"current_node_id": current_node_id, # 当前节点ID（修复字段名）
+		"story_id": current_story_id,       # 故事ID
+		"experienced_nodes": _get_experienced_nodes()  # 缓存的经历节点
+	}
 
 func _get_user_name() -> String:
 	"""获取用户名"""
@@ -604,7 +573,7 @@ func _update_streaming_bubble_text(text: String):
 		current_streaming_bubble.set_message(text, "ai")
 
 func _precompute_experienced_nodes():
-	"""预计算并缓存已经经历的节点"""
+	"""预计算并缓存已经经历的节点（包含当前节点）"""
 	if story_data.is_empty() or current_node_id.is_empty():
 		return
 
@@ -612,14 +581,22 @@ func _precompute_experienced_nodes():
 	var nodes = story_data.get("nodes", {})
 	var root_node = story_data.get("root_node", "")
 
-	# 从当前节点开始往上遍历
+	# 首先包含当前节点
+	if nodes.has(current_node_id):
+		var current_node = nodes[current_node_id]
+		experienced_nodes.append({
+			"node_id": current_node_id,  # 可以添加ID用于标识
+			"display_text": current_node.get("display_text", "")
+		})
+
+	# 从当前节点开始往上遍历父节点
 	var current_id = current_node_id
 	var visited = {}  # 防止循环引用
 
 	while current_id != root_node and not visited.has(current_id):
 		visited[current_id] = true
 
-		# 查找父节点（哪个节点的child_nodes包含当前节点）
+		# 查找父节点
 		var parent_id = _find_parent_node(nodes, current_id)
 		if parent_id == "":
 			break
@@ -628,6 +605,7 @@ func _precompute_experienced_nodes():
 		if nodes.has(parent_id):
 			var parent_node = nodes[parent_id]
 			experienced_nodes.append({
+				"node_id": parent_id,  # 可以添加ID用于标识
 				"display_text": parent_node.get("display_text", "")
 			})
 
