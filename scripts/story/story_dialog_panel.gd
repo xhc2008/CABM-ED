@@ -23,6 +23,9 @@ var nodes_data: Dictionary = {}
 # 消息数据
 var messages: Array = []
 
+# AI相关
+var story_ai: StoryAI = null
+
 # 输入框模式
 var is_multi_line_mode: bool = false  # false = 单行模式，true = 多行模式
 
@@ -38,6 +41,9 @@ func _ready():
 	# 连接树状图信号
 	tree_view.node_selected.connect(_on_tree_node_selected)
 	tree_view.node_deselected.connect(_on_tree_node_deselected)
+
+	# 初始化StoryAI
+	_initialize_story_ai()
 
 	# 初始化发送按钮样式
 	_update_send_button_style()
@@ -290,15 +296,10 @@ func _on_send_message_pressed():
 
 	# 更新发送按钮样式（现在输入框为空）
 	_update_send_button_style()
-	# TODO: 发送消息到AI并等待回复
-	# 暂时添加一个占位回复
-	call_deferred("_add_ai_placeholder_response", message_text)
 
-func _add_ai_placeholder_response(user_message: String):
-	"""添加AI占位回复"""
-	await get_tree().create_timer(1.0).timeout  # 模拟网络延迟
-	var placeholder_response = "这是对 '" + user_message + "' 的占位回复。实际对话功能待实现。"
-	_add_ai_message(placeholder_response)
+	# 发送消息到AI
+	_send_message_to_ai(message_text)
+
 
 func _on_message_input_changed():
 	"""消息输入改变"""
@@ -385,3 +386,136 @@ func get_current_story_id() -> String:
 func get_current_node_id() -> String:
 	"""获取当前节点ID"""
 	return current_node_id
+
+func _initialize_story_ai():
+	"""初始化StoryAI"""
+	story_ai = StoryAI.new()
+	add_child(story_ai)
+
+	# 连接AI信号
+	story_ai.reply_ready.connect(_on_ai_reply_ready)
+	story_ai.sentence_ready.connect(_on_ai_sentence_ready)
+	story_ai.all_sentences_completed.connect(_on_all_sentences_completed)
+	story_ai.error_occurred.connect(_on_ai_error_occurred)
+
+func _on_ai_reply_ready(_text: String):
+	"""AI回复就绪"""
+	print("StoryAI回复就绪")
+
+func _on_ai_sentence_ready(sentence: String):
+	"""处理单句就绪信号，逐句显示"""
+	print("显示句子: ", sentence)
+	var ai_name = _get_character_name()
+	var sentence_line = "<%s> %s" % [ai_name, sentence]
+	_add_ai_message(sentence_line)
+
+	# 添加到显示历史
+	if story_ai:
+		story_ai.add_to_display_history("assistant", sentence_line)
+
+func _on_all_sentences_completed():
+	"""所有句子显示完成"""
+	print("StoryAI回复完成")
+
+func _on_ai_error_occurred(error_message: String):
+	"""处理AI错误"""
+	print("StoryAI错误: ", error_message)
+	var error_line = "<系统> AI回复出错：" + error_message
+	_add_ai_message(error_line)
+
+	# 添加到显示历史
+	if story_ai:
+		story_ai.add_to_display_history("system", error_line)
+
+func _send_message_to_ai(message_text: String):
+	"""发送消息到StoryAI"""
+	if not story_ai:
+		print("StoryAI未初始化")
+		return
+
+	# 构建故事上下文
+	var story_context = _build_story_context()
+
+	# 添加到显示历史
+	var user_name = _get_user_name()
+	var user_message_line = "<%s> %s" % [user_name, message_text]
+	story_ai.add_to_display_history("user", user_message_line)
+
+	# 发送给AI
+	story_ai.request_reply(message_text, story_context)
+
+func _build_story_context() -> Dictionary:
+	"""构建故事上下文"""
+	var context = {}
+
+	# 故事简介
+	if story_data.has("summary"):
+		context["story_summary"] = story_data.summary
+
+	# 人物设定（暂时使用默认设定）
+	var save_mgr = get_node("/root/SaveManager")
+	var prompt_builder = get_node("/root/PromptBuilder")
+	if prompt_builder and prompt_builder.has_method("_load_character_preset"):
+		var character_preset = prompt_builder._load_character_preset()
+		context["character_preset"] = character_preset.get("prompt", "")
+
+	# 经历的故事章节（获取当前节点之前的所有节点）
+	var experienced_chapters = []
+	if nodes_data.has(current_node_id):
+		var current_node = nodes_data[current_node_id]
+		var visited_nodes = _get_visited_nodes(current_node)
+		for node_id in visited_nodes:
+			if nodes_data.has(node_id):
+				var node = nodes_data[node_id]
+				experienced_chapters.append({
+					"title": node.get("title", "无标题"),
+					"summary": node.get("content", "").substr(0, 100) + "..."  # 摘要前100字符
+				})
+	context["experienced_chapters"] = experienced_chapters
+
+	# 当前节点内容
+	if nodes_data.has(current_node_id):
+		context["current_node_content"] = nodes_data[current_node_id].get("content", "")
+
+	# 故事ID和节点ID
+	context["story_id"] = current_story_id
+	context["node_id"] = current_node_id
+
+	return context
+
+func _get_visited_nodes(current_node: Dictionary) -> Array:
+	"""获取已访问的节点列表（从根节点到当前节点）"""
+	var visited = []
+	var node_queue = [current_node]
+	var processed = {}
+
+	while not node_queue.is_empty():
+		var node = node_queue.pop_front()
+		var node_id = node.get("id", "")
+
+		if processed.has(node_id):
+			continue
+		processed[node_id] = true
+
+		visited.append(node_id)
+
+		# 添加父节点到队列
+		if node.has("parent_id") and not node.parent_id.is_empty():
+			if nodes_data.has(node.parent_id):
+				node_queue.append(nodes_data[node.parent_id])
+
+	return visited
+
+func _get_user_name() -> String:
+	"""获取用户名"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_user_name()
+	return "我"
+
+func _get_character_name() -> String:
+	"""获取角色名称"""
+	if has_node("/root/SaveManager"):
+		var save_mgr = get_node("/root/SaveManager")
+		return save_mgr.get_character_name()
+	return "角色"
