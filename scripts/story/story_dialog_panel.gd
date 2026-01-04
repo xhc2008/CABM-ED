@@ -20,11 +20,18 @@ var current_node_id: String = ""
 var story_data: Dictionary = {}
 var nodes_data: Dictionary = {}
 
+# 缓存的经历节点（避免每次重新查找）
+var cached_experienced_nodes: Array = []
+
 # 消息数据
 var messages: Array = []
 
 # AI相关
 var story_ai: StoryAI = null
+
+# 流式输出相关
+var current_streaming_bubble: Control = null  # 当前正在流式输出的气泡
+var accumulated_streaming_text: String = ""   # 累积的流式文本
 
 # 输入框模式
 var is_multi_line_mode: bool = false  # false = 单行模式，true = 多行模式
@@ -160,6 +167,9 @@ func _select_new_node(node_id: String):
 func _initialize_dialog():
 	"""初始化对话"""
 	_clear_messages()
+
+	# 预计算经历的节点
+	_precompute_experienced_nodes()
 
 	# 延迟到下一帧，确保UI完全初始化
 	await get_tree().process_frame
@@ -394,28 +404,46 @@ func _initialize_story_ai():
 
 	# 连接AI信号
 	story_ai.reply_ready.connect(_on_ai_reply_ready)
-	story_ai.sentence_ready.connect(_on_ai_sentence_ready)
-	story_ai.all_sentences_completed.connect(_on_all_sentences_completed)
+	story_ai.text_chunk_ready.connect(_on_ai_text_chunk_ready)
+	story_ai.streaming_completed.connect(_on_streaming_completed)
 	story_ai.error_occurred.connect(_on_ai_error_occurred)
 
 func _on_ai_reply_ready(_text: String):
 	"""AI回复就绪"""
 	print("StoryAI回复就绪")
 
-func _on_ai_sentence_ready(sentence: String):
-	"""处理单句就绪信号，逐句显示"""
-	print("显示句子: ", sentence)
-	var ai_name = _get_character_name()
-	var sentence_line = "<%s> %s" % [ai_name, sentence]
-	_add_ai_message(sentence_line)
+func _on_ai_text_chunk_ready(text_chunk: String):
+	"""处理文本块就绪信号，流式显示"""
+	print("显示文本块: ", text_chunk)
 
-	# 添加到显示历史
-	if story_ai:
-		story_ai.add_to_display_history("assistant", sentence_line)
+	# 累积文本
+	accumulated_streaming_text += text_chunk
 
-func _on_all_sentences_completed():
-	"""所有句子显示完成"""
-	print("StoryAI回复完成")
+	# 如果这是第一个文本块，创建气泡
+	if current_streaming_bubble == null:
+		current_streaming_bubble = _create_streaming_bubble()
+		if current_streaming_bubble == null:
+			print("无法创建流式输出气泡")
+			return
+
+	# 更新气泡文本
+	_update_streaming_bubble_text(accumulated_streaming_text)
+
+func _on_streaming_completed():
+	"""流式响应完成"""
+	print("StoryAI流式回复完成")
+
+	# 将完成的流式消息添加到消息列表
+	if accumulated_streaming_text != "":
+		messages.append({"type": "ai", "text": accumulated_streaming_text})
+
+		# 添加到显示历史
+		if story_ai:
+			story_ai.add_to_display_history("assistant", accumulated_streaming_text)
+
+	# 清理流式输出状态
+	current_streaming_bubble = null
+	accumulated_streaming_text = ""
 
 func _on_ai_error_occurred(error_message: String):
 	"""处理AI错误"""
@@ -453,24 +481,25 @@ func _build_story_context() -> Dictionary:
 		context["story_summary"] = story_data.summary
 
 	# 人物设定（暂时使用默认设定）
-	var save_mgr = get_node("/root/SaveManager")
+	var _save_mgr = get_node("/root/SaveManager")
 	var prompt_builder = get_node("/root/PromptBuilder")
 	if prompt_builder and prompt_builder.has_method("_load_character_preset"):
 		var character_preset = prompt_builder._load_character_preset()
 		context["character_preset"] = character_preset.get("prompt", "")
 
-	# 经历的故事章节（获取当前节点之前的所有节点）
+	# 经历的故事章节和节点（使用缓存的经历节点）
 	var experienced_chapters = []
-	if nodes_data.has(current_node_id):
-		var current_node = nodes_data[current_node_id]
-		var visited_nodes = _get_visited_nodes(current_node)
-		for node_id in visited_nodes:
-			if nodes_data.has(node_id):
-				var node = nodes_data[node_id]
-				experienced_chapters.append({
-					"title": node.get("title", "无标题"),
-					"summary": node.get("content", "").substr(0, 100) + "..."  # 摘要前100字符
-				})
+	var experienced_nodes = _get_experienced_nodes()
+
+	# 为AI系统提示词提供经历的节点
+	context["experienced_nodes"] = experienced_nodes
+
+	# 为故事上下文提供经历的章节
+	for node in experienced_nodes:
+		experienced_chapters.append({
+			"title": node.get("display_text", "无标题"),
+			"summary": node.get("display_text", "").substr(0, 100) + "..."  # 摘要前100字符
+		})
 	context["experienced_chapters"] = experienced_chapters
 
 	# 当前节点内容
@@ -483,28 +512,6 @@ func _build_story_context() -> Dictionary:
 
 	return context
 
-func _get_visited_nodes(current_node: Dictionary) -> Array:
-	"""获取已访问的节点列表（从根节点到当前节点）"""
-	var visited = []
-	var node_queue = [current_node]
-	var processed = {}
-
-	while not node_queue.is_empty():
-		var node = node_queue.pop_front()
-		var node_id = node.get("id", "")
-
-		if processed.has(node_id):
-			continue
-		processed[node_id] = true
-
-		visited.append(node_id)
-
-		# 添加父节点到队列
-		if node.has("parent_id") and not node.parent_id.is_empty():
-			if nodes_data.has(node.parent_id):
-				node_queue.append(nodes_data[node.parent_id])
-
-	return visited
 
 func _get_user_name() -> String:
 	"""获取用户名"""
@@ -519,3 +526,81 @@ func _get_character_name() -> String:
 		var save_mgr = get_node("/root/SaveManager")
 		return save_mgr.get_character_name()
 	return "角色"
+
+func _create_streaming_bubble() -> Control:
+	"""创建流式输出气泡"""
+	var _should_scroll = _is_near_bottom()
+
+	# 创建消息项（初始为空文本）
+	var message_item = _create_message_item("", "ai")
+	if message_item == null:
+		return null
+
+	message_container.add_child(message_item)
+
+	# 调整气泡大小
+	call_deferred("_adjust_bubble_size", message_item)
+
+	return message_item
+
+func _update_streaming_bubble_text(text: String):
+	"""更新流式气泡的文本"""
+	if current_streaming_bubble == null:
+		return
+
+	# 通过set_message方法更新文本
+	if current_streaming_bubble.has_method("set_message"):
+		current_streaming_bubble.set_message(text, "ai")
+
+func _precompute_experienced_nodes():
+	"""预计算并缓存已经经历的节点"""
+	if story_data.is_empty() or current_node_id.is_empty():
+		return
+
+	var experienced_nodes = []
+	var nodes = story_data.get("nodes", {})
+	var root_node = story_data.get("root_node", "")
+
+	# 从当前节点开始往上遍历
+	var current_id = current_node_id
+	var visited = {}  # 防止循环引用
+
+	while current_id != root_node and not visited.has(current_id):
+		visited[current_id] = true
+
+		# 查找父节点（哪个节点的child_nodes包含当前节点）
+		var parent_id = _find_parent_node(nodes, current_id)
+		if parent_id == "":
+			break
+
+		# 添加父节点到经历列表
+		if nodes.has(parent_id):
+			var parent_node = nodes[parent_id]
+			experienced_nodes.append({
+				"display_text": parent_node.get("display_text", "")
+			})
+
+		current_id = parent_id
+
+	# 反转数组，使根节点附近的节点在前
+	experienced_nodes.reverse()
+
+	# 更新缓存
+	cached_experienced_nodes = experienced_nodes
+
+func _find_parent_node(nodes: Dictionary, child_node_id: String) -> String:
+	"""查找指定节点的父节点"""
+	for node_id in nodes:
+		var node = nodes[node_id]
+		var child_nodes = node.get("child_nodes", [])
+		if child_node_id in child_nodes:
+			return node_id
+	return ""
+
+func _get_experienced_nodes() -> Array:
+	"""获取缓存的经历节点"""
+	return cached_experienced_nodes.duplicate()
+
+func _clear_experienced_nodes_cache():
+	"""清空经历节点缓存"""
+	cached_experienced_nodes.clear()
