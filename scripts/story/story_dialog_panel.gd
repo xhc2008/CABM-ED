@@ -406,7 +406,8 @@ func _initialize_story_ai():
 	story_ai.reply_ready.connect(_on_ai_reply_ready)
 	story_ai.text_chunk_ready.connect(_on_ai_text_chunk_ready)
 	story_ai.streaming_completed.connect(_on_streaming_completed)
-	story_ai.error_occurred.connect(_on_ai_error_occurred)
+	story_ai.streaming_interrupted.connect(_on_streaming_interrupted)
+	story_ai.request_error_occurred.connect(_on_request_error_occurred)
 
 func _on_ai_reply_ready(_text: String):
 	"""AI回复就绪"""
@@ -445,11 +446,61 @@ func _on_streaming_completed():
 	current_streaming_bubble = null
 	accumulated_streaming_text = ""
 
+func _on_streaming_interrupted(error_message: String, partial_content: String):
+	"""处理流式响应中断"""
+	print("StoryAI流式响应中断: ", error_message)
+
+	# 使用系统气泡显示错误信息
+	var error_line = "出现错误：" + error_message
+	_add_system_message(error_line)
+
+	# 如果有部分内容，将其作为AI消息添加到对话中
+	if not partial_content.strip_edges().is_empty():
+		_add_ai_message(partial_content)
+
+		# 将部分内容加入上下文历史（虽然不完整）
+		if story_ai:
+			story_ai.add_to_display_history("assistant", partial_content)
+
+	# 添加错误信息到显示历史
+	if story_ai:
+		story_ai.add_to_display_history("system", error_line)
+
+	# 清理流式输出状态
+	current_streaming_bubble = null
+	accumulated_streaming_text = ""
+
+func _on_request_error_occurred(error_message: String):
+	"""处理请求级别错误（撤回用户输入）"""
+	print("StoryAI请求错误: ", error_message)
+
+	# 撤回用户输入：将最后一条用户消息放回输入框
+	var last_user_message = _get_last_user_message()
+	if not last_user_message.is_empty():
+		message_input.text = last_user_message
+		_update_send_button_style()
+
+		# 移除最后一条用户消息（因为还没有AI响应）
+		_remove_last_messages(1)
+
+	# 使用系统气泡显示错误信息
+	var error_line = "出现错误：" + error_message
+	_add_system_message(error_line)
+
+	# 从StoryAI的显示历史中移除最后一条用户消息
+	if story_ai:
+		story_ai.remove_last_user_from_display_history()
+		story_ai.add_to_display_history("system", error_line)
+
+	# 清理流式输出状态
+	current_streaming_bubble = null
+	accumulated_streaming_text = ""
+
 func _on_ai_error_occurred(error_message: String):
-	"""处理AI错误"""
-	print("StoryAI错误: ", error_message)
-	var error_line = "<系统> AI回复出错：" + error_message
-	_add_ai_message(error_line)
+	"""处理通用AI错误（保持兼容性）"""
+	print("StoryAI通用错误: ", error_message)
+	var error_line = "出现错误：" + error_message
+	_add_system_message(error_line)
 
 	# 添加到显示历史
 	if story_ai:
@@ -604,3 +655,28 @@ func _get_experienced_nodes() -> Array:
 func _clear_experienced_nodes_cache():
 	"""清空经历节点缓存"""
 	cached_experienced_nodes.clear()
+
+func _get_last_user_message() -> String:
+	"""获取最后一条用户消息"""
+	for i in range(messages.size() - 1, -1, -1):
+		if messages[i].type == "user":
+			return messages[i].text
+	return ""
+
+func _remove_last_messages(count: int):
+	"""移除最后几条消息"""
+	if count <= 0 or messages.size() == 0:
+		return
+
+	var messages_to_remove = min(count, messages.size())
+	var start_index = messages.size() - messages_to_remove
+
+	# 从消息容器中移除对应的UI元素
+	for i in range(start_index, messages.size()):
+		var child_index = i
+		if child_index < message_container.get_child_count():
+			var child = message_container.get_child(child_index)
+			child.queue_free()
+
+	# 从消息数组中移除
+	messages.resize(start_index)

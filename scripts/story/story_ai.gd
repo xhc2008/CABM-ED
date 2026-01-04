@@ -5,6 +5,8 @@ signal reply_ready(text: String)
 signal text_chunk_ready(chunk: String)
 signal streaming_completed()
 signal error_occurred(error_message: String)
+signal streaming_interrupted(error_message: String, partial_content: String)
+signal request_error_occurred(error_message: String)
 
 # 配置和API密钥管理
 var config_loader: Node
@@ -54,7 +56,7 @@ func request_reply(prompt: String, story_context: Dictionary = {}):
 		story_context: 故事上下文，包含故事相关信息
 	"""
 	if api_key.is_empty():
-		error_occurred.emit("API密钥未配置")
+		request_error_occurred.emit("API密钥未配置")
 		return
 
 	# 异步处理请求
@@ -246,12 +248,18 @@ func _on_stream_completed():
 
 func _on_stream_error(error_message: String):
 	"""流式响应错误"""
-	error_occurred.emit("流式请求失败: " + error_message)
+	# 根据是否收到内容来决定错误处理方式
+	if streaming_full_reply.strip_edges().is_empty():
+		# 没有收到任何内容，当作请求错误处理（撤回用户输入）
+		request_error_occurred.emit("请求失败: " + error_message)
+	else:
+		# 收到部分内容，当作响应中断处理
+		streaming_interrupted.emit("响应中断: " + error_message, streaming_full_reply)
 
 func _finalize_streaming_response():
 	"""完成流式响应处理"""
 	if ai_http_client == null:
-		error_occurred.emit("AI HTTP客户端未初始化")
+		request_error_occurred.emit("AI HTTP客户端未初始化")
 		return
 
 	# 处理缓冲区中剩余的数据
@@ -314,6 +322,11 @@ func clear_history():
 	"""清空所有对话历史"""
 	conversation_history.clear()
 	display_history.clear()
+
+func remove_last_user_from_display_history():
+	"""从显示历史中移除最后一条用户消息"""
+	if not display_history.is_empty() and display_history.back().role == "user":
+		display_history.pop_back()
 
 
 func set_story_context(_story_context: Dictionary):
